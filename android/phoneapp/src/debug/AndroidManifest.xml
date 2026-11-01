@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true">
+        <receiver android:name="ai.zride.demo.common.DebugCommandReceiver" android:exported="true" android:permission="android.permission.DUMP">
+            <intent-filter><action android:name="ai.zride.demo.DEBUG_COMMAND" /></intent-filter>
+        </receiver>
+    </application>
+</manifest>

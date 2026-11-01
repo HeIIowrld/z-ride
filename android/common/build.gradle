@@ -1,0 +1,9 @@
+plugins { id 'com.android.library' }
+android {
+    namespace 'ai.zride.demo.common'
+    compileSdk 34
+    defaultConfig { minSdk 28 }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { htmlReport false; textReport true; xmlReport true }
+}
+dependencies { api 'com.squareup.okhttp3:okhttp:4.12.0' }

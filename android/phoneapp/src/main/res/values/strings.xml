@@ -1,0 +1,3 @@
+<resources>
+    <string name="world_map_status">%1$s\n실지도 %2$s · 서버 지점 %3$d · GPS 하드웨어 인증 아님</string>
+</resources>

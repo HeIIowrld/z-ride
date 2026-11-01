@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-01",
+  "openapiVersion": "3.1.0",
+  "contractRevision": 3,
+  "openapiDocumentValid": true,
+  "successfulRouteCoverage": "9/9",
+  "capturedResponsesValidated": 28,
+  "validRequestsValidated": 15,
+  "requestAndResponseExamplesValid": true,
+  "errorCodesObservedMatchDocument": true,
+  "scope": "Ephemeral local server; OpenAPI/JSON Schema checks, not production security or real GPS proof.",
+  "runtimeSourceChanged": false,
+  "runningDemoRestarted": false
+}

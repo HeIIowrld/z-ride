@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-11-01",
+  "npmVersionUsedForLock": "10.9.2",
+  "nodeHostVersion": "v24.19.0",
+  "lockConsistency": "passed; exactly ws8.22.1 with matching pnpm integrity",
+  "isolatedNpmCi": "passed; added exactly 1 package, scripts disabled",
+  "healthcheckJavaScript": "passed against existing host server revision3",
+  "containerBuildRun": "not run: Docker CLI and standard Docker Desktop binary unavailable",
+  "composeConfig": "not executed; source reviewed only",
+  "serverRuntimeMutated": false,
+  "files": [
+    {
+      "path": "Dockerfile",
+      "bytes": 801,
+      "sha256": "d0a45c0b662b048e6658dfc6a0705df98501705973d7465a10613df49aa0ca7a"
+    },
+    {
+      "path": ".dockerignore",
+      "bytes": 154,
+      "sha256": "9bdc958fc42e6305f27e88bd6295d907d1e2ef5fe8c8653a7a094ae4e782c32c"
+    },
+    {
+      "path": "compose.yaml",
+      "bytes": 592,
+      "sha256": "45cb2a7a3015b19bb8fea773bae79ec36ca07756f6efbc699a871c129cf6a1a6"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 915,
+      "sha256": "5c64e8d35347daa6511858770a2bfe6f83aa8229aeb3928890ce80ce6ef2be96"
+    },
+    {
+      "path": "docs/infra-runbook.md",
+      "bytes": 7618,
+      "sha256": "06ba4a1865767c6259207e293c5dc5b817593e7c13361c4981635de96fc4741e"
+    }
+  ],
+  "temporaryStage": ".infra-lock-stage remains ignored/excluded after automatic approval rejected recursive cleanup; no runtime or secret data"
+}

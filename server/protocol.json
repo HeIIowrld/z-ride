@@ -1,0 +1,350 @@
+{
+  "protocol": "zride-demo-v1",
+  "status": "local vertical-slice implementation; not the full previous 17-route contract",
+  "httpBase": "http://10.0.2.2:8000 for Android Emulator; http://127.0.0.1:8000 on PC",
+  "webSocketPath": "/ws",
+  "http": [
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "auth": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/session",
+      "auth": false,
+      "body": {
+        "role": "CAR_HOST or PHONE",
+        "nickname": "1..24 chars"
+      },
+      "response": {
+        "sessionId": "uuid",
+        "token": "opaque",
+        "expiresAt": "unix-ms",
+        "role": "CAR_HOST or PHONE"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms",
+      "auth": "Bearer token; CAR_HOST",
+      "body": {},
+      "response": {
+        "roomId": "uuid",
+        "joinCode": "single-use 10-char code, 120s TTL",
+        "room": "snapshot"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/join",
+      "auth": "Bearer token; PHONE",
+      "body": {
+        "joinCode": "from vehicle",
+        "seat": "FRONT_PASSENGER or REAR_LEFT or REAR_RIGHT"
+      },
+      "response": {
+        "roomId": "uuid",
+        "memberId": "uuid",
+        "pending": true,
+        "room": "snapshot"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/approve",
+      "auth": "Bearer token; room CAR_HOST",
+      "body": {
+        "memberId": "pending member uuid",
+        "seat": "optional override",
+        "allowManualUnknown": "optional boolean; explicit manual fallback acknowledgment only when current occupancy UNKNOWN"
+      },
+      "response": {
+        "room": "snapshot"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/rooms/{roomId}",
+      "auth": "Bearer token; member",
+      "response": {
+        "room": "snapshot"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/world/nearby",
+      "auth": "Bearer approved PHONE",
+      "body": {
+        "latitude": 37.5665,
+        "longitude": 126.978,
+        "radiusM": 500
+      },
+      "note": "map browsing centre only, not location proof"
+    },
+    {
+      "method": "POST",
+      "path": "/api/world/location",
+      "auth": "Bearer approved PHONE",
+      "body": {
+        "passengerConfirmed": true,
+        "location": "fresh phone fix shape"
+      },
+      "note": "optional quality metadata receipt, not required before claim"
+    },
+    {
+      "method": "POST",
+      "path": "/api/world/claim",
+      "auth": "Bearer approved PHONE",
+      "body": {
+        "commandId": "unique-id",
+        "spawnId": "SEOUL_CITYHALL_TEST_A",
+        "scheduleId": "2026-11-01",
+        "version": "seoul-demo-v1",
+        "passengerConfirmed": true,
+        "location": {
+          "latitude": 37.5665,
+          "longitude": 126.978,
+          "accuracyM": 5,
+          "measuredAgeMs": 500,
+          "source": "EMULATOR_GPS",
+          "isMock": false
+        }
+      },
+      "note": "limited reported-location checks; hardwareAttested false"
+    }
+  ],
+  "authFirstMessage": {
+    "type": "auth",
+    "token": "HTTP session token",
+    "roomId": "uuid"
+  },
+  "vehicleReportExample": {
+    "type": "vehicle.report",
+    "commandId": "unique-string",
+    "ux": "ALLOWED",
+    "gear": "P",
+    "seats": [
+      {
+        "seat": "FRONT_PASSENGER",
+        "occupancy": "UNKNOWN"
+      }
+    ],
+    "source": "AAOS_OR_PLEOS_CALLBACK",
+    "charge": {
+      "state": "UNKNOWN",
+      "portConnection": "UNKNOWN",
+      "source": "NONE"
+    },
+    "reportSeq": 1,
+    "foreground": true
+  },
+  "commandExample": {
+    "type": "command",
+    "commandId": "unique-string",
+    "roomEpoch": 1,
+    "action": "fire",
+    "angleDeg": 60
+  },
+  "actions": {
+    "round.start": "CAR_HOST; also explicit resume",
+    "round.pause": "approved member; safe pause ignores stale epoch",
+    "support.pulse": "CAR_HOST; battle gate required; supplies >=1 required and consumed; 5 seconds damage 3; 0 => SUPPLY_REQUIRED",
+    "fire": "approved passenger; current epoch, gate and sector checked",
+    "mobile.collect": "Approved passenger + passengerConfirmed true; independent of vehicle/battle gate and roomEpoch. Fixed DEMO_PICKUP fixtures only, no GPS verification."
+  },
+  "events": [
+    "auth.ok",
+    "snapshot",
+    "result"
+  ],
+  "resultExample": {
+    "type": "result",
+    "commandId": "unique-string",
+    "ok": false,
+    "error": {
+      "code": "ANGLE_OUTSIDE_SECTOR",
+      "message": "Allowed -45..90 degrees"
+    },
+    "roomEpoch": 1
+  },
+  "memberFields": [
+    "memberId",
+    "sessionId",
+    "nickname",
+    "role",
+    "seat",
+    "approved",
+    "connected",
+    "seatEvidence",
+    "sector"
+  ],
+  "roomFields": [
+    "roomId",
+    "roomEpoch",
+    "stateVersion",
+    "state",
+    "pauseReason",
+    "joinCode",
+    "joinExpiresAt",
+    "members",
+    "vehicle",
+    "stats",
+    "sectors",
+    "trust",
+    "serverTime",
+    "zombies",
+    "collection"
+  ],
+  "vehicleFields": [
+    "ux",
+    "gear",
+    "seats",
+    "charge",
+    "source",
+    "reportAgeMs",
+    "playAllowed",
+    "gateReasons",
+    "foreground"
+  ],
+  "statsFields": [
+    "shots",
+    "rejectedShots",
+    "hits",
+    "zombieHp",
+    "zombieAngleDeg",
+    "supportUntil",
+    "supportCount",
+    "kills",
+    "supportActive",
+    "waveCleared",
+    "lastShot",
+    "supportDamage",
+    "supportSupplyUsed"
+  ],
+  "angles": {
+    "coordinate": "vehicle relative, -180..180 inclusive; 0 front, +90 right, -90 left, +/-180 rear",
+    "FRONT_PASSENGER": [
+      -45,
+      90
+    ],
+    "REAR_LEFT": [
+      -180,
+      -45
+    ],
+    "REAR_RIGHT": [
+      45,
+      180
+    ],
+    "overlap": "intentional; sectors are game design, not physical ballistics",
+    "rearBoundary": "Both -180 and +180 are the same rear boundary and allowed for both rear seats"
+  },
+  "seatEvidence": {
+    "SENSOR": "reported OCCUPIED; not independent identity proof",
+    "MANUAL_UNKNOWN": "manual host approved mapping; occupancy UNKNOWN or no signal",
+    "EMPTY": "Current or last EMPTY remains locked across UNKNOWN/missing; new OCCUPIED or explicit host allowManualUnknown approval while current UNKNOWN can release"
+  },
+  "gate": {
+    "requirements": [
+      "host socket connected",
+      "vehicle.report no more than 6 seconds old",
+      "ux ALLOWED",
+      "gear P",
+      "foreground true"
+    ],
+    "reportIntervalRecommendationMs": 2000,
+    "unknown": "fail closed for UX/gear; never infer charge from switch or port-open",
+    "safety": "vehicle must stop locally before waiting for server response",
+    "reportSequence": "Native client increments reportSeq per socket; server rejects non-increasing provided seq. Missing seq is legacy demo receipt-order only."
+  },
+  "limits": {
+    "jsonBytes": 16384,
+    "socketAuthTimeoutMs": 5000,
+    "wsMessagesPer10Seconds": 120,
+    "maxRoomMembers": 4,
+    "maxRetainedCommandsPerMember": 10000,
+    "sessionTtlHours": 8
+  },
+  "limitations": [
+    "in-memory only; server restart loses sessions/rooms/stats",
+    "HTTP/WS debug only on loopback by default",
+    "CAR_HOST self-enrollment is only for a closed demo, not production vehicle authentication",
+    "no GPS visit proof, charger API, global territory, persistent rewards, physics/AI synchronization, logout/refresh/deletion endpoints yet",
+    "authority covers game rules only; vehicle data is an untrusted client report",
+    "DEMO_PICKUP fixtures have no coordinates/GPS validation; production phone-local GPS, freshness, accuracy and authoritative location check remain unimplemented"
+  ],
+  "zombiesExample": [
+    {
+      "id": "zombie_left",
+      "angleDeg": -100,
+      "hp": 5,
+      "maxHp": 5
+    },
+    {
+      "id": "zombie_front",
+      "angleDeg": 60,
+      "hp": 5,
+      "maxHp": 5
+    },
+    {
+      "id": "zombie_rear",
+      "angleDeg": 140,
+      "hp": 5,
+      "maxHp": 5
+    }
+  ],
+  "wave": "All three targets dead => CLEARED and new epoch; explicit host round.start resets HP",
+  "pendingProjection": "Only own pending member; vehicle states redacted UNKNOWN, other members and zombies hidden, stats zero",
+  "contractRevision": 3,
+  "collectionCommandExample": {
+    "type": "command",
+    "commandId": "unique-id",
+    "roomEpoch": 0,
+    "action": "mobile.collect",
+    "pickupId": "DEMO_PICKUP_A",
+    "passengerConfirmed": true
+  },
+  "collectionSnapshot": {
+    "mode": "DEMO_PICKUP",
+    "gpsVerified": false,
+    "label": "테스트 수집 지점 · GPS 미검증",
+    "fixtures": [
+      {
+        "pickupId": "DEMO_PICKUP_A",
+        "title": "테스트 보급 상자 A",
+        "resource": "supplies",
+        "amount": 1
+      },
+      {
+        "pickupId": "DEMO_PICKUP_B",
+        "title": "테스트 보급 상자 B",
+        "resource": "supplies",
+        "amount": 1
+      },
+      {
+        "pickupId": "DEMO_PICKUP_C",
+        "title": "테스트 보급 상자 C",
+        "resource": "supplies",
+        "amount": 1
+      }
+    ],
+    "inventory": {
+      "supplies": 0
+    },
+    "collectedPickupIds": [],
+    "lastCollect": null
+  },
+  "collectionEligibility": "Host-approved passenger seat role plus phone self-declaration only; not live vehicle-seat or driver identity proof. No car VHAL/location relay for moving collection.",
+  "worldPolicy": {
+    "collectRadiusM": 80,
+    "maxAccuracyM": 50,
+    "maxMeasuredAgeMs": 10000,
+    "maxQueryRadiusM": 2000,
+    "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
+    "worldVersion": "seoul-demo-v1",
+    "schedule": "UTC day",
+    "timestamps": "Unix milliseconds",
+    "storage": "in memory only, no raw phone position stored/broadcast",
+    "claimResult": "locationValidated indicates reported input checks only; hardwareAttested false; emulator source => MOCK_DEMO"
+  }
+}

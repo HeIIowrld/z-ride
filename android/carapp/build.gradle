@@ -1,0 +1,20 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'ai.zride.demo.car'
+    compileSdk 34
+    useLibrary 'android.car'
+    defaultConfig {
+        applicationId 'ai.zride.demo.car'
+        minSdk 28
+        targetSdk 34
+        versionCode 3
+        versionName '0.3.0'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { htmlReport false; textReport true; xmlReport true }
+}
+dependencies {
+    implementation project(':common')
+    implementation 'ai.pleos.playground:Vehicle:2.3.2'
+    implementation 'ai.pleos.playground:vehicle-data:1.1.11'
+}

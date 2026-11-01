@@ -1,0 +1,7 @@
+# Keep APKs, logs, raw data, local modules, env files and tokens out of the image.
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!server.mjs
+!world.mjs

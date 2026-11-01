@@ -1,0 +1,78 @@
+name: Server CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-ci.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test server and API contract
+        run: npm test
+      - name: Build container
+        run: docker build --tag zride-api:ci .
+      - name: Start container on loopback
+        run: docker run --detach --name zride-api-ci --publish 127.0.0.1:18000:8000 zride-api:ci
+      - name: Verify container health endpoint
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          const deadline = Date.now() + 60000;
+          for (;;) {
+            try {
+              const response = await fetch('http://127.0.0.1:18000/healthz', {
+                signal: AbortSignal.timeout(3000),
+              });
+              const body = await response.json();
+              assert.equal(response.ok, true);
+              assert.equal(body.ok, true);
+              assert.equal(body.contractRevision, 3);
+              console.log('Container health endpoint passed; contract revision 3.');
+              break;
+            } catch (error) {
+              if (Date.now() >= deadline) throw error;
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+          JS
+      - name: Stop container gracefully
+        run: docker stop --time 10 zride-api-ci
+      - name: Show container logs and clean up
+        if: always()
+        run: |
+          if docker container inspect zride-api-ci >/dev/null 2>&1; then
+            docker logs zride-api-ci
+            docker rm --force zride-api-ci
+          fi

@@ -1,0 +1,13 @@
+{
+  "name": "zride-minimal-room-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Pleos/phone vertical-slice room server",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {"ws": "8.22.1"},
+  "engines": {"node": ">=22"}
+}

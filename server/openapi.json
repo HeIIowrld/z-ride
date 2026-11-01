@@ -1,0 +1,3137 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Z-RIDE local prototype REST API",
+    "version": "0.1.0-revision3",
+    "description": "Implemented server.mjs/world.mjs contract, checked 2026-11-01. This is a memory-only local demo, not the proposed full product API. REST only; WS /ws is documented separately in docs/client-handoff.md. Unknown object fields are generally tolerated; only documented fields are interpreted. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8000",
+      "description": "PC loopback; actual local implementation"
+    },
+    {
+      "url": "http://10.0.2.2:8000",
+      "description": "Android Emulator route to PC loopback, not a physical-phone address"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Session"
+    },
+    {
+      "name": "Room"
+    },
+    {
+      "name": "World"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "Health"
+        ],
+        "summary": "Read public process health",
+        "description": "Public, process-local health; rooms is the in-memory count. Does not attest app/GPS/vehicle connectivity.",
+        "responses": {
+          "200": {
+            "description": "Server is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "example": {
+                  "ok": true,
+                  "protocol": "zride-demo-v1",
+                  "contractRevision": 3,
+                  "rooms": 0
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "security": []
+      }
+    },
+    "/api/session": {
+      "post": {
+        "operationId": "createSession",
+        "tags": [
+          "Session"
+        ],
+        "summary": "Create an 8-hour guest demo session",
+        "description": "No password, refresh, logout or device attestation. Limit 500 retained sessions; expired entries are not automatically removed. Unknown request keys are ignored.",
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                },
+                "example": {
+                  "sessionId": "e7111a7a-2a32-40ec-a2f0-3295da7f0d19",
+                  "token": "example-not-a-live-token",
+                  "expiresAt": 1793529906077,
+                  "role": "CAR_HOST"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_ROLE",
+                    "message": "CAR_HOST or PHONE required"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON",
+              "INVALID_ROLE",
+              "INVALID_NICKNAME"
+            ]
+          },
+          "413": {
+            "description": "Parsed request body exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "500 retained guest sessions reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "SESSION_LIMIT"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionRequest"
+              },
+              "example": {
+                "role": "PHONE",
+                "nickname": "동승자 1"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/rooms": {
+      "post": {
+        "operationId": "createOrRefreshRoom",
+        "tags": [
+          "Room"
+        ],
+        "summary": "Create a host room or refresh its single-use code",
+        "description": "CAR_HOST only. No request body is consumed. Reuse the existing host token to keep room/members/state and rotate the code. New code has 120-second TTL and permits one join; refresh separately for each next phone. Old code is invalidated. Creating another host session creates another room.",
+        "responses": {
+          "201": {
+            "description": "New room created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomCreated"
+                },
+                "example": {
+                  "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                  "joinCode": "8HOSYWZK84",
+                  "room": {
+                    "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                    "roomEpoch": 0,
+                    "stateVersion": 1,
+                    "state": "LOBBY",
+                    "pauseReason": null,
+                    "joinCode": "8HOSYWZK84",
+                    "joinExpiresAt": 1793501226098,
+                    "members": [
+                      {
+                        "memberId": "041f8b38-fec9-4d0e-96a0-d30df749c049",
+                        "sessionId": "e7111a7a-2a32-40ec-a2f0-3295da7f0d19",
+                        "nickname": "Contract host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "UNKNOWN",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "CAR_DISCONNECTED",
+                        "APP_INACTIVE",
+                        "LEASE_EXPIRED",
+                        "UX_UNKNOWN",
+                        "GEAR_UNKNOWN"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null,
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793501106098
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Same room; new pairing code issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomCreated"
+                },
+                "example": {
+                  "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                  "joinCode": "IMIXMUVSOP",
+                  "room": {
+                    "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                    "roomEpoch": 0,
+                    "stateVersion": 5,
+                    "state": "LOBBY",
+                    "pauseReason": null,
+                    "joinCode": "IMIXMUVSOP",
+                    "joinExpiresAt": 1793501226184,
+                    "members": [
+                      {
+                        "memberId": "041f8b38-fec9-4d0e-96a0-d30df749c049",
+                        "sessionId": "e7111a7a-2a32-40ec-a2f0-3295da7f0d19",
+                        "nickname": "Contract host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "44a2a636-7438-4fb5-81e5-05664620a131",
+                        "sessionId": "c675d0d3-2b86-44d3-a0ce-8141be00deea",
+                        "nickname": "Contract passenger",
+                        "role": "FRONT_PASSENGER",
+                        "seat": "FRONT_PASSENGER",
+                        "approved": true,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": [
+                          -45,
+                          90
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "UNKNOWN",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "CAR_DISCONNECTED",
+                        "APP_INACTIVE",
+                        "LEASE_EXPIRED",
+                        "UX_UNKNOWN",
+                        "GEAR_UNKNOWN"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null,
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793501106184
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype"
+      }
+    },
+    "/api/join": {
+      "post": {
+        "operationId": "joinRoom",
+        "tags": [
+          "Room"
+        ],
+        "summary": "Join with a current code as a pending phone",
+        "description": "PHONE only. Maximum host + 3 phones, including pending members. A successful join consumes the code before host approval. Unknown/rotated code returns ROOM_NOT_FOUND. Existing members reconnect using their existing token and roomId, not join.",
+        "responses": {
+          "201": {
+            "description": "Pending member created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Joined"
+                },
+                "example": {
+                  "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                  "memberId": "44a2a636-7438-4fb5-81e5-05664620a131",
+                  "pending": true,
+                  "room": {
+                    "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                    "roomEpoch": 0,
+                    "stateVersion": 2,
+                    "state": "PENDING",
+                    "pauseReason": "MEMBER_PENDING",
+                    "joinCode": null,
+                    "joinExpiresAt": 0,
+                    "members": [
+                      {
+                        "memberId": "44a2a636-7438-4fb5-81e5-05664620a131",
+                        "sessionId": "c675d0d3-2b86-44d3-a0ce-8141be00deea",
+                        "nickname": "Contract passenger",
+                        "role": "FRONT_PASSENGER",
+                        "seat": "FRONT_PASSENGER",
+                        "approved": false,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": [
+                          -45,
+                          90
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "PENDING_REDACTED",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "MEMBER_PENDING"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 0,
+                      "zombieAngleDeg": 0,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null
+                    },
+                    "zombies": [],
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "WAITING_FOR_VEHICLE_APPROVAL",
+                    "serverTime": 1793501106108
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON",
+              "INVALID_JOIN"
+            ]
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "ROOM_NOT_FOUND",
+                    "message": "Room not found"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "description": "Conflict with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAIRING_EXPIRED",
+              "PAIRING_USED",
+              "ALREADY_JOINED",
+              "ROOM_FULL"
+            ]
+          },
+          "413": {
+            "description": "Parsed request body exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequest"
+              },
+              "example": {
+                "joinCode": "ABCD12EFGH",
+                "seat": "FRONT_PASSENGER"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getRoom",
+        "tags": [
+          "Room"
+        ],
+        "summary": "Read a viewer-specific room snapshot",
+        "description": "Any member may read, including pending phones. Pending projection is redacted. Use stateVersion within the same room/process to avoid replacing newer WS state with an older HTTP snapshot.",
+        "responses": {
+          "200": {
+            "description": "Snapshot for this member",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                    "roomEpoch": 0,
+                    "stateVersion": 2,
+                    "state": "PENDING",
+                    "pauseReason": "MEMBER_PENDING",
+                    "joinCode": null,
+                    "joinExpiresAt": 0,
+                    "members": [
+                      {
+                        "memberId": "44a2a636-7438-4fb5-81e5-05664620a131",
+                        "sessionId": "c675d0d3-2b86-44d3-a0ce-8141be00deea",
+                        "nickname": "Contract passenger",
+                        "role": "FRONT_PASSENGER",
+                        "seat": "FRONT_PASSENGER",
+                        "approved": false,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": [
+                          -45,
+                          90
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "PENDING_REDACTED",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "MEMBER_PENDING"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 0,
+                      "zombieAngleDeg": 0,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null
+                    },
+                    "zombies": [],
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "WAITING_FOR_VEHICLE_APPROVAL",
+                    "serverTime": 1793501106123
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "AUTH_REQUIRED",
+                    "message": "Bearer token required"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_MEMBER",
+                    "message": "Not a member of this room"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "NOT_MEMBER"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype"
+      }
+    },
+    "/api/rooms/{roomId}/approve": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "approveMember",
+        "tags": [
+          "Room"
+        ],
+        "summary": "Approve a phone or reassign its passenger seat",
+        "description": "Only this room CAR_HOST. Already-approved same-seat requests are accepted. Changing an approved member seat while PLAYING is rejected. No live occupancy is required for approval; manual UNKNOWN does not prove driver/passenger identity.",
+        "responses": {
+          "200": {
+            "description": "Host-view snapshot after approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                    "roomEpoch": 0,
+                    "stateVersion": 4,
+                    "state": "LOBBY",
+                    "pauseReason": null,
+                    "joinCode": null,
+                    "joinExpiresAt": 1793501226098,
+                    "members": [
+                      {
+                        "memberId": "041f8b38-fec9-4d0e-96a0-d30df749c049",
+                        "sessionId": "e7111a7a-2a32-40ec-a2f0-3295da7f0d19",
+                        "nickname": "Contract host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "44a2a636-7438-4fb5-81e5-05664620a131",
+                        "sessionId": "c675d0d3-2b86-44d3-a0ce-8141be00deea",
+                        "nickname": "Contract passenger",
+                        "role": "FRONT_PASSENGER",
+                        "seat": "FRONT_PASSENGER",
+                        "approved": true,
+                        "connected": false,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": [
+                          -45,
+                          90
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "UNKNOWN",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "CAR_DISCONNECTED",
+                        "APP_INACTIVE",
+                        "LEASE_EXPIRED",
+                        "UX_UNKNOWN",
+                        "GEAR_UNKNOWN"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null,
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793501106154
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON",
+              "INVALID_SEAT"
+            ]
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "NOT_MEMBER",
+              "MEMBER_PENDING",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND",
+              "MEMBER_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "description": "Conflict with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "REASSIGN_REQUIRES_PAUSE",
+              "SEAT_TAKEN"
+            ]
+          },
+          "413": {
+            "description": "Parsed request body exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRequest"
+              },
+              "example": {
+                "memberId": "22222222-2222-4222-8222-222222222222",
+                "seat": "FRONT_PASSENGER",
+                "allowManualUnknown": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/world/nearby": {
+      "post": {
+        "operationId": "getNearbySpawns",
+        "tags": [
+          "World"
+        ],
+        "summary": "Find test game points around a browsing centre",
+        "description": "Approved PHONE passenger only. Independent of car WS connection, parked battle gate, live seat freshness and roomEpoch. Three Seoul City Hall test points, not chargers. POST only; authenticated approved-member requests using another method get 405 METHOD_NOT_ALLOWED. nearby is map discovery, not proof of visit.",
+        "responses": {
+          "200": {
+            "description": "Filtered points; own claimed flags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NearbyResponse"
+                },
+                "example": {
+                  "worldVersion": "seoul-demo-v1",
+                  "scheduleId": "2026-11-01",
+                  "serverTime": 1793527200000,
+                  "spawns": [
+                    {
+                      "spawnId": "SEOUL_CITYHALL_TEST_A",
+                      "latitude": 37.5665,
+                      "longitude": 126.978,
+                      "title": "서울 시청 주변 테스트 보급 A",
+                      "resource": "supplies",
+                      "amount": 1,
+                      "collectRadiusM": 80,
+                      "opensAt": 1793491200000,
+                      "expiresAt": 1793577600000,
+                      "scheduleId": "2026-11-01",
+                      "version": "seoul-demo-v1",
+                      "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
+                      "claimed": false
+                    },
+                    {
+                      "spawnId": "SEOUL_CITYHALL_TEST_B",
+                      "latitude": 37.5669,
+                      "longitude": 126.9783,
+                      "title": "서울 시청 주변 테스트 보급 B",
+                      "resource": "supplies",
+                      "amount": 1,
+                      "collectRadiusM": 80,
+                      "opensAt": 1793491200000,
+                      "expiresAt": 1793577600000,
+                      "scheduleId": "2026-11-01",
+                      "version": "seoul-demo-v1",
+                      "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
+                      "claimed": false
+                    },
+                    {
+                      "spawnId": "SEOUL_CITYHALL_TEST_C",
+                      "latitude": 37.5659,
+                      "longitude": 126.9775,
+                      "title": "서울 시청 주변 테스트 보급 C",
+                      "resource": "supplies",
+                      "amount": 1,
+                      "collectRadiusM": 80,
+                      "opensAt": 1793491200000,
+                      "expiresAt": 1793577600000,
+                      "scheduleId": "2026-11-01",
+                      "version": "seoul-demo-v1",
+                      "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
+                      "claimed": false
+                    }
+                  ],
+                  "locationPolicy": {
+                    "collectRadiusM": 80,
+                    "maxAccuracyM": 50,
+                    "maxMeasuredAgeMs": 10000,
+                    "maxQueryRadiusM": 2000
+                  },
+                  "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
+                  "browsingIsNotLocationProof": true,
+                  "hardwareAttested": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_COORDINATE",
+                    "message": "WGS84 latitude -90..90 and longitude -180..180 required"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON",
+              "INVALID_COORDINATE",
+              "INVALID_RADIUS"
+            ]
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MEMBER_PENDING",
+                    "message": "Waiting for vehicle approval"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "413": {
+            "description": "Parsed request body exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NearbyRequest"
+              },
+              "example": {
+                "latitude": 37.5665,
+                "longitude": 126.978,
+                "radiusM": 500
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/world/location": {
+      "post": {
+        "operationId": "observeLocationQuality",
+        "tags": [
+          "World"
+        ],
+        "summary": "Optionally validate one reported fix quality",
+        "description": "Approved PHONE passenger only; not a prerequisite for claim. Validates client-reported coordinate/quality fields without distance-to-spawn check. Keeps source/tier/accuracy/age summary for 30 seconds; never retains or broadcasts this raw fix. POST only (other methods: 405).",
+        "responses": {
+          "200": {
+            "description": "Input-quality receipt; not visit proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationReceipt"
+                },
+                "example": {
+                  "locationReceiptId": "f4782a31-95a7-44d8-ba5a-0efa5aee3ae4",
+                  "receivedAt": 1793527200000,
+                  "expiresAt": 1793527230000,
+                  "locationValidated": true,
+                  "hardwareAttested": false,
+                  "validationTier": "MOCK_DEMO",
+                  "locationSource": "EMULATOR_GPS",
+                  "purpose": "QUALITY_INPUT_CHECK_ONLY_NOT_VISIT_PROOF"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON",
+              "INVALID_COORDINATE",
+              "LOCATION_SOURCE_REQUIRED"
+            ]
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING",
+              "PASSENGER_CONFIRMATION_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "description": "Conflict with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "LOCATION_INACCURATE",
+                    "message": "Reported accuracy must be >0 and <=50 metres"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "LOCATION_INACCURATE",
+              "LOCATION_STALE"
+            ]
+          },
+          "413": {
+            "description": "Parsed request body exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationRequest"
+              },
+              "example": {
+                "passengerConfirmed": true,
+                "location": {
+                  "latitude": 37.5665,
+                  "longitude": 126.978,
+                  "accuracyM": 5,
+                  "measuredAgeMs": 500,
+                  "source": "EMULATOR_GPS",
+                  "isMock": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/world/claim": {
+      "post": {
+        "operationId": "claimSpawn",
+        "tags": [
+          "World"
+        ],
+        "summary": "Validate reported proximity and add one shared supply",
+        "description": "Approved PHONE passenger only; independent of the parked battle gate. Server checks UTC schedule/version, 80m distance, accuracy >0 and <=50m, reported age 0..10000ms. One reward per member+spawn+UTC day. Same commandId with canonical-equivalent JSON replays; a changed body conflicts. Only successful claims retain receipts. HTTP claim and WS command IDs use separate receipt stores. Success increments supplies and broadcasts snapshot before HTTP response may arrive; no raw phone coordinates/individual spawn ID in shared snapshot. POST only (other methods: 405).",
+        "responses": {
+          "200": {
+            "description": "Original or replayed claim receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimReceipt"
+                },
+                "example": {
+                  "claimed": true,
+                  "spawnId": "SEOUL_CITYHALL_TEST_A",
+                  "scheduleId": "2026-11-01",
+                  "version": "seoul-demo-v1",
+                  "amount": 1,
+                  "inventory": {
+                    "supplies": 1
+                  },
+                  "locationValidated": true,
+                  "hardwareAttested": false,
+                  "validationTier": "MOCK_DEMO",
+                  "locationSource": "EMULATOR_GPS",
+                  "isMock": false,
+                  "distanceM": 0,
+                  "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
+                  "receivedAt": 1793527200000,
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON",
+              "COMMAND_ID_REQUIRED",
+              "INVALID_COORDINATE",
+              "LOCATION_SOURCE_REQUIRED"
+            ]
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING",
+              "PASSENGER_CONFIRMATION_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND",
+              "SPAWN_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "description": "Conflict with current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "ALREADY_CLAIMED",
+                    "message": "This passenger already claimed this spawn in this UTC schedule"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "IDEMPOTENCY_CONFLICT",
+              "SPAWN_EXPIRED",
+              "WORLD_VERSION_CONFLICT",
+              "ALREADY_CLAIMED",
+              "LOCATION_INACCURATE",
+              "LOCATION_STALE",
+              "OUTSIDE_SPAWN"
+            ]
+          },
+          "413": {
+            "description": "Parsed request body exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimRequest"
+              },
+              "example": {
+                "commandId": "claim-example-001",
+                "spawnId": "SEOUL_CITYHALL_TEST_A",
+                "scheduleId": "2026-11-01",
+                "version": "seoul-demo-v1",
+                "passengerConfirmed": true,
+                "location": {
+                  "latitude": 37.5665,
+                  "longitude": 126.978,
+                  "accuracyM": 5,
+                  "measuredAgeMs": 500,
+                  "source": "EMULATOR_GPS",
+                  "isMock": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque token returned by POST /api/session. Header must be Authorization: Bearer <token>; the current implementation checks the exact Bearer prefix. Never put credentials in URLs."
+      }
+    },
+    "schemas": {
+      "EpochMillis": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "UTC Unix milliseconds; not ISO text or seconds."
+      },
+      "Id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "PassengerSeat": {
+        "type": "string",
+        "enum": [
+          "FRONT_PASSENGER",
+          "REAR_LEFT",
+          "REAR_RIGHT"
+        ]
+      },
+      "Seat": {
+        "type": "string",
+        "enum": [
+          "DRIVER",
+          "FRONT_PASSENGER",
+          "REAR_LEFT",
+          "REAR_RIGHT"
+        ]
+      },
+      "Inventory": {
+        "type": "object",
+        "properties": {
+          "supplies": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "supplies"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "protocol": {
+            "const": "zride-demo-v1"
+          },
+          "contractRevision": {
+            "const": 3
+          },
+          "rooms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "ok",
+          "protocol",
+          "contractRevision",
+          "rooms"
+        ]
+      },
+      "SessionRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "CAR_HOST",
+              "PHONE"
+            ]
+          },
+          "nickname": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          }
+        },
+        "required": [
+          "role",
+          "nickname"
+        ],
+        "description": "Guest demo enrollment, not account login or trusted vehicle authentication. Nickname is not trimmed."
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "token": {
+            "type": "string",
+            "description": "Opaque 24-random-byte base64url Bearer credential. Keep secret."
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CAR_HOST",
+              "PHONE"
+            ]
+          }
+        },
+        "required": [
+          "sessionId",
+          "token",
+          "expiresAt",
+          "role"
+        ]
+      },
+      "JoinRequest": {
+        "type": "object",
+        "properties": {
+          "joinCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Case-insensitive; use the current host code without whitespace."
+          },
+          "seat": {
+            "$ref": "#/components/schemas/PassengerSeat"
+          }
+        },
+        "required": [
+          "joinCode",
+          "seat"
+        ]
+      },
+      "ApproveRequest": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PassengerSeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allowManualUnknown": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only explicit true plus current UNKNOWN observation releases a prior EMPTY lock. Does not prove occupancy or identity."
+          }
+        },
+        "required": [
+          "memberId"
+        ],
+        "description": "Seat omitted/null keeps the requested seat. Only the room host can approve or reassign."
+      },
+      "SeatObservation": {
+        "type": "object",
+        "properties": {
+          "seat": {
+            "$ref": "#/components/schemas/Seat"
+          },
+          "occupancy": {
+            "type": "string",
+            "enum": [
+              "OCCUPIED",
+              "EMPTY",
+              "UNKNOWN"
+            ]
+          }
+        },
+        "required": [
+          "seat",
+          "occupancy"
+        ]
+      },
+      "Sector": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2,
+        "description": "Inclusive [min,max], vehicle-relative degrees: 0 front, +90 right, -90 left, +/-180 rear."
+      },
+      "Member": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "sessionId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CAR_HOST",
+              "FRONT_PASSENGER",
+              "REAR_LEFT",
+              "REAR_RIGHT"
+            ]
+          },
+          "seat": {
+            "$ref": "#/components/schemas/Seat"
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "seatEvidence": {
+            "type": "string",
+            "enum": [
+              "SENSOR",
+              "MANUAL_UNKNOWN",
+              "EMPTY"
+            ]
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sector"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "memberId",
+          "sessionId",
+          "nickname",
+          "role",
+          "seat",
+          "approved",
+          "connected",
+          "seatEvidence",
+          "sector"
+        ]
+      },
+      "Charge": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "portConnection": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "state",
+          "portConnection",
+          "source"
+        ],
+        "description": "Display-only client-reported strings; not charging attestation and not the battle gate."
+      },
+      "Vehicle": {
+        "type": "object",
+        "properties": {
+          "ux": {
+            "type": "string",
+            "enum": [
+              "ALLOWED",
+              "RESTRICTED",
+              "UNKNOWN"
+            ]
+          },
+          "gear": {
+            "type": "string",
+            "enum": [
+              "P",
+              "R",
+              "N",
+              "D",
+              "UNKNOWN"
+            ]
+          },
+          "foreground": {
+            "type": "boolean"
+          },
+          "seats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeatObservation"
+            },
+            "maxItems": 4
+          },
+          "charge": {
+            "$ref": "#/components/schemas/Charge"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "reportAgeMs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "playAllowed": {
+            "type": "boolean"
+          },
+          "gateReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CAR_DISCONNECTED",
+                "APP_INACTIVE",
+                "LEASE_EXPIRED",
+                "UX_RESTRICTED",
+                "UX_UNKNOWN",
+                "GEAR_UNKNOWN",
+                "GEAR_NOT_P",
+                "MEMBER_PENDING"
+              ]
+            }
+          }
+        },
+        "required": [
+          "ux",
+          "gear",
+          "foreground",
+          "seats",
+          "charge",
+          "source",
+          "reportAgeMs",
+          "playAllowed",
+          "gateReasons"
+        ]
+      },
+      "LastShot": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "angleDeg": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "hit": {
+            "type": "boolean"
+          },
+          "targetId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "damage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "time": {
+            "$ref": "#/components/schemas/EpochMillis"
+          }
+        },
+        "required": [
+          "memberId",
+          "angleDeg",
+          "accepted",
+          "hit",
+          "targetId",
+          "damage",
+          "time"
+        ]
+      },
+      "Stats": {
+        "type": "object",
+        "properties": {
+          "shots": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rejectedShots": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "zombieHp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "supportCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kills": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "zombieAngleDeg": {
+            "type": "number"
+          },
+          "supportUntil": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "supportDamage": {
+            "type": "integer",
+            "enum": [
+              2,
+              3
+            ],
+            "description": "Inactive initial value 2 is legacy state, not free support. Successful support consumes one supply and sets damage 3."
+          },
+          "supportSupplyUsed": {
+            "type": "boolean"
+          },
+          "waveCleared": {
+            "type": "boolean"
+          },
+          "lastShot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastShot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supportActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "shots",
+          "rejectedShots",
+          "hits",
+          "zombieHp",
+          "zombieAngleDeg",
+          "supportUntil",
+          "supportCount",
+          "supportDamage",
+          "supportSupplyUsed",
+          "kills",
+          "waveCleared",
+          "lastShot",
+          "supportActive"
+        ]
+      },
+      "Fixture": {
+        "type": "object",
+        "properties": {
+          "pickupId": {
+            "type": "string",
+            "enum": [
+              "DEMO_PICKUP_A",
+              "DEMO_PICKUP_B",
+              "DEMO_PICKUP_C"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "resource": {
+            "const": "supplies"
+          },
+          "amount": {
+            "const": 1
+          }
+        },
+        "required": [
+          "pickupId",
+          "title",
+          "resource",
+          "amount"
+        ]
+      },
+      "LastCollect": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "pickupId": {
+            "type": "string",
+            "enum": [
+              "DEMO_PICKUP_A",
+              "DEMO_PICKUP_B",
+              "DEMO_PICKUP_C",
+              "WORLD_CLAIM"
+            ]
+          },
+          "amount": {
+            "const": 1
+          },
+          "at": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "mode": {
+            "const": "WORLD_CLIENT_LOCATION"
+          },
+          "validationTier": {
+            "type": "string",
+            "enum": [
+              "MOCK_DEMO",
+              "CLIENT_REPORTED"
+            ]
+          }
+        },
+        "required": [
+          "memberId",
+          "pickupId",
+          "amount",
+          "at"
+        ],
+        "description": "mode/validationTier appear on world claims only; individual world spawn ID and phone coordinates are not broadcast."
+      },
+      "Collection": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "const": "DEMO_PICKUP"
+          },
+          "gpsVerified": {
+            "const": false
+          },
+          "label": {
+            "const": "테스트 수집 지점 · GPS 미검증"
+          },
+          "fixtures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Fixture"
+            }
+          },
+          "inventory": {
+            "$ref": "#/components/schemas/Inventory"
+          },
+          "collectedPickupIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastCollect": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastCollect"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligibility": {
+            "type": "string",
+            "enum": [
+              "DRIVER_CANNOT_COLLECT",
+              "APPROVED_ROLE_AND_PASSENGER_SELF_DECLARATION_ONLY"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "gpsVerified",
+          "label",
+          "fixtures",
+          "inventory",
+          "collectedPickupIds",
+          "lastCollect"
+        ],
+        "description": "Snapshot retains the original DEMO_PICKUP mode label even after a world claim. Use claim.validationTier/lastCollect.mode for the world path; do not infer GPS trust from this label."
+      },
+      "Zombie": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "angleDeg": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "hp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxHp": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "angleDeg",
+          "hp",
+          "maxHp"
+        ]
+      },
+      "RoomSnapshot": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stateVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "LOBBY",
+              "READY",
+              "PLAYING",
+              "PAUSED",
+              "CLEARED",
+              "PENDING"
+            ]
+          },
+          "pauseReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "joinCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "joinExpiresAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            },
+            "maxItems": 4
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/Vehicle"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/Stats"
+          },
+          "collection": {
+            "$ref": "#/components/schemas/Collection"
+          },
+          "zombies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Zombie"
+            }
+          },
+          "sectors": {
+            "type": "object",
+            "properties": {
+              "FRONT_PASSENGER": {
+                "$ref": "#/components/schemas/Sector"
+              },
+              "REAR_LEFT": {
+                "$ref": "#/components/schemas/Sector"
+              },
+              "REAR_RIGHT": {
+                "$ref": "#/components/schemas/Sector"
+              }
+            },
+            "required": [
+              "FRONT_PASSENGER",
+              "REAR_LEFT",
+              "REAR_RIGHT"
+            ]
+          },
+          "trust": {
+            "type": "string",
+            "enum": [
+              "WAITING_FOR_VEHICLE_APPROVAL",
+              "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION"
+            ]
+          },
+          "serverTime": {
+            "$ref": "#/components/schemas/EpochMillis"
+          }
+        },
+        "required": [
+          "roomId",
+          "roomEpoch",
+          "stateVersion",
+          "state",
+          "pauseReason",
+          "joinCode",
+          "joinExpiresAt",
+          "members",
+          "vehicle",
+          "stats",
+          "collection",
+          "zombies",
+          "sectors",
+          "trust",
+          "serverTime"
+        ],
+        "description": "Viewer-specific projection. Pending phone sees only itself and redacted vehicle/stats/enemies. Approved phones do not see pending members or host joinCode. Never merge projections across credentials."
+      },
+      "RoomResponse": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          }
+        },
+        "required": [
+          "room"
+        ]
+      },
+      "RoomCreated": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "joinCode": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 10
+          },
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          }
+        },
+        "required": [
+          "roomId",
+          "joinCode",
+          "room"
+        ]
+      },
+      "Joined": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "memberId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "pending": {
+            "const": true
+          },
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          }
+        },
+        "required": [
+          "roomId",
+          "memberId",
+          "pending",
+          "room"
+        ]
+      },
+      "Coordinate": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "description": "Named WGS84 degrees; latitude then longitude. JSON does not allow NaN/Infinity."
+      },
+      "NearbyRequest": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "radiusM": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 500
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "description": "Map browsing centre; not a physical visit proof. radiusM omitted/null uses 500 in the prototype; send a number when present."
+      },
+      "LocationSource": {
+        "type": "string",
+        "enum": [
+          "ANDROID_GPS",
+          "ANDROID_NETWORK",
+          "ANDROID_FUSED",
+          "EMULATOR_GPS",
+          "MOCK"
+        ]
+      },
+      "ValidationTier": {
+        "type": "string",
+        "enum": [
+          "MOCK_DEMO",
+          "CLIENT_REPORTED"
+        ]
+      },
+      "PhoneLocation": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyM": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 50
+          },
+          "measuredAgeMs": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "isMock": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude",
+          "accuracyM",
+          "measuredAgeMs",
+          "source",
+          "isMock"
+        ],
+        "description": "Client-reported fix, not hardware attestation. measuredAgeMs is measured on the phone monotonic clock, not an absolute timestamp. EMULATOR_GPS/MOCK or isMock=true always yields MOCK_DEMO."
+      },
+      "LocationRequest": {
+        "type": "object",
+        "properties": {
+          "passengerConfirmed": {
+            "const": true
+          },
+          "location": {
+            "$ref": "#/components/schemas/PhoneLocation"
+          }
+        },
+        "required": [
+          "passengerConfirmed",
+          "location"
+        ]
+      },
+      "ClaimRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "spawnId": {
+            "type": "string"
+          },
+          "scheduleId": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "version": {
+            "const": "seoul-demo-v1"
+          },
+          "passengerConfirmed": {
+            "const": true
+          },
+          "location": {
+            "$ref": "#/components/schemas/PhoneLocation"
+          }
+        },
+        "required": [
+          "commandId",
+          "spawnId",
+          "scheduleId",
+          "version",
+          "passengerConfirmed",
+          "location"
+        ],
+        "description": "Use the values from nearby. Retries must preserve commandId and the entire JSON value, including measuredAgeMs. Refreshing a fix requires a new commandId. Unknown extra keys are tolerated but participate in the idempotency fingerprint."
+      },
+      "LocationPolicy": {
+        "type": "object",
+        "properties": {
+          "collectRadiusM": {
+            "const": 80
+          },
+          "maxAccuracyM": {
+            "const": 50
+          },
+          "maxMeasuredAgeMs": {
+            "const": 10000
+          },
+          "maxQueryRadiusM": {
+            "const": 2000
+          }
+        },
+        "required": [
+          "collectRadiusM",
+          "maxAccuracyM",
+          "maxMeasuredAgeMs",
+          "maxQueryRadiusM"
+        ]
+      },
+      "Spawn": {
+        "type": "object",
+        "properties": {
+          "spawnId": {
+            "type": "string",
+            "enum": [
+              "SEOUL_CITYHALL_TEST_A",
+              "SEOUL_CITYHALL_TEST_B",
+              "SEOUL_CITYHALL_TEST_C"
+            ]
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "title": {
+            "type": "string"
+          },
+          "resource": {
+            "const": "supplies"
+          },
+          "amount": {
+            "const": 1
+          },
+          "collectRadiusM": {
+            "const": 80
+          },
+          "opensAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "scheduleId": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "version": {
+            "const": "seoul-demo-v1"
+          },
+          "pointKind": {
+            "const": "TEST_GAME_POINT_NOT_CHARGER"
+          },
+          "claimed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "spawnId",
+          "latitude",
+          "longitude",
+          "title",
+          "resource",
+          "amount",
+          "collectRadiusM",
+          "opensAt",
+          "expiresAt",
+          "scheduleId",
+          "version",
+          "pointKind",
+          "claimed"
+        ]
+      },
+      "NearbyResponse": {
+        "type": "object",
+        "properties": {
+          "worldVersion": {
+            "const": "seoul-demo-v1"
+          },
+          "scheduleId": {
+            "type": "string"
+          },
+          "serverTime": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "spawns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Spawn"
+            },
+            "maxItems": 3
+          },
+          "locationPolicy": {
+            "$ref": "#/components/schemas/LocationPolicy"
+          },
+          "pointKind": {
+            "const": "TEST_GAME_POINT_NOT_CHARGER"
+          },
+          "browsingIsNotLocationProof": {
+            "const": true
+          },
+          "hardwareAttested": {
+            "const": false
+          }
+        },
+        "required": [
+          "worldVersion",
+          "scheduleId",
+          "serverTime",
+          "spawns",
+          "locationPolicy",
+          "pointKind",
+          "browsingIsNotLocationProof",
+          "hardwareAttested"
+        ]
+      },
+      "LocationReceipt": {
+        "type": "object",
+        "properties": {
+          "locationReceiptId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "receivedAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "locationValidated": {
+            "const": true
+          },
+          "hardwareAttested": {
+            "const": false
+          },
+          "validationTier": {
+            "$ref": "#/components/schemas/ValidationTier"
+          },
+          "locationSource": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "purpose": {
+            "const": "QUALITY_INPUT_CHECK_ONLY_NOT_VISIT_PROOF"
+          }
+        },
+        "required": [
+          "locationReceiptId",
+          "receivedAt",
+          "expiresAt",
+          "locationValidated",
+          "hardwareAttested",
+          "validationTier",
+          "locationSource",
+          "purpose"
+        ]
+      },
+      "ClaimReceipt": {
+        "type": "object",
+        "properties": {
+          "claimed": {
+            "const": true
+          },
+          "spawnId": {
+            "type": "string"
+          },
+          "scheduleId": {
+            "type": "string"
+          },
+          "version": {
+            "const": "seoul-demo-v1"
+          },
+          "amount": {
+            "const": 1
+          },
+          "inventory": {
+            "$ref": "#/components/schemas/Inventory"
+          },
+          "locationValidated": {
+            "const": true
+          },
+          "hardwareAttested": {
+            "const": false
+          },
+          "validationTier": {
+            "$ref": "#/components/schemas/ValidationTier"
+          },
+          "locationSource": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "isMock": {
+            "type": "boolean"
+          },
+          "distanceM": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 80
+          },
+          "pointKind": {
+            "const": "TEST_GAME_POINT_NOT_CHARGER"
+          },
+          "receivedAt": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "claimed",
+          "spawnId",
+          "scheduleId",
+          "version",
+          "amount",
+          "inventory",
+          "locationValidated",
+          "hardwareAttested",
+          "validationTier",
+          "locationSource",
+          "isMock",
+          "distanceM",
+          "pointKind",
+          "receivedAt",
+          "replayed"
+        ],
+        "description": "inventory is the historical value when the original claim committed, including on replay. Fetch GET room or use a newer WS stateVersion for current inventory. No currentInventory/stateVersion field exists in this HTTP receipt."
+      }
+    }
+  },
+  "x-prototype-limits": {
+    "httpRequestsPerIpPer10Seconds": 120,
+    "worldRequestsPerSessionPer10Seconds": 30,
+    "jsonBodyBytes": 16384,
+    "sessionHours": 8,
+    "retainedSessions": 500,
+    "roomMembers": 4,
+    "pairingTtlMs": 120000,
+    "worldReceiptsPerMember": 10000,
+    "storage": "memory-only; no automatic claim/receipt retention cleanup; restart loses sessions, rooms, supplies and rewards"
+  },
+  "x-not-implemented": [
+    "TLS/reverse proxy deployment",
+    "database and durable rewards",
+    "production vehicle/account authentication",
+    "refresh/logout/deletion endpoints",
+    "charger feed and charger API",
+    "bbox/cell/nonce world API",
+    "hardware GPS or passenger identity attestation",
+    "climate/seatbelt/audio-zone server control"
+  ]
+}

@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'ai.zride.demo.phone'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'ai.zride.demo.phone'
+        minSdk 28
+        targetSdk 34
+        versionCode 3
+        versionName '0.3.0'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { htmlReport false; textReport true; xmlReport true }
+}
+dependencies {
+    implementation project(':common')
+    implementation 'org.maplibre.gl:android-sdk:12.3.1'
+}
