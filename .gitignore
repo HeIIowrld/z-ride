@@ -10,6 +10,10 @@ server/test-results.json
 server/receipt-limit-results.json
 server/world-test-results.json
 server/ws-liveness-results.json
+server/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 android/.gradle/
 android/local.properties
 android/**/build/

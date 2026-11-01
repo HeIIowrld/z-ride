@@ -1,0 +1,3 @@
+# Install with visudo -cf validation, root:root 0440.
+# The root-owned entrypoint validates its two hash arguments and fixed paths.
+zride-runner ALL=(root) NOPASSWD: /usr/local/sbin/zride-deploy *

@@ -1,6 +1,6 @@
 {
   "protocol": "zride-demo-v1",
-  "status": "local vertical-slice implementation; not the full previous 17-route contract",
+  "status": "implemented single-instance SQLite-capable prototype with read-only observer; not full production API",
   "httpBase": "http://10.0.2.2:8000 for Android Emulator; http://127.0.0.1:8000 on PC",
   "webSocketPath": "/ws",
   "http": [
@@ -112,6 +112,18 @@
         }
       },
       "note": "limited reported-location checks; hardwareAttested false"
+    },
+    {
+      "method": "GET",
+      "path": "/api/observer/rooms",
+      "auth": "Separate configured operator Bearer key; not a game session token",
+      "response": {
+        "protocol": "zride-observer-v1",
+        "readOnly": true,
+        "serverTime": "Unix milliseconds",
+        "rooms": "allow-listed summaries without session IDs/join codes/phone positions/individual claims"
+      },
+      "note": "Disabled if observerToken / ZRIDE_OBSERVER_TOKEN is unset"
     }
   ],
   "authFirstMessage": {
@@ -266,12 +278,14 @@
     "sessionTtlHours": 8
   },
   "limitations": [
-    "in-memory only; server restart loses sessions/rooms/stats",
-    "HTTP/WS debug only on loopback by default",
-    "CAR_HOST self-enrollment is only for a closed demo, not production vehicle authentication",
-    "no GPS visit proof, charger API, global territory, persistent rewards, physics/AI synchronization, logout/refresh/deletion endpoints yet",
-    "authority covers game rules only; vehicle data is an untrusted client report",
-    "DEMO_PICKUP fixtures have no coordinates/GPS validation; production phone-local GPS, freshness, accuracy and authoritative location check remain unimplemented"
+    "single-instance SQLite checkpoint, not a replicated database or global cross-room economy",
+    "createDemoServer() without dbPath/stateStore is ephemeral; CLI defaults to SQLite and requires a durable data directory",
+    "HTTP/WS debug only on loopback by default; public HTTPS/WSS deployment is separate infrastructure work",
+    "CAR_HOST self-enrollment is a closed-demo shortcut, not production vehicle authentication",
+    "no physical GPS attestation, live charger integration, global territory, production physics/AI or logout/refresh/deletion endpoints yet",
+    "vehicle data is an untrusted client report; server authority covers game rules",
+    "DEMO_PICKUP fixtures have no coordinates; world APIs check reported location without proving physical presence",
+    "observer reconstructs server state; no Android/vehicle pixel stream, camera or microphone capture"
   ],
   "zombiesExample": [
     {
@@ -344,7 +358,67 @@
     "worldVersion": "seoul-demo-v1",
     "schedule": "UTC day",
     "timestamps": "Unix milliseconds",
-    "storage": "in memory only, no raw phone position stored/broadcast",
+    "storage": "Configured SQLite checkpoint persists claims/receipts/inventory; raw phone position and temporary quality summaries are not persisted or broadcast.",
     "claimResult": "locationValidated indicates reported input checks only; hardwareAttested false; emulator source => MOCK_DEMO"
+  },
+  "persistence": {
+    "formatVersion": 1,
+    "engine": "SQLite checkpoint; WAL + synchronous FULL",
+    "cliDefault": "data/zride.sqlite",
+    "env": "ZRIDE_DB_PATH",
+    "programmaticDefault": "memory unless dbPath/stateStore configured",
+    "persisted": [
+      "hashed session lookup and expiry",
+      "rooms/approval/seat memberships",
+      "inventory/game progress",
+      "fixture/world claim ledgers",
+      "WS/world idempotency receipts",
+      "unexpired unused join codes"
+    ],
+    "excluded": [
+      "sockets",
+      "live vehicle authorization/lease",
+      "raw phone coordinates",
+      "temporary location-quality summary"
+    ],
+    "restart": "PLAYING -> PAUSED; unsafe vehicle values reset; existing token/room reconnect, fresh report and explicit host start",
+    "saveFailure": "STORAGE_UNAVAILABLE503; health503 ok:false; no new success/broadcast; restart from committed checkpoint",
+    "singleInstanceOnly": true
+  },
+  "observer": {
+    "ui": "/observer",
+    "webSocketPath": "/observer/ws",
+    "firstMessage": {
+      "type": "observer.auth",
+      "token": "operator key or own-room host token",
+      "roomId": "UUID"
+    },
+    "auth": "operator key selects any room read-only; host session restricted to approved host membership",
+    "operatorConfig": "observerToken option / ZRIDE_OBSERVER_TOKEN env; disabled by default",
+    "events": [
+      "observer.auth.ok",
+      "observer.snapshot",
+      "observer.heartbeat",
+      "observer.error"
+    ],
+    "readOnly": true,
+    "viewMode": "SERVER_STATE_NOT_SCREEN_CAPTURE",
+    "tokenHandling": "Authorization header / first WS JSON only; key stays in browser memory, not URL/storage/logs",
+    "operatorSocketTtlMs": 3600000,
+    "hostExpiry": "original game session expiry",
+    "closeCodes": {
+      "4401": "authentication/expiry/access failure",
+      "4403": "wrong room/role or attempted game command"
+    },
+    "redaction": [
+      "session IDs",
+      "tokens",
+      "join codes",
+      "raw phone locations",
+      "individual claims",
+      "command receipts"
+    ],
+    "heartbeatMs": 15000,
+    "docs": "docs/observer.md"
   }
 }

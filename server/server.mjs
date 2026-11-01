@@ -3,6 +3,9 @@ import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createWorldService } from './world.mjs';
+import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
+import { createObserverService } from './observer.mjs';
+import { resolve } from 'node:path';
 
 export const SECTORS = Object.freeze(Object.assign(Object.create(null), {
   FRONT_PASSENGER: [-45, 90], REAR_LEFT: [-180, -45], REAR_RIGHT: [45, 180],
@@ -40,11 +43,100 @@ export function createDemoServer(options = {}) {
   const sockets = new Set();
   const requestBuckets = new Map();
   let listening = false;
+  let closing = false;
+  let storageFailed = false;
+  let transaction = null;
+  const storage = options.stateStore ?? (options.dbPath ? createStateStore(options.dbPath) : null);
+  const findSession = credential => typeof credential === 'string' ? sessions.get(createHash('sha256').update(credential).digest('hex')) : undefined;
+
+  function durableState() {
+    return {
+      formatVersion: STATE_FORMAT_VERSION,
+      sessions: [...sessions.entries()].map(([key, s]) => [key, {
+        sessionId: s.sessionId, role: s.role, nickname: s.nickname, expiresAt: s.expiresAt, roomId: s.roomId,
+      }]),
+      rooms: [...rooms.values()].map(room => ({
+        roomId: room.roomId, roomEpoch: room.roomEpoch, stateVersion: room.stateVersion,
+        state: room.state, pauseReason: room.pauseReason, joinCode: room.joinCode,
+        joinExpiresAt: room.joinExpiresAt, joinUsed: room.joinUsed,
+        emptyLocks: [...room.emptyLocks], stats: room.stats, zombies: room.zombies,
+        collection: room.collection,
+        members: [...room.members.values()].map(m => ({
+          memberId: m.memberId, sessionId: m.sessionId, nickname: m.nickname, role: m.role,
+          seat: m.seat, approved: m.approved, receipts: [...m.receipts],
+          collectedPickups: [...(m.collectedPickups ?? [])],
+          worldClaims: [...(m.worldClaims ?? [])], worldReceipts: [...(m.worldReceipts ?? [])],
+        })),
+      })),
+    };
+  }
+  function restoreState(saved) {
+    if (!saved || saved.formatVersion !== STATE_FORMAT_VERSION || !Array.isArray(saved.sessions) || !Array.isArray(saved.rooms)) throw new Error('Invalid persisted server state');
+    for (const [key, session] of saved.sessions) sessions.set(key, session);
+    for (const savedRoom of saved.rooms) {
+      const room = {
+        ...savedRoom, emptyLocks: new Set(savedRoom.emptyLocks),
+        members: new Map(savedRoom.members.map(m => [m.sessionId, {
+          ...m, socket: null, receipts: new Map(m.receipts), collectedPickups: new Set(m.collectedPickups),
+          worldClaims: new Map(m.worldClaims), worldReceipts: new Map(m.worldReceipts),
+        }])),
+        vehicle: { ux: 'UNKNOWN', gear: 'UNKNOWN', foreground: false, seats: [],
+          charge: { state: 'UNKNOWN', portConnection: 'UNKNOWN', source: 'NONE' },
+          source: 'SERVER_RESTART', receivedAt: 0, hostConnected: false },
+      };
+      // Never restore a live vehicle lease or an active combat/temporary support effect.
+      if (room.state === 'PLAYING') { room.state = 'PAUSED'; room.roomEpoch++; }
+      if (room.state === 'PAUSED' || room.state === 'READY') room.pauseReason = 'SERVER_RESTART';
+      room.stats.supportUntil = 0;
+      room.stateVersion++;
+      rooms.set(room.roomId, room);
+      if (!room.joinUsed && room.joinExpiresAt > Date.now()) joinCodes.set(room.joinCode, room.roomId);
+    }
+  }
+  function unavailable() { return fail('STORAGE_UNAVAILABLE', 'Durable state is unavailable; restart after restoring database access', 503); }
+  function atomic(action) {
+    if (storageFailed) throw unavailable();
+    if (transaction) return action();
+    const pending = { effects: [], broadcasts: new Set() };
+    transaction = pending;
+    let value;
+    try {
+      value = action();
+      if (storage) {
+        try { storage.save(durableState()); }
+        catch {
+          storageFailed = true;
+          for (const room of rooms.values()) {
+            room.vehicle.hostConnected = false; room.vehicle.receivedAt = 0;
+            room.vehicle.foreground = false; room.vehicle.ux = 'UNKNOWN'; room.vehicle.gear = 'UNKNOWN';
+          }
+          for (const ws of sockets) ws.terminate();
+          throw unavailable();
+        }
+      }
+    } finally { transaction = null; }
+    // Persistence succeeded before any acknowledgement or public state update.
+    for (const effect of pending.effects) effect();
+    for (const room of pending.broadcasts) broadcast(room);
+    return value;
+  }
+  try {
+    const saved = storage?.load();
+    if (saved) { restoreState(saved); storage.save(durableState()); }
+  } catch (error) { storage?.close(); throw error; }
+  const observers = createObserverService({
+    getSession: credential => storageFailed ? undefined : findSession(credential),
+    getRoom: id => storageFailed ? undefined : rooms.get(id),
+    getRooms: () => storageFailed ? [] : rooms.values(),
+    getGate: room => storageFailed ? { allowed: false, reasons: ['STORAGE_UNAVAILABLE'] } : gate(room),
+    operatorToken: options.observerToken ?? '',
+    allowedOrigins: options.observerAllowedOrigins ?? [],
+  });
 
   function authenticate(req) {
     const value = req.headers.authorization;
     if (!value?.startsWith('Bearer ')) throw fail('AUTH_REQUIRED', 'Bearer token required', 401);
-    const session = sessions.get(value.slice(7));
+    const session = findSession(value.slice(7));
     if (!session || session.expiresAt <= Date.now()) throw fail('AUTH_EXPIRED', 'Session missing or expired', 401);
     return session;
   }
@@ -122,12 +214,20 @@ export function createDemoServer(options = {}) {
     };
   }
   function send(ws, payload) {
+    if (transaction) { transaction.effects.push(() => send(ws, payload)); return; }
     if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 128 * 1024) ws.send(JSON.stringify(payload));
   }
+  function closeSocket(ws, code, reason) {
+    if (transaction) { transaction.effects.push(() => closeSocket(ws, code, reason)); return; }
+    ws.close(code, reason);
+  }
   function broadcast(room) {
+    if (transaction) { transaction.broadcasts.add(room); return; }
+    if (storageFailed) return;
     for (const member of room.members.values()) {
       if (member.socket) send(member.socket, { type: 'snapshot', room: snapshot(room, member) });
     }
+    observers.broadcast(room);
   }
   function change(room) { room.stateVersion++; broadcast(room); }
   function pause(room, reason) {
@@ -150,6 +250,7 @@ export function createDemoServer(options = {}) {
     } catch { throw fail('INVALID_JSON', 'JSON object required'); }
   }
   function result(res, status, value) {
+    if (transaction) { transaction.effects.push(() => result(res, status, value)); return; }
     res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
     res.end(JSON.stringify(value));
   }
@@ -162,15 +263,18 @@ export function createDemoServer(options = {}) {
     try {
       rateLimit('http:' + req.socket.remoteAddress);
       const path = new URL(req.url, 'http://localhost').pathname;
-      if (req.method === 'GET' && path === '/healthz') return result(res, 200, { ok: true, protocol: 'zride-demo-v1', contractRevision: 3, rooms: rooms.size });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 3, rooms: rooms.size });
+      if (storageFailed) throw unavailable();
+      if (observers.handleHttp(req, res, path)) return;
+      const body = req.method === 'POST' && path !== '/api/rooms' ? await readJson(req) : null;
+      return atomic(() => {
       if (req.method === 'POST' && path === '/api/session') {
         if (sessions.size >= 500) throw fail('SESSION_LIMIT', 'Demo session limit', 503);
-        const body = await readJson(req);
         if (!['CAR_HOST', 'PHONE'].includes(body.role)) throw fail('INVALID_ROLE', 'CAR_HOST or PHONE required');
         if (!asText(body.nickname, 24)) throw fail('INVALID_NICKNAME', 'Nickname 1..24 characters');
         const credential = token();
-        const session = { sessionId: randomUUID(), token: credential, role: body.role, nickname: body.nickname, expiresAt: Date.now() + 8 * 3600000, roomId: null };
-        sessions.set(credential, session);
+        const session = { sessionId: randomUUID(), role: body.role, nickname: body.nickname, expiresAt: Date.now() + 8 * 3600000, roomId: null };
+        sessions.set(createHash('sha256').update(credential).digest('hex'), session);
         return result(res, 201, { sessionId: session.sessionId, token: credential, expiresAt: session.expiresAt, role: session.role });
       }
       const session = authenticate(req);
@@ -180,7 +284,6 @@ export function createDemoServer(options = {}) {
         if (!passengerSeat(member.seat) || member.role === 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Approved passenger role required', 403);
         if (req.method !== 'POST') throw fail('METHOD_NOT_ALLOWED', 'Use authenticated POST JSON; coordinates do not belong in URL queries', 405);
         rateLimit('world:' + session.sessionId, 30);
-        const body = await readJson(req);
         if (path === '/api/world/nearby') return result(res, 200, world.nearby(member, body));
         if (path === '/api/world/location') return result(res, 200, world.observe(member, body));
         if (path === '/api/world/claim') {
@@ -214,7 +317,6 @@ export function createDemoServer(options = {}) {
       }
       if (req.method === 'POST' && path === '/api/join') {
         if (session.role !== 'PHONE') throw fail('ROLE_FORBIDDEN', 'Phone session required', 403);
-        const body = await readJson(req);
         if (!asText(body.joinCode, 64) || !passengerSeat(body.seat)) throw fail('INVALID_JOIN', 'joinCode and valid seat required');
         const room = roomFor(joinCodes.get(body.joinCode.toUpperCase()));
         if (room.joinExpiresAt <= Date.now()) throw fail('PAIRING_EXPIRED', 'Ask host for a new code', 409);
@@ -232,7 +334,7 @@ export function createDemoServer(options = {}) {
         const room = roomFor(match[1]);
         if (req.method === 'GET' && !match[2]) return result(res, 200, { room: snapshot(room, memberFor(room, session, false)) });
         if (req.method === 'POST' && match[2] === 'approve') {
-          requireHost(room, session); const body = await readJson(req);
+          requireHost(room, session);
           const member = [...room.members.values()].find(m => m.memberId === body.memberId);
           if (!member || member.role === 'CAR_HOST') throw fail('MEMBER_NOT_FOUND', 'Pending member not found', 404);
           const seat = body.seat ?? member.seat;
@@ -246,12 +348,15 @@ export function createDemoServer(options = {}) {
         }
       }
       throw fail('NOT_FOUND', 'Route not found', 404);
+      });
     } catch (error) { result(res, error.status ?? 500, { error: { code: error.code ?? 'INTERNAL_ERROR', message: error.code ? error.message : 'Internal error' } }); }
   });
   server.requestTimeout = 10000;
   server.headersTimeout = 10000;
   const wss = new WebSocketServer({ noServer: true, maxPayload: BODY_LIMIT, perMessageDeflate: false });
   server.on('upgrade', (req, socket, head) => {
+    if (storageFailed || closing) { socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n'); socket.destroy(); return; }
+    if (observers.handleUpgrade(req, socket, head)) return;
     if (new URL(req.url, 'http://localhost').pathname !== '/ws') { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
     const origin = req.headers.origin;
     if (origin && !['http://127.0.0.1:8000', 'http://localhost:8000'].includes(origin)) { socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return; }
@@ -355,15 +460,16 @@ export function createDemoServer(options = {}) {
     ws.on('error', () => {});
     ws.on('message', data => {
       try {
+        atomic(() => {
         let message;
         try { message = JSON.parse(data.toString('utf8')); } catch { throw fail('INVALID_JSON', 'JSON required'); }
         if (!message || typeof message !== 'object' || Array.isArray(message)) throw fail('INVALID_MESSAGE', 'JSON object required');
         if (!current) {
           if (message.type !== 'auth') throw fail('AUTH_REQUIRED', 'First message must be auth', 401);
-          const session = sessions.get(message.token);
+          const session = findSession(message.token);
           if (!session || session.expiresAt <= Date.now()) throw fail('AUTH_EXPIRED', 'Invalid session', 401);
           const room = roomFor(message.roomId); const member = memberFor(room, session, false);
-          if (member.socket && member.socket !== ws) member.socket.close(4409, 'Connection replaced');
+          if (member.socket && member.socket !== ws) closeSocket(member.socket, 4409, 'Connection replaced');
           member.socket = ws; current = { session, room, member }; clearTimeout(authTimer);
           if (member.role === 'CAR_HOST') {
             member.lastReportSeq = 0;
@@ -376,7 +482,7 @@ export function createDemoServer(options = {}) {
         }
         const { session, room, member } = current;
         if (member.socket !== ws) throw fail('CONNECTION_REPLACED', 'Old connection cannot send commands', 403);
-        if (session.expiresAt <= Date.now()) { ws.close(4401, 'Session expired'); return; }
+        if (session.expiresAt <= Date.now()) { closeSocket(ws, 4401, 'Session expired'); return; }
         rateLimit('ws:' + session.sessionId, 120);
         if (!asText(message.commandId, 128)) throw fail('COMMAND_ID_REQUIRED', 'Unique commandId required');
         const fingerprint = hash(message);
@@ -387,49 +493,59 @@ export function createDemoServer(options = {}) {
         }
         if (member.receipts.size >= maxReceipts) {
           send(ws, { type: 'result', commandId: message.commandId, ok: false, error: { code: 'COMMAND_LIMIT', message: 'Demo command capacity reached; no action applied' }, roomEpoch: room.roomEpoch });
-          ws.close(4429, 'Demo command limit reached'); return;
+          closeSocket(ws, 4429, 'Demo command limit reached'); return;
         }
         let response;
         try { response = { type: 'result', commandId: message.commandId, ok: true, data: perform(room, member, message), roomEpoch: room.roomEpoch }; }
         catch (error) { response = { type: 'result', commandId: message.commandId, ok: false, error: { code: error.code ?? 'INTERNAL_ERROR', message: error.code ? error.message : 'Internal error' }, roomEpoch: room.roomEpoch }; }
         member.receipts.set(message.commandId, { fingerprint, response }); send(ws, response);
+        });
       } catch (error) {
         send(ws, { type: 'result', commandId: null, ok: false, error: { code: error.code ?? 'INTERNAL_ERROR', message: error.code ? error.message : 'Internal error' } });
         if (!current) ws.close(4401, 'Authentication failed');
       }
     });
     ws.on('close', () => {
+      try { atomic(() => {
       clearTimeout(authTimer); sockets.delete(ws);
       if (!current || current.member.socket !== ws) return;
       const { room, member } = current; member.socket = null;
       if (member.role === 'CAR_HOST') { room.vehicle.hostConnected = false; room.vehicle.receivedAt = 0; pause(room, 'CAR_DISCONNECTED'); }
       change(room);
+      }); } catch { clearTimeout(authTimer); sockets.delete(ws); }
     });
   });
   const gateTimer = setInterval(() => {
-    for (const room of rooms.values()) if (room.state === 'PLAYING' && !gate(room).allowed) pause(room, gate(room).reasons.join(','));
+    for (const room of rooms.values()) if (!storageFailed && room.state === 'PLAYING' && !gate(room).allowed) {
+      try { atomic(() => pause(room, gate(room).reasons.join(','))); } catch {}
+    }
     for (const room of rooms.values()) for (const member of room.members.values()) world.pruneQuality(member);
     for (const [key, value] of requestBuckets) if (value.until < Date.now()) requestBuckets.delete(key);
   }, 250);
   gateTimer.unref();
   return {
     server,
+    persistence: storage?.kind ?? 'memory',
     async listen(port = options.port ?? 8000, host = options.host ?? '127.0.0.1') {
       await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, () => { server.off('error', reject); resolve(); }); });
       listening = true; return server.address();
     },
     async close() {
+      if (closing) return;
+      closing = true;
       clearInterval(gateTimer);
+      await observers.close();
       for (const ws of sockets) ws.terminate();
       await new Promise(resolve => wss.close(resolve));
       if (listening) await new Promise(resolve => server.close(resolve));
+      storage?.close();
     },
   };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const app = createDemoServer();
+  const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '' });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 3, persistence: 'memory-only', exposure: 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 3, persistence: app.persistence, exposure: 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }

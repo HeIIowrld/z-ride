@@ -3,12 +3,14 @@
   "openapiVersion": "3.1.0",
   "contractRevision": 3,
   "openapiDocumentValid": true,
-  "successfulRouteCoverage": "9/9",
-  "capturedResponsesValidated": 28,
-  "validRequestsValidated": 15,
+  "successfulRouteCoverage": "10/10",
+  "capturedResponsesValidated": 35,
+  "validRequestsValidated": 16,
   "requestAndResponseExamplesValid": true,
   "errorCodesObservedMatchDocument": true,
-  "scope": "Ephemeral local server; OpenAPI/JSON Schema checks, not production security or real GPS proof.",
   "runtimeSourceChanged": false,
-  "runningDemoRestarted": false
+  "runningDemoRestarted": false,
+  "storageFailureSamplesValidated": true,
+  "observerOperatorSamplesValidated": true,
+  "scope": "Ephemeral isolated local server with fault-injected storage; live REST/schema/examples, not production security or real GPS proof."
 }

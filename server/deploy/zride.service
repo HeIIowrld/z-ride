@@ -1,0 +1,37 @@
+[Unit]
+Description=Z-RIDE persistent multiplayer API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zride
+Group=zride
+WorkingDirectory=/srv/zride/current
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/zride/zride.env
+ExecStart=/usr/local/bin/node /srv/zride/current/server.mjs
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+KillSignal=SIGTERM
+UMask=0077
+StateDirectory=zride
+StateDirectoryMode=0700
+RuntimeDirectory=zride
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/zride
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=768M
+CPUQuota=150%
+
+[Install]
+WantedBy=multi-user.target
