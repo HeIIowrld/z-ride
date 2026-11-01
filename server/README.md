@@ -4,17 +4,17 @@
 
 `/observer`는 운영자 키로 방 목록·4인/개인별 게임 상태를 보는 읽기 전용 제품 화면이다. 실제 기기 픽셀·음성 영상 중계와 구분한다. [관제](docs/observer.md), [Proxmox·CI/CD](docs/deployment.md)
 
-2026-11-01. Pleos 차량 앱과 동승자 폰이 같은 방에 참가하는 네이티브 앱용 HTTP + 표준 WebSocket 서버다. **폰 독립 수집과 주차 공동 전투를 분리**하며 revision 3에서 선택적인 폰 지도 world API를 추가했다. 기존 revision 2의 버튼 수집·방·전투 계약은 유지한다. HTML 설명 페이지나 게임 웹페이지는 제공하지 않는다.
+2026-11-01. Pleos 차량 앱과 동승자 폰이 같은 방에 참가하는 HTTP + 표준 WebSocket 서버다. **폰 독립 수집과 주차 공동 전투를 분리**한다. revision 4는 외부 팀 테스트 접근키를 추가한다. `/play`는 아이폰 Safari용 최소 참가 클라이언트이며 좌석별 사격·GPS 없는 데모 수집을 제공한다. 실제 지도·현장 GPS는 이 브라우저 버전에 포함하지 않는다.
 
 ## 실행
 
-Node 22 이상, 의존성 `ws` 8.22.1(MIT)을 사용한다. `package.json`과 `pnpm-lock.yaml`로 버전을 고정했다. 라이브러리 출처: [공식 ws 저장소](https://github.com/websockets/ws).
+Node 22.13 이상, 의존성 `ws` 8.22.1(MIT)을 사용한다. `package.json`과 `package-lock.json`으로 버전을 고정했다. 라이브러리 출처: [공식 ws 저장소](https://github.com/websockets/ws).
 
 ```powershell
 node server.mjs
 ```
 
-기본 주소는 `127.0.0.1:8000`이다. AVD에서는 `http://10.0.2.2:8000` 및 `ws://10.0.2.2:8000/ws`를 사용한다. 실물 Android 폰을 USB 디버깅으로 연결하면 `adb -s <폰serial> reverse tcp:8000 tcp:8000` 후 폰의 서버 주소를 `http://127.0.0.1:8000`으로 설정할 수 있다. 실제 LAN 폰 접근이 필요할 때만 해당 환경에서 `HOST`와 방화벽을 설정한다. 서버를 인터넷에 공개하지 않았다.
+기본 주소는 `127.0.0.1:8000`이다. AVD에서는 `http://10.0.2.2:8000` 및 `ws://10.0.2.2:8000/ws`를 사용한다. 외부 팀 테스트는 `http://afsd.iptime.org:8000`, 관제는 `/observer`, 폰 참가는 `/play`다. 공개 배포의 `ZRIDE_TEST_ACCESS_KEY`는 `/api/session`의 `accessKey`로 보내며 관찰키와 다르다. 실제 값은 별도로 전달한다. HTTP 팀 테스트 주소는 암호화되지 않으며 실제 개인정보를 다루는 정식 서비스에는 HTTPS/WSS가 필요하다.
 
 계약은 [protocol.json](protocol.json)이다. 이전 설계의 17개 HTTP API를 전부 구현한 것이 아니라 별도 이름의 `zride-demo-v1` 수직 데모다.
 

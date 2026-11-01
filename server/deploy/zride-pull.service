@@ -1,0 +1,18 @@
+[Unit]
+Description=Deploy tested Z-RIDE main without a GitHub Actions self-hosted runner
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=zride-runner
+Group=zride-runner
+ExecStart=/usr/bin/python3 /usr/local/lib/zride/pull-deploy.py
+TimeoutStartSec=240
+UMask=0077
+# sudo is restricted to the root-owned zride-deploy entry point. NoNewPrivileges
+# cannot be enabled because that deliberate privilege boundary uses sudo.
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/zride/incoming /srv/zride/releases /srv/zride /var/lib/zride /var/backups/zride /run /tmp

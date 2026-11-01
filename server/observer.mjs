@@ -151,9 +151,16 @@ export function createObserverService({ getSession, getRoom, getRooms = () => []
       if (!file || !['GET', 'HEAD'].includes(req.method)) {
         res.writeHead(file ? 405 : 404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }); res.end('Not available'); return true;
       }
+      // Some browsers do not include WS schemes in CSP 'self'. Restrict the
+      // explicit ws/wss additions to this request's validated host and port.
+      let socketSources = '';
+      const hostHeader = req.headers.host ?? '';
+      if (/^(?:\[[0-9a-fA-F:]+\]|[a-zA-Z0-9.-]+)(?::\d{1,5})?$/.test(hostHeader)) {
+        try { const host = new URL('http://' + hostHeader).host; socketSources = ' ws://' + host + ' wss://' + host; } catch {}
+      }
       res.writeHead(200, {
         'content-type': file.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'" + socketSources + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
         'referrer-policy': 'no-referrer', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       });
       res.end(req.method === 'HEAD' ? undefined : file.bytes); return true;

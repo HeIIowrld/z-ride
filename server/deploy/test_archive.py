@@ -12,7 +12,8 @@ SCRIPT = Path(__file__).with_name('zride-deploy.sh').read_text(encoding='utf-8')
 EXTRACTOR = SCRIPT.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 REQUIRED = ['package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
             'state-store.mjs', 'observer.mjs', 'observer/index.html',
-            'observer/app.js', 'observer/style.css']
+            'observer/app.js', 'observer/style.css', 'phone-client.mjs',
+            'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css']
 
 
 class DeploymentArchiveTests(unittest.TestCase):
@@ -59,7 +60,7 @@ class DeploymentArchiveTests(unittest.TestCase):
         self.assertIn('observer/nested/screens/view.js', files)
 
     def test_rejects_traversal_and_absolute_path_before_extracting(self):
-        for path in ['../escape', '/tmp/escape', 'observer/../../escape']:
+        for path in ['../escape', '/tmp/escape', 'observer/../../escape', 'phone-client/../../escape']:
             with self.subTest(path=path):
                 item = tarfile.TarInfo(path)
                 item.size = 1
@@ -75,7 +76,7 @@ class DeploymentArchiveTests(unittest.TestCase):
                 result, files = self.run_archive([(item, None)])
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(files, [])
-        for name in ['.env', 'zride.sqlite', 'node_modules/ws/index.js']:
+        for name in ['.env', 'zride.sqlite', 'node_modules/ws/index.js', 'phone-client/.env', 'phone-client/zride.sqlite']:
             item = tarfile.TarInfo(name)
             item.size = 1
             result, files = self.run_archive([(item, b'x')])

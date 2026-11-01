@@ -46,7 +46,9 @@ jobs:
       - name: Test server and API contract
         run: npm test
       - name: Validate deployment archive boundary
-        run: python3 deploy/test_archive.py
+        run: |
+          python3 deploy/test_archive.py
+          python3 deploy/test_pull_deploy.py
       - name: Validate Compose configuration
         run: docker compose --project-name zride-ci config --quiet
       - name: Build and start SQLite-backed container

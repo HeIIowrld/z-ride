@@ -56,7 +56,7 @@ jobs:
         run: |
           archive="$RUNNER_TEMP/zride-server-${REVISION}.tar.gz"
           LC_ALL=C tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
-            -czf "$archive" -- package.json package-lock.json ./*.mjs observer
+            -czf "$archive" -- package.json package-lock.json ./*.mjs observer phone-client
           cd "$RUNNER_TEMP"
           sha256sum "zride-server-${REVISION}.tar.gz" > SHA256SUMS
       - name: Upload immutable server bundle
@@ -69,29 +69,3 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
-  deploy:
-    needs: bundle
-    if: vars.ZRIDE_DEPLOY_ENABLED == 'true'
-    runs-on: [self-hosted, Linux, X64, zride-deploy]
-    environment: proxmox-demo
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: Download tested server bundle
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: zride-server-${{ needs.bundle.outputs.revision }}
-          path: ${{ runner.temp }}/zride-server
-      - name: Verify bundle and invoke fixed deployment entry point
-        env:
-          REVISION: ${{ needs.bundle.outputs.revision }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP/zride-server"
-          sha256sum --check SHA256SUMS
-          install -m 600 "zride-server-${REVISION}.tar.gz" "/srv/zride/incoming/zride-server-${REVISION}.tar.gz"
-          digest=$(sha256sum "zride-server-${REVISION}.tar.gz" | cut -d ' ' -f 1)
-          sudo /usr/local/sbin/zride-deploy "$REVISION" "$digest"

@@ -1,0 +1,37 @@
+name: External team access smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  external-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check public API and browser entry points from GitHub network
+        shell: python
+        run: |
+          import json, urllib.request, urllib.error
+          base = 'http://afsd.iptime.org:8000'
+          checks = [('/healthz', 200), ('/observer', 200), ('/play', 200), ('/play/app.js', 200), ('/api/observer/rooms', 401)]
+          for path, expected in checks:
+              try:
+                  with urllib.request.urlopen(base + path, timeout=15) as response:
+                      status = response.status
+                      if path == '/healthz':
+                          assert json.load(response)['ok'] is True
+              except urllib.error.HTTPError as error:
+                  status = error.code
+              print(f'{path}: HTTP {status}')
+              assert status == expected, f'{path} expected {expected}'
+          request = urllib.request.Request(base + '/api/session', data=b'{"role":"PHONE","nickname":"external-probe"}', headers={'Content-Type': 'application/json'})
+          try:
+              urllib.request.urlopen(request, timeout=15)
+              raise AssertionError('Session without team access key must be refused')
+          except urllib.error.HTTPError as error:
+              assert error.code == 401
+              assert json.load(error)['error']['code'] == 'TEST_ACCESS_REQUIRED'
+              print('/api/session: missing access key rejected (401)')

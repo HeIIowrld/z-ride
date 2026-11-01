@@ -58,13 +58,13 @@ with tarfile.open(archive, 'r:gz') as source:
         seen.add(name)
         if not (member.isfile() or member.isdir()):
             raise SystemExit('Links and special files are prohibited')
-        allowed = (len(path.parts) == 1 and (name in {'package.json', 'package-lock.json'} or name.endswith('.mjs'))) or (path.parts[0] == 'observer' and (member.isdir() or path.suffix in {'.html', '.css', '.js', '.json', '.svg'}))
+        allowed = (len(path.parts) == 1 and (name in {'package.json', 'package-lock.json'} or name.endswith('.mjs'))) or (path.parts[0] in {'observer', 'phone-client'} and (member.isdir() or path.suffix in {'.html', '.css', '.js', '.json', '.svg'}))
         if not allowed:
             raise SystemExit('Unrelated file in runtime archive')
         expanded += member.size
         if expanded > 16 * 1024 * 1024:
             raise SystemExit('Expanded runtime archive exceeds 16 MiB')
-    required = {'package.json', 'package-lock.json', 'server.mjs', 'world.mjs', 'state-store.mjs', 'observer.mjs', 'observer/index.html', 'observer/app.js', 'observer/style.css'}
+    required = {'package.json', 'package-lock.json', 'server.mjs', 'world.mjs', 'state-store.mjs', 'observer.mjs', 'observer/index.html', 'observer/app.js', 'observer/style.css', 'phone-client.mjs', 'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css'}
     if not required.issubset(seen):
         raise SystemExit('Missing required runtime files')
     for member in members:

@@ -10,7 +10,7 @@
 | `/srv/zride/current` | 현재 릴리스로 향하는 원자적 교체 symlink |
 | `/srv/zride/incoming` | `zride-runner`가 검증할 배포 tar를 전달하는 디렉터리 |
 | `/var/lib/zride/zride.sqlite` | `zride` 서비스 계정의 영속 DB. WAL/SHM도 같은 디렉터리 |
-| `/etc/zride/zride.env` | root 0600. 포트·DB 경로·선택적 관제 토큰 |
+| `/etc/zride/zride.env` | root 0600. 포트·DB 경로·테스트 접근키·별도 관제 토큰 |
 | `/var/backups/zride` | 정지 상태에서 만든 DB/WAL/SHM 백업. root 0700·파일 0600 |
 | `/usr/local/sbin/zride-deploy` | root 소유의 고정 배포 진입점. runner가 수정할 수 없음 |
 
@@ -47,28 +47,37 @@ docker compose up -d --build
 - [배포 진입점](../deploy/zride-deploy.sh) → `/usr/local/sbin/zride-deploy`, root 0755.
 - [sudoers 예제](../deploy/zride-deploy.sudoers) → `/etc/sudoers.d/zride-deploy`, root 0440. 설치 전 `visudo -cf` 검증.
 
-`/srv/zride/releases`와 `/srv/zride`는 root 소유, `/srv/zride/incoming`만 runner 소유로 둔다. `/var/lib/zride`는 서비스 계정 소유 0700이다. 서비스 환경에 `HOST=0.0.0.0`, `PORT=8000`, `ZRIDE_DB_PATH=/var/lib/zride/zride.sqlite`를 설정한다. 전 방 관제용 `ZRIDE_OBSERVER_TOKEN`은 서버에서 무작위 생성해 별도로 전달하며 저장소·Actions 출력에 넣지 않는다.
+`/srv/zride/releases`와 `/srv/zride`는 root 소유, `/srv/zride/incoming`만 배포 계정 `zride-runner` 소유로 둔다. `/var/lib/zride`는 서비스 계정 소유 0700이다. 서비스 환경에 `HOST=0.0.0.0`, `PORT=8000`, `ZRIDE_DB_PATH=/var/lib/zride/zride.sqlite`를 설정한다. 외부 테스트에는 `ZRIDE_TEST_ACCESS_KEY`를 반드시 설정한다. 전 방 관제용 `ZRIDE_OBSERVER_TOKEN`과 서로 다른 무작위 값을 만들고 별도로 전달하며 저장소·Actions 출력에 넣지 않는다.
 
 관리자가 기본 파일을 설치하고 `systemctl daemon-reload`, `systemctl enable zride.service`를 실행한다. 첫 릴리스가 설치되기 전에는 `current` 경로가 없으므로 서비스를 시작하지 않는다. 이 문서가 서비스를 이미 설치했다는 실행 증거는 아니다.
 
 ## 4. 서버 CD 흐름
 
-`.github/workflows/server-release.yml`은 성공한 `Server CI` 중 **같은 리포의 main push**만 자동 수신한다. PR·fork 실행은 배포 대상으로 받지 않는다. 수동 실행도 main에서만 허용한다.
+공개 저장소에서는 GitHub Actions self-hosted runner를 사용하지 않는다. 기존 runner 서비스와 GitHub 등록을 제거하고, root 소유의 [pull-deploy.py](../deploy/pull-deploy.py)를 전용 비특권 계정으로 실행한다. 이 프로그램이 GitHub 공개 API에서 **같은 리포의 main push·Server CI 성공**만 확인해 해당 SHA의 소스를 가져온다. PR·fork·실패·진행 중 실행은 받지 않는다. main의 더 최근 CI가 실패하면 마지막으로 성공한 main을 유지한다.
 
 ```mermaid
 flowchart LR
     Main[main push] --> CI[Server CI\ntests·container restart]
-    CI -->|success only| Bundle[hosted runner\nsource tar + SHA256]
-    Bundle --> Gate[ZRIDE_DEPLOY_ENABLED\nproxmox-demo environment]
-    Gate --> Runner[LXC self-hosted runner\nzride-deploy label]
-    Runner --> Entry[root-owned deploy entrypoint\nSHA·tar validation]
+    CI -->|same repo main success| Poll[LXC pull timer\npublic API · immutable SHA]
+    Poll --> Bundle[whitelisted runtime tar\nSHA256]
+    Bundle --> Entry[root-owned deploy entrypoint\nSHA·tar validation]
     Entry --> Service[systemd restart\nhealthcheck·code rollback]
     Data[(SQLite /var/lib/zride)] --- Service
 ```
 
-배포를 활성화하려면 리포 변수 `ZRIDE_DEPLOY_ENABLED=true`, GitHub environment `proxmox-demo`, Linux x64 self-hosted runner label `zride-deploy`를 설정한다. environment에 기존 승인 규칙이 있으면 그대로 적용된다. runner 등록 토큰은 1회 등록에만 사용하며 파일·로그에 남기지 않는다. 자체 runner는 신뢰하는 main 배포만 실행하고 일반 PR 작업에 사용하지 않는다. [GitHub self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners), [환경 배포 관리](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
+관리자가 아래 파일을 root 소유로 설치한다. 배포 계정은 이 파일과 unit을 수정할 수 없어야 한다. `zride-runner`는 계정 이름만 유지하며 Actions runner 프로그램은 실행하지 않는다.
 
-배포 workflow는 일반 hosted runner에서 소스를 테스트하고 deterministic tar를 만든다. self-hosted runner는 저장소 checkout이나 임의 셸을 root로 실행하지 않고, artifact 체크섬 확인 후 다음 고정 진입점만 호출한다.
+| 소스 | 설치 위치·권한 |
+| --- | --- |
+| `deploy/pull-deploy.py` | `/usr/local/lib/zride/pull-deploy.py`, root 0755 |
+| `deploy/zride-pull.service` | `/etc/systemd/system/zride-pull.service`, root 0644 |
+| `deploy/zride-pull.timer` | `/etc/systemd/system/zride-pull.timer`, root 0644 |
+
+`systemctl daemon-reload`, `systemctl enable --now zride-pull.timer`로 켠다. 부팅 90초 후 시작하고 이후 완료 시점부터 180초 간격에 최대 10초 지연을 더한다. `systemctl start zride-pull.service`로 즉시 확인할 수 있다. `systemctl list-timers zride-pull.timer`와 `journalctl -u zride-pull.service`에서 결과를 본다. GitHub 자격증명은 사용하지 않으며 API 제한·네트워크 오류 때는 현재 서비스를 유지한 채 다음 주기에 재시도한다.
+
+GitHub는 공개 저장소의 fork PR이 자체 runner에서 코드를 실행할 수 있으므로 비공개 저장소에만 self-hosted runner를 쓰도록 권고한다. main 조건을 기존 배포 workflow에 넣는 것만으로 다른 PR workflow의 runner 요청까지 제한할 수는 없다. 이 때문에 공개 전 runner를 해제했다. PR 테스트·Android 빌드·릴리스 artifact 생성은 GitHub-hosted runner에서 계속 수행한다. [GitHub runner 접근 정책](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/manage-access)
+
+`.github/workflows/server-release.yml`은 hosted runner에서 테스트한 소스 묶음을 artifact로 보관한다. 실제 LXC 배포는 위 poller가 별도로 처리한다. poller는 GitHub API의 고정 workflow 경로·event·branch·head_repository·성공 상태·40자리 SHA를 검사한다. codeload의 해당 SHA에서 런타임 파일만 추출하며 다운로드 16MiB·압축 해제 32MiB·5000개 항목을 넘으면 중단한다. 링크·경로 이탈·필수 파일 누락도 거절한다. 다운받은 checkout의 빌드 스크립트를 실행하지 않고 다음 고정 진입점만 호출한다.
 
 ```sh
 sudo /usr/local/sbin/zride-deploy <40자리 commit SHA> <64자리 archive SHA256>
@@ -80,7 +89,7 @@ health 실패 시 **코드만** 이전 릴리스로 되돌리고 DB는 유지한
 
 ## 5. Android·차량 앱 CI의 범위
 
-`.github/workflows/application-build.yml`은 `android/**` 변경 때 Java 17·Android API34·Build Tools34.0.0과 고정 Gradle wrapper로 차량/폰 APK를 assemble·lint하고, debug APK 두 개와 text/XML lint 보고서를 Actions artifact로 7일 보관한다. Gradle distribution SHA256도 기존 wrapper 설정으로 검증한다. [Android command-line build](https://developer.android.com/build/building-cmdline), [SDK manager](https://developer.android.com/tools/sdkmanager), [GitHub artifacts](https://github.com/actions/upload-artifact)
+`.github/workflows/application-build.yml`은 `android/**` 변경 때 Java 17·Android API34·Build Tools34.0.0과 고정 Gradle wrapper로 차량/폰 APK를 assemble·lint하고, debug APK 두 개와 text/XML lint 보고서를 Actions artifact로 3일 보관한다. Gradle distribution SHA256도 기존 wrapper 설정으로 검증한다. [Android command-line build](https://developer.android.com/build/building-cmdline), [SDK manager](https://developer.android.com/tools/sdkmanager), [GitHub artifacts](https://github.com/actions/upload-artifact)
 
 이것은 **자동 빌드·검증·배포 파일 제공**이다. 실제 사용자의 폰이나 Pleos 차량에 무단으로 APK를 설치하거나 스토어 앱을 조용히 갱신하는 기능이 아니다. 테스트 장치 자동 설치를 추가하려면 앱 팀의 일관된 서명키·versionCode·SDK 호환 정책과, 명시적으로 허용된 ADB serial의 전용 runner가 필요하다. 매번 생성되는 CI debug 키는 기존 설치 앱의 업데이트 서명으로 보장되지 않는다. 프로덕션 앱 배포는 별도 서명·Pleos/스토어 배포·심사 경로를 따른다.
 
@@ -90,7 +99,8 @@ Actions에 올린 APK는 리포 권한이 있는 팀원이 받을 수 있다. Pr
 
 - 게스트에서 `systemctl status zride.service`, `journalctl -u zride.service`와 `/healthz`로 확인한다. 자격증명·참가 코드·원시 폰 좌표는 일반 로그에 기록하지 않는다.
 - 현재 CT IP는 DHCP라 앱의 고정 접속 주소가 필요하면 DNS 또는 고정 예약을 운영자가 설정한다. runner의 GitHub 연결은 outbound 방식이라 inbound SSH 키를 Actions secret에 넣지 않는다.
-- LAN HTTP/WS와 외부 HTTPS/WSS는 구분한다. 외부 노출은 TLS reverse proxy·접근 정책·WebSocket Upgrade를 구성한 뒤 수행한다.
+- 팀 테스트 주소는 `http://afsd.iptime.org:8000`, 관제 `/observer`, 폰 참가 `/play`, 상태 `/healthz`다. 포트포워딩은 외부 TCP 8000 → LXC `192.168.0.219:8000`이며 Proxmox 관리 포트로 연결하지 않는다. DHCP 주소가 바뀌지 않도록 공유기에서 고정 예약한다.
+- 현재 HTTP/WS 테스트 경로에는 세션 생성용 테스트 접근키와 별도 읽기 전용 관제키를 사용한다. HTTP는 암호화되지 않으므로 실제 계정 비밀번호·실제 개인정보를 입력하는 서비스로 사용하지 않는다. 실제 Safari 위치 수집에는 신뢰되는 HTTPS/WSS가 추가로 필요하다. HTTP `/play`는 위치 권한을 요구하지 않는 데모 수집·좌석별 게임 통신을 검증한다. [Geolocation secure context 표준](https://www.w3.org/TR/geolocation/#navigator_interface)
 - DB 파일·백업에는 세션의 해시와 방·멤버·획득 기록이 있다. 원시 GPS가 없어도 방문 추론 데이터가 되므로 보존·삭제·접근 통제가 필요하다.
 - 자동 백업 보관 정리·외부 백업·모니터링 알림·다중 인스턴스는 아직 별도 운영 과제다. 게스트 재시작 복구는 `systemd enable`과 실제 재부팅 시험으로 확인한다.
 

@@ -7,22 +7,31 @@
     {
       "method": "GET",
       "path": "/healthz",
-      "auth": false
+      "auth": false,
+      "response": {
+        "ok": "boolean",
+        "protocol": "zride-demo-v1",
+        "contractRevision": 4
+      }
     },
     {
       "method": "POST",
       "path": "/api/session",
-      "auth": false,
+      "auth": "body.accessKey required only when testAccessKey / ZRIDE_TEST_ACCESS_KEY is configured; no Bearer token for enrollment",
       "body": {
         "role": "CAR_HOST or PHONE",
-        "nickname": "1..24 chars"
+        "nickname": "1..24 chars",
+        "accessKey": "Shared private team test key, conditionally required; never returned or stored in durable state"
       },
       "response": {
         "sessionId": "uuid",
         "token": "opaque",
         "expiresAt": "unix-ms",
         "role": "CAR_HOST or PHONE"
-      }
+      },
+      "errors": [
+        "401 TEST_ACCESS_REQUIRED when configured key is absent, invalid or wrong"
+      ]
     },
     {
       "method": "POST",
@@ -309,7 +318,7 @@
   ],
   "wave": "All three targets dead => CLEARED and new epoch; explicit host round.start resets HP",
   "pendingProjection": "Only own pending member; vehicle states redacted UNKNOWN, other members and zombies hidden, stats zero",
-  "contractRevision": 3,
+  "contractRevision": 4,
   "collectionCommandExample": {
     "type": "command",
     "commandId": "unique-id",
@@ -420,5 +429,12 @@
     ],
     "heartbeatMs": 15000,
     "docs": "docs/observer.md"
+  },
+  "teamAccess": {
+    "enrollmentKeyConfig": "testAccessKey option / ZRIDE_TEST_ACCESS_KEY env; empty disables for local fixtures",
+    "keyUse": "Only POST /api/session body.accessKey. Subsequent APIs and /ws use issued opaque session Bearer token. Separate ZRIDE_OBSERVER_TOKEN remains read-only.",
+    "health": "Public health omits room count and identities",
+    "transport": "HTTP/WS prototype supports team test connectivity; HTTPS/WSS required for confidentiality and browser GPS secure context. Never place keys in URL.",
+    "gameBrowserOrigins": "Absent Origin for non-browser clients, same request Host with http/https, or programmatic allowedOrigins allow-list; unrelated browser origins denied"
   }
 }

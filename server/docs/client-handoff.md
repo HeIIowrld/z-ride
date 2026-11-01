@@ -1,4 +1,4 @@
-# 앱 팀 전달용 서버 연결 계약 — revision 3
+# 앱 팀 전달용 서버 연결 계약 — revision 4
 
 2026-11-01. 현재 `server.mjs`·`world.mjs`·`protocol.json`에서 확인한 **구현된 로컬 데모 계약**이다. REST의 타입·필수값·예제·응답·오류는 [OpenAPI 3.1](../openapi.json), WS는 아래 별도 부록과 [protocol.json](../protocol.json)을 기준으로 한다. 제안 경로를 구현된 API처럼 추가하지 않았다.
 
@@ -17,8 +17,9 @@ MapLibre 위젯이나 SDK 화면 구현은 앱 팀 범위다. 서버는 지도 �
 
 - PC: `http://127.0.0.1:8000`, `ws://127.0.0.1:8000/ws`.
 - Android Emulator: `http://10.0.2.2:8000`, `ws://10.0.2.2:8000/ws`.
-- 실제 폰에서 `10.0.2.2`를 사용하지 않는다. 현재 서버는 기본 loopback이므로 실물 폰 연결용 주소·바인딩·네트워크 노출은 별도 인프라 작업이다. 원격 HTTPS/WSS 서비스가 배포됐다고 간주하지 않는다.
-- `POST /api/session`만으로 CAR_HOST/PHONE 게스트 토큰을 발급한다. 계정 로그인·차량 인증이 아니며 서버를 닫힌 데모 환경으로 취급한다.
+- 외부 팀 테스트: `http://afsd.iptime.org:8000`, `ws://afsd.iptime.org:8000/ws`. 실제 폰에서 `10.0.2.2`를 사용하지 않는다. 아이폰·Android·PC의 브라우저는 `/play`에서 PHONE 역할로 참가하며 설치가 필요 없다. 차량 방 생성·코드 발급·승인은 기존 CAR_HOST 앱/API에서 수행한다.
+- 현재 외부 주소는 HTTP/WS다. `/play`는 데모 수집·좌석별 사격·재연결 통신을 확인하는 참조 화면이고 실제 지도·GPS 권한 요청은 포함하지 않는다. Safari의 실제 위치 수집에는 신뢰되는 HTTPS/WSS와 위치 계약 확장이 필요하다. 실물 아이폰 검증 완료로 간주하지 않는다. [Geolocation secure context](https://www.w3.org/TR/geolocation/#navigator_interface)
+- `POST /api/session`으로 CAR_HOST/PHONE 게스트 토큰을 발급한다. 외부 팀 테스트 서버가 `ZRIDE_TEST_ACCESS_KEY`를 설정한 경우 JSON 본문에 `accessKey`도 넣는다. 누락·불일치는 401 `TEST_ACCESS_REQUIRED`다. 이 키는 별도로 전달하며 URL·Git·로그·브라우저 영구 저장소에 넣지 않는다. 이후 REST/WS에는 발급받은 세션 토큰을 사용한다. 공유 테스트 키는 계정 로그인·실차 인증이 아니다.
 - `/healthz`, `/api/session` 외 REST에는 `Authorization: Bearer <token>`을 넣는다. `/api/observer/rooms`는 게임 토큰 대신 별도 운영자 관찰키를 사용한다. 토큰은 URL·지도 요청·로그에 넣지 않는다. 현재 구현은 `Bearer ` 접두사를 정확히 검사한다.
 - 세션 유효기간은 8시간이며 refresh/logout/삭제 API는 없다. CLI는 SQLite에 세션 조회 해시·방·획득·재고·멱등 영수증을 저장하고 원래 만료 범위에서 복원한다. 프로그램에서 dbPath/stateStore를 생략한 시험 서버는 메모리 전용이다. [영속화 계약](persistence.md)을 따른다.
 
@@ -28,8 +29,8 @@ MapLibre 위젯이나 SDK 화면 구현은 앱 팀 범위다. 서버는 지도 �
 
 | 메서드·경로 | 호출자 | 성공 응답·핵심 처리 |
 | --- | --- | --- |
-| GET `/healthz` | 공개 | 200: ok=true, protocol, contractRevision=3, rooms. 저장 실패 시 503·ok=false |
-| POST `/api/session` | 공개 | 201: sessionId, token, expiresAt(Unix ms), role |
+| GET `/healthz` | 공개 | 200: ok=true, protocol, contractRevision=4. 방 개수·식별자는 비공개. 저장 실패 시 503·ok=false |
+| POST `/api/session` | 배포에 따라 본문 accessKey 필요 | 201: sessionId, token, expiresAt(Unix ms), role |
 | POST `/api/rooms` | CAR_HOST | 새 방 201 / 기존 방 코드 갱신 200: roomId, joinCode, room |
 | POST `/api/join` | PHONE | 201: roomId, memberId, pending=true, 본인만 보이는 room |
 | POST `/api/rooms/{roomId}/approve` | 해당 방 CAR_HOST | 200: 호스트 관점 room |
@@ -43,9 +44,9 @@ world 경로는 인증·승인 멤버 확인 후 POST 외 요청에 405 `METHOD_
 
 ## 방 연결 순서
 
-1. 차량: `POST /api/session {"role":"CAR_HOST","nickname":"차량"}` → 받은 토큰을 유지한다.
+1. 차량: `POST /api/session {"role":"CAR_HOST","nickname":"차량","accessKey":"별도 전달받은 테스트 키"}` → 받은 토큰을 유지한다. 로컬 서버가 키를 설정하지 않았다면 accessKey를 생략한다.
 2. 차량: `POST /api/rooms` → roomId·joinCode를 보관하고 `/ws`를 인증한다.
-3. 폰: 자기 `PHONE` 세션을 만든 뒤 `POST /api/join {"joinCode":"현재 코드","seat":"FRONT_PASSENGER"}`.
+3. 폰: 같은 accessKey로 자기 `PHONE` 세션을 만든 뒤 `POST /api/join {"joinCode":"현재 코드","seat":"FRONT_PASSENGER"}`.
 4. 차량: pending snapshot의 **memberId**로 approve를 호출한다. sessionId·token과 혼용하지 않는다.
 5. 폰: 같은 token·roomId로 WS 인증 후 snapshot을 반영한다. pending 상태에서도 연결/GET은 되지만 차량·다른 멤버·적 정보는 가려진다.
 6. 차량: 실제 신호 report를 보낸다. 주차 전투는 조건이 충족돼도 호스트의 명시적 `round.start`가 필요하다.
@@ -158,3 +159,12 @@ OpenAPI의 REST operation으로 등록하지 않았다. 연결 후 **5초 안에
 실제 제품 관제 UI는 /observer, 읽기 전용 채널은 /observer/ws다. 운영자 키로 목록을 조회하거나 자신의 방 호스트 토큰으로 연결하고 참가자별 서버 상태 재구성을 관찰한다. 실제 폰/차량 화면 픽셀 중계는 아니다. 별도 observer.auth, 이벤트·권한·만료·redaction은 [관제 계약](observer.md)에 정리했다. 관찰 접속은 게임 소켓을 교체하거나 게임 명령을 실행하지 않는다.
 
 SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 503을 반환한다. 성공 ACK·갱신 snapshot을 보내지 않고 관제도 미커밋 메모리를 읽지 못한다. 앱은 로컬 보상을 만들지 않고 재접속/재시작 후 저장된 영수증과 최신 snapshot으로 결과를 확인한다. DB를 복구하고 재시작하기 전 메모리 전용으로 우회하지 않는다.
+
+## 팀 테스트 접근키와 브라우저 연결
+
+- 서버 CLI: `ZRIDE_TEST_ACCESS_KEY`, 라이브러리: `createDemoServer({testAccessKey})`. 빈 값은 로컬 시험용 공개 게스트 발급이다. 실제 키는 환경 파일로 전달하고 명령행 인수에 넣지 않는다.
+- 전 방 관제의 `ZRIDE_OBSERVER_TOKEN`과 별개다. 관찰키로 게임 세션을 만들 수 없다. 공유 테스트 키를 아는 사람은 CAR_HOST/PHONE 둘 다 만들 수 있으므로 팀 안에서만 전달한다.
+- 차량/폰 참조 Android 앱은 마스킹된 테스트 키 입력란을 제공한다. 기본값·Intent extra·설정 저장이 없고 연결 시 입력을 비운다. 네이티브 앱의 기존 세션 토큰은 변경되지 않는다.
+- 게임 `/ws`는 Origin 없는 네이티브 클라이언트, 요청 Host와 같은 http/https 브라우저 Origin 또는 프로그램의 allowedOrigins 목록만 허용한다. 다른 사이트 Origin은 403이다.
+- 도구 `tools/demo-party.mjs`와 `deploy/persistence-smoke.mjs`는 비공개 환경 변수 `ZRIDE_TEST_ACCESS_KEY`를 읽어 세션 발급 본문에만 넣는다.
+- 외부 HTTP는 테스트 연결만 제공한다. 전송 암호화·브라우저 실제 GPS는 HTTPS/WSS 배포가 필요하다. 공개 페이지·스크린샷·노션 본문에 실제 접근키를 넣지 않는다.

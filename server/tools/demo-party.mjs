@@ -10,6 +10,7 @@ const { values } = parseArgs({ options: {
 if (values.help) {
   console.log('node tools/demo-party.mjs --base http://127.0.0.1:8001 [--durationsec 30]');
   console.log('Creates a NEW explicitly simulated TEST party through real REST/WS. No tokens are printed.');
+  console.log('Protected deployment: set ZRIDE_TEST_ACCESS_KEY in the environment, never in the command line.');
   process.exit(0);
 }
 const baseUrl = new URL(values.base);
@@ -25,6 +26,7 @@ const finished = new Promise(resolve => { finish = resolve; });
 const log = (event, detail = {}) => console.log(JSON.stringify({ event, simulated: true, source: 'SIMULATED_API_CLIENTS', ...detail }));
 
 async function post(path, body, credential) {
+  if (path === '/api/session' && process.env.ZRIDE_TEST_ACCESS_KEY) body = { ...body, accessKey: process.env.ZRIDE_TEST_ACCESS_KEY };
   const response = await fetch(base + path, {
     method: 'POST', signal: AbortSignal.timeout(8000),
     headers: { 'content-type': 'application/json', ...(credential ? { authorization: 'Bearer ' + credential } : {}) },
