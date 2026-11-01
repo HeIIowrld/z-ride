@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createWorldService } from './world.mjs';
 import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
@@ -543,7 +544,13 @@ export function createDemoServer(options = {}) {
   };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+function isDirectEntrypoint() {
+  if (!process.argv[1]) return false;
+  try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); }
+  catch { return false; }
+}
+
+if (isDirectEntrypoint()) {
   const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '' });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
   console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 3, persistence: app.persistence, exposure: 'local-debug' }));

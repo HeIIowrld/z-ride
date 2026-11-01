@@ -33,15 +33,12 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Accept SDK licenses and install API 34 build tools
-        shell: bash
-        run: |
-          set +o pipefail
-          yes | sdkmanager --licenses >/dev/null
-          sdk_status=${PIPESTATUS[1]}
-          set -o pipefail
-          test "$sdk_status" -eq 0
-          sdkmanager 'platform-tools' 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Install Android SDK command-line tools and API 34
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: '15859902'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          log-accepted-android-sdk-licenses: 'false'
       - name: Assemble and lint vehicle and phone debug APKs
         run: ./gradlew --no-daemon :carapp:assembleDebug :phoneapp:assembleDebug :carapp:lintDebug :phoneapp:lintDebug
       - name: Upload reference APKs
