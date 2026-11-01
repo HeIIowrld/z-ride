@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for tested Z-RIDE main every three minutes
+
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=180s
+RandomizedDelaySec=10s
+Unit=zride-pull.service
+
+[Install]
+WantedBy=timers.target

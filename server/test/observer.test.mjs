@@ -123,6 +123,8 @@ test('observer serves real product assets with restrictive CSP and no embedded o
     for (const path of ['/observer', '/observer/app.js', '/observer/style.css']) {
       const response = await fetch(app.base + path); assert.equal(response.status, 200);
       assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+      assert.ok(response.headers.get('content-security-policy').includes(app.base.replace('http:', 'ws:')));
+      assert.ok(response.headers.get('content-security-policy').includes(app.base.replace('http:', 'wss:')));
       const body = await response.text(); assert.ok(!body.includes('operator-test-secret'));
       if (path.endsWith('app.js')) { assert.ok(!/localStorage|sessionStorage/.test(body)); assert.ok(!/innerHTML/.test(body)); }
     }

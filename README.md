@@ -6,7 +6,7 @@
 
 ## 서버 시작
 
-Node.js 22 이상에서:
+Node.js 22.13 이상에서:
 
 ```sh
 cd server
@@ -19,13 +19,15 @@ npm start
 
 | 작업 기준 | 문서 |
 | --- | --- |
-| REST 9개·타입·요청/응답·오류 | [OpenAPI 3.1](server/openapi.json) |
+| REST 10개·타입·요청/응답·오류 | [OpenAPI 3.1](server/openapi.json) |
 | WS 메시지·승인·역할·재접속 | [앱 팀 연동 계약](server/docs/client-handoff.md), [protocol.json](server/protocol.json) |
 | 지도 데이터·위치·수집 판정 | [world API 결정 기록](server/docs/ADR-003-phone-world.md) |
 | Docker·접속 주소·운영 한계 | [인프라 인계서](server/docs/infra-runbook.md) |
 | 연결 유지·EOF 조사 | [연결 감사](server/docs/connection-audit.md) |
 
-GitHub Actions는 서버·계약 테스트, Docker/Compose의 정상 재시작·강제 종료·볼륨 복구를 검증한다. 신뢰된 main CI가 성공하면 전용 runner가 Proxmox LXC의 서비스를 갱신한다. DB는 배포 디렉터리와 분리된 SQLite 파일에 두며 방·참가 승인·재고·중복 지급 원장이 재시작 뒤에도 유지된다. [영속성 설계](server/docs/persistence.md), [실제 배포 절차](server/docs/deployment.md)를 따른다.
+GitHub Actions는 서버·계약 테스트, Docker/Compose의 정상 재시작·강제 종료·볼륨 복구를 검증한다. 공개 저장소의 PR은 GitHub-hosted runner에서만 실행한다. Proxmox LXC는 별도 pull timer로 같은 리포의 main CI 성공 SHA만 가져와 서비스를 갱신한다. DB는 배포 디렉터리와 분리된 SQLite 파일에 두며 방·참가 승인·재고·중복 지급 원장이 재시작 뒤에도 유지된다. [영속성 설계](server/docs/persistence.md), [실제 배포 절차](server/docs/deployment.md)를 따른다.
+
+팀 테스트 서버는 `http://afsd.iptime.org:8000`이다. 아이폰·Android·PC에서 `/play`를 열어 설치 없이 PHONE 역할로 참가하고 `/observer`에서 관제한다. 세션 생성에는 별도 전달받은 테스트 접근키가 필요하고 관제는 다른 읽기 전용 관찰키를 쓴다. 키·토큰·참가 코드를 공개 이슈나 URL에 적지 않는다. 현재 HTTP에서는 실제 위치 대신 데모 수집으로 통신을 시험한다. Safari의 실제 위치 사용은 HTTPS 배포가 필요하며 실물 아이폰 검증은 별도다.
 
 ## 실시간 관제
 
@@ -71,7 +73,7 @@ Android 변경은 별도 워크플로에서 차량·폰 APK를 빌드·lint하�
 
 차량·폰 AVD는 화면 없이 `-no-window -no-snapshot`으로 부팅해 ADB와 테스트 Intent로 시험할 수 있다. 설치 후 신호 테스트에 데스크톱 클릭은 필요 없다. SDK의 실제 기본 명령은 설치·검증 보고서에 기록한다.
 
-로컬 서버는 기본 `127.0.0.1:8000`, AVD 앱은 호스트 별칭 `http://10.0.2.2:8000`을 사용한다. CLI 기본 DB는 `data/zride.sqlite`, 배포 환경은 `/var/lib/zride/zride.sqlite`다. 현재 HTTP/WS는 사설망 데모용이며 외부 공개에는 HTTPS/WSS·차량 등록 신뢰 등이 추가로 필요하다. 게스트 토큰은 기존 8시간 만료 정책을 유지하므로 영속 저장이 무기한 로그인이나 계정 복구를 뜻하지 않는다.
+로컬 서버는 기본 `127.0.0.1:8000`, AVD 앱은 호스트 별칭 `http://10.0.2.2:8000`을 사용한다. CLI 기본 DB는 `data/zride.sqlite`, 배포 환경은 `/var/lib/zride/zride.sqlite`다. 외부 팀 테스트에는 `ZRIDE_TEST_ACCESS_KEY`를 설정한다. HTTPS/WSS·차량 등록 신뢰는 실제 위치·상용 환경의 추가 과제다. 게스트 토큰은 기존 8시간 만료 정책을 유지하므로 영속 저장이 무기한 로그인이나 계정 복구를 뜻하지 않는다.
 
 ## 차량 신호·권한
 

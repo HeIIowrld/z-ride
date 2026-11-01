@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.2.0-revision3",
+    "version": "0.2.0-revision4",
     "description": "Implemented server/world/storage/observer contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
   },
   "servers": [
@@ -46,7 +46,7 @@
           "Health"
         ],
         "summary": "Read public process health",
-        "description": "Public process health; rooms counts currently loaded rooms. A failed durable write poisons this process: 503 with ok=false until database access is restored and the server restarts. Does not attest app/GPS/vehicle connectivity.",
+        "description": "Public process health only; room counts and room identities are not exposed. A failed durable write poisons this process: 503 with ok=false until database access is restored and the server restarts. Does not attest app/GPS/vehicle connectivity.",
         "responses": {
           "200": {
             "description": "Server is running",
@@ -58,8 +58,7 @@
                 "example": {
                   "ok": true,
                   "protocol": "zride-demo-v1",
-                  "contractRevision": 3,
-                  "rooms": 0
+                  "contractRevision": 4
                 }
               }
             }
@@ -100,8 +99,7 @@
                 "example": {
                   "ok": false,
                   "protocol": "zride-demo-v1",
-                  "contractRevision": 3,
-                  "rooms": 1
+                  "contractRevision": 4
                 }
               }
             }
@@ -118,7 +116,7 @@
           "Session"
         ],
         "summary": "Create an 8-hour guest demo session",
-        "description": "No password, refresh, logout or device attestation. Limit 500 retained sessions; expired entries are not automatically removed. Unknown request keys are ignored.",
+        "description": "Guest enrollment, not device attestation. When ZRIDE_TEST_ACCESS_KEY (programmatic testAccessKey) is configured, body.accessKey must match or 401 TEST_ACCESS_REQUIRED is returned. No per-user account, refresh, logout or device attestation. Limit 500 retained sessions; expired entries are not automatically removed. Unknown request keys are ignored. The shared test key is never returned or stored in durable game state; subsequent APIs use the newly issued Bearer token.",
         "responses": {
           "201": {
             "description": "Session created",
@@ -214,6 +212,25 @@
             },
             "x-error-codes": [
               "INTERNAL_ERROR"
+            ]
+          },
+          "401": {
+            "description": "Missing or invalid shared team test key when enrollment protection is configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "TEST_ACCESS_REQUIRED",
+                    "message": "Valid team test access key required"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "TEST_ACCESS_REQUIRED"
             ]
           }
         },
@@ -2227,18 +2244,13 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 3
-          },
-          "rooms": {
-            "type": "integer",
-            "minimum": 0
+            "const": 4
           }
         },
         "required": [
           "ok",
           "protocol",
-          "contractRevision",
-          "rooms"
+          "contractRevision"
         ]
       },
       "SessionRequest": {
@@ -2255,13 +2267,20 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 24
+          },
+          "accessKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "writeOnly": true,
+            "description": "Required at runtime when ZRIDE_TEST_ACCESS_KEY is configured. Shared team test enrollment key, supplied privately. Keep out of URLs, logs, browser persistent storage and source code. Distinct from read-only observer key."
           }
         },
         "required": [
           "role",
           "nickname"
         ],
-        "description": "Guest demo enrollment, not account login or trusted vehicle authentication. Nickname is not trimmed."
+        "description": "Guest demo enrollment, not account login or trusted vehicle authentication. Nickname is not trimmed. accessKey is conditionally required by deployment configuration."
       },
       "Session": {
         "type": "object",
@@ -3392,18 +3411,13 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 3
-          },
-          "rooms": {
-            "type": "integer",
-            "minimum": 0
+            "const": 4
           }
         },
         "required": [
           "ok",
           "protocol",
-          "contractRevision",
-          "rooms"
+          "contractRevision"
         ]
       },
       "ObserverRoomSummary": {
@@ -3499,11 +3513,10 @@
     "roomMembers": 4,
     "pairingTtlMs": 120000,
     "worldReceiptsPerMember": 10000,
-    "storage": "memory-only; no automatic claim/receipt retention cleanup; restart loses sessions, rooms, supplies and rewards"
+    "storage": "Single-instance durable SQLite checkpoint when dbPath/stateStore is configured (CLI defaults to data/zride.sqlite); programmatic no-store mode is ephemeral. No automatic claim/receipt retention cleanup."
   },
   "x-not-implemented": [
     "TLS/reverse proxy deployment",
-    "database and durable rewards",
     "production vehicle/account authentication",
     "refresh/logout/deletion endpoints",
     "charger feed and charger API",

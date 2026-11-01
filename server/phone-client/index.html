@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09121b">
+  <title>Z-RIDE · 동승자</title>
+  <link rel="stylesheet" href="/play/style.css">
+  <script src="/play/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><a class="wordmark" href="/play">Z<span>—</span>RIDE</a><span class="tag">PASSENGER / TEST</span></header>
+    <div id="connection" class="connection" role="status">방에 참가해 주세요</div>
+    <section id="login-panel" class="panel login">
+      <p class="eyebrow">SQUAD LINK</p><h1>같이 타고, 같이 지킨다.</h1>
+      <p class="subtle">아이폰 Safari에서도 동승자 역할로 참가할 수 있음. 차량 앱에서 참가 코드를 받아 입력해 주세요.</p>
+      <form id="join-form">
+        <label>테스트 접근키<input id="access-key" type="password" maxlength="1024" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="별도로 받은 팀 테스트 키"></label>
+        <label>닉네임<input id="nickname" required maxlength="24" autocomplete="off" placeholder="누가 탔는지 알려 주세요"></label>
+        <div class="form-row"><label>참가 코드<input id="join-code" required minlength="10" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="10자리 코드"></label>
+          <label>앉은 자리<select id="seat"><option value="REAR_LEFT">뒤 왼쪽 · 좌측 방어</option><option value="REAR_RIGHT">뒤 오른쪽 · 우측 방어</option><option value="FRONT_PASSENGER">앞 동승석 · 전방 사수</option></select></label></div>
+        <label class="check"><input id="passenger-confirm" type="checkbox" required><span>운전자가 아닌 동승자임을 확인함. 운전 중에는 조작하지 않음.</span></label>
+        <button id="join-button" class="primary" type="submit">방 참가하기 <span>↗</span></button>
+      </form>
+      <p id="form-error" class="error" role="alert"></p>
+      <p class="footnote">테스트 클라이언트 · 접속 정보는 이 페이지를 닫거나 새로고침하면 사라짐.</p>
+    </section>
+
+    <section id="game" hidden>
+      <div class="squad-head"><div><p class="eyebrow">CONNECTED SQUAD</p><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">연결 종료</button></div>
+      <section id="pending-panel" class="panel" hidden><h2>차량에서 자리 확인 중</h2><p class="subtle">차량 앱에서 이 참가자를 승인하면 수집과 전투에 참여할 수 있음.</p></section>
+      <section id="approved-content" hidden>
+        <div class="status-grid"><article class="panel stat"><span>공동 전투</span><strong id="battle-state">대기</strong><small id="battle-reason"></small></article><article class="panel stat"><span>공동 보급품</span><strong><b id="supplies">0</b><em>개</em></strong><small id="support-state">차량 지원 대기</small></article></div>
+        <section class="panel battle-panel">
+          <div class="section-heading"><h2>내 방어 구역</h2><span id="sector-label" class="pill"></span></div>
+          <div class="radar-wrap"><canvas id="radar" width="600" height="600" aria-label="차량 기준 방어 구역과 좀비 위치"></canvas><span class="radar-caption">전방 0° · 오른쪽 +90° · 후방 ±180°</span></div>
+          <div id="targets" class="targets"></div>
+          <label class="angle-label" for="angle">조준 각도 <output id="angle-value">−100°</output></label>
+          <input id="angle" type="range" min="-180" max="180" step="1" value="-100">
+          <p id="aim-message" class="subtle aim-message"></p>
+          <button id="fire-button" class="primary fire" type="button" disabled>사격 <span>⌖</span></button>
+        </section>
+        <section class="panel collection-panel"><div class="section-heading"><h2>이동 중 보급 수집</h2><span class="pill amber">DEMO</span></div><p class="subtle">동승자는 공동 전투가 멈춰 있어도 수집할 수 있음. 아래 상자는 GPS를 사용하지 않는 테스트 지점임.</p><div id="pickups" class="pickups"></div><p class="footnote">실제 지도·주변 충전소·위치 인증은 이 브라우저 버전에 연결되지 않음.</p></section>
+        <section class="panel squad-panel"><div class="section-heading"><h2>같은 방 참가자</h2><span id="participant-count" class="pill"></span></div><ul id="members"></ul><p id="room-meta" class="footnote"></p></section>
+      </section>
+      <p id="action-result" class="action-result" role="status" aria-live="polite"></p>
+    </section>
+    <footer>Z-RIDE / PHONE REFERENCE CLIENT <a href="/observer">관제 ↗</a></footer>
+  </main>
+</body>
+</html>

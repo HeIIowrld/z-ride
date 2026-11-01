@@ -28,7 +28,7 @@ public final class RoomClient {
     private volatile long generation;
     public RoomClient(Listener listener) { this.listener = listener; }
 
-    public void connect(String baseUrl, boolean car, String nickname, String joinCode, String seat) {
+    public void connect(String baseUrl, boolean car, String nickname, String joinCode, String seat, String accessKey) {
         final long attempt=++generation;
         io.execute(() -> {
             try {
@@ -39,7 +39,9 @@ public final class RoomClient {
                 if (parsed == null || !(parsed.scheme().equals("http") || parsed.scheme().equals("https")))
                     throw new IOException("Invalid HTTP server URL");
                 listener.onStatus("Connecting to server");
-                JSONObject session = post("/api/session", new JSONObject().put("role", car ? "CAR_HOST" : "PHONE").put("nickname", nickname), false);
+                JSONObject enrollment = new JSONObject().put("role", car ? "CAR_HOST" : "PHONE").put("nickname", nickname);
+                if (accessKey != null && !accessKey.isEmpty()) enrollment.put("accessKey", accessKey);
+                JSONObject session = post("/api/session", enrollment, false);
                 token = session.getString("token");
                 sessionId = session.getString("sessionId");
                 JSONObject joined = car ? post("/api/rooms", new JSONObject(), true)

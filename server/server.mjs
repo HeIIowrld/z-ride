@@ -1,11 +1,12 @@
 import http from 'node:http';
-import { randomBytes, randomUUID, createHash } from 'node:crypto';
+import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createWorldService } from './world.mjs';
 import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
 import { createObserverService } from './observer.mjs';
+import { createPhoneClientService } from './phone-client.mjs';
 import { resolve } from 'node:path';
 
 export const SECTORS = Object.freeze(Object.assign(Object.create(null), {
@@ -34,6 +35,10 @@ const angularDistance = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 const asText = (value, max = 128) => typeof value === 'string' && value.length > 0 && value.length <= max;
 
 export function createDemoServer(options = {}) {
+  const phoneClient = createPhoneClientService();
+  const testAccessKey = options.testAccessKey ?? '';
+  if (typeof testAccessKey !== 'string' || testAccessKey.length > 1024) throw new Error('testAccessKey must be a string up to 1024 characters');
+  const testAccessDigest = testAccessKey ? createHash('sha256').update(testAccessKey).digest() : null;
   const leaseMs = options.leaseMs ?? 6000;
   const pairingTtlMs = options.pairingTtlMs ?? 120000;
   const maxReceipts = options.maxReceiptsPerMember ?? 10000;
@@ -264,12 +269,14 @@ export function createDemoServer(options = {}) {
     try {
       rateLimit('http:' + req.socket.remoteAddress);
       const path = new URL(req.url, 'http://localhost').pathname;
-      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 3, rooms: rooms.size });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 4 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
+      if (phoneClient.handleHttp(req, res, path)) return;
       const body = req.method === 'POST' && path !== '/api/rooms' ? await readJson(req) : null;
       return atomic(() => {
       if (req.method === 'POST' && path === '/api/session') {
+        if (testAccessDigest && !(asText(body.accessKey, 1024) && timingSafeEqual(testAccessDigest, createHash('sha256').update(body.accessKey).digest()))) throw fail('TEST_ACCESS_REQUIRED', 'Valid team test access key required', 401);
         if (sessions.size >= 500) throw fail('SESSION_LIMIT', 'Demo session limit', 503);
         if (!['CAR_HOST', 'PHONE'].includes(body.role)) throw fail('INVALID_ROLE', 'CAR_HOST or PHONE required');
         if (!asText(body.nickname, 24)) throw fail('INVALID_NICKNAME', 'Nickname 1..24 characters');
@@ -360,7 +367,12 @@ export function createDemoServer(options = {}) {
     if (observers.handleUpgrade(req, socket, head)) return;
     if (new URL(req.url, 'http://localhost').pathname !== '/ws') { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
     const origin = req.headers.origin;
-    if (origin && !['http://127.0.0.1:8000', 'http://localhost:8000'].includes(origin)) { socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return; }
+    let allowedOrigin = !origin || (options.allowedOrigins ?? []).includes(origin);
+    if (origin && !allowedOrigin) {
+      try { const parsed = new URL(origin); allowedOrigin = ['http:', 'https:'].includes(parsed.protocol) && parsed.host === req.headers.host; }
+      catch { /* Reject malformed browser origins. */ }
+    }
+    if (!allowedOrigin) { socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); return; }
     if (sockets.size >= 100) { socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n'); socket.destroy(); return; }
     wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
   });
@@ -551,8 +563,8 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '' });
+  const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '' });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 3, persistence: app.persistence, exposure: 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 4, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }

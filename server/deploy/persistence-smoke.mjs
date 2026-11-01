@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 
 // CI-only fixture: credentials go to RUNNER_TEMP, never stdout or artifacts.
+// Protected deployment: pass ZRIDE_TEST_ACCESS_KEY as a private environment value.
 const mode = process.argv[2];
 const base = process.env.ZRIDE_SMOKE_BASE_URL ?? 'http://127.0.0.1:18000';
 const stateFile = process.env.ZRIDE_SMOKE_STATE_FILE;
 if (!stateFile) throw new Error('ZRIDE_SMOKE_STATE_FILE must name a private temporary file');
 if (!['seed', 'verify', 'health'].includes(mode)) throw new Error('Expected seed, verify, or health');
 async function request(path, body, token, method = 'POST') {
+  if (path === '/api/session' && process.env.ZRIDE_TEST_ACCESS_KEY) body = { ...body, accessKey: process.env.ZRIDE_TEST_ACCESS_KEY };
   const response = await fetch(base + path, {
     method, signal: AbortSignal.timeout(5000),
     headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },

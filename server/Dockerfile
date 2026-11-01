@@ -13,6 +13,7 @@ COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY --chown=node:node *.mjs ./
 COPY --chown=node:node observer/ ./observer/
+COPY --chown=node:node phone-client/ ./phone-client/
 RUN mkdir -p /data && chown node:node /data && chmod 700 /data
 
 USER node
