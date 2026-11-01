@@ -7,6 +7,7 @@ import { createWorldService } from './world.mjs';
 import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
 import { createObserverService } from './observer.mjs';
 import { createPhoneClientService } from './phone-client.mjs';
+import { createEffectsService } from './effects.mjs';
 import { resolve } from 'node:path';
 
 export const SECTORS = Object.freeze(Object.assign(Object.create(null), {
@@ -43,6 +44,7 @@ export function createDemoServer(options = {}) {
   const pairingTtlMs = options.pairingTtlMs ?? 120000;
   const maxReceipts = options.maxReceiptsPerMember ?? 10000;
   const world = createWorldService({ clock: options.worldClock ?? Date.now, maxReceipts });
+  const effects = createEffectsService({ clock: options.effectsClock ?? Date.now });
   const sessions = new Map();
   const rooms = new Map();
   const joinCodes = new Map();
@@ -135,6 +137,7 @@ export function createDemoServer(options = {}) {
     getRoom: id => storageFailed ? undefined : rooms.get(id),
     getRooms: () => storageFailed ? [] : rooms.values(),
     getGate: room => storageFailed ? { allowed: false, reasons: ['STORAGE_UNAVAILABLE'] } : gate(room),
+    getEffects: room => storageFailed ? null : effects.snapshot(room.roomId),
     operatorToken: options.observerToken ?? '',
     allowedOrigins: options.observerAllowedOrigins ?? [],
   });
@@ -177,6 +180,23 @@ export function createDemoServer(options = {}) {
     if (v.gear !== 'P') reasons.push(v.gear === 'UNKNOWN' ? 'GEAR_UNKNOWN' : 'GEAR_NOT_P');
     return { allowed: reasons.length === 0, reasons };
   }
+  function effectHost(room) { return [...room.members.values()].find(member => member.role === 'CAR_HOST'); }
+  function effectContext(room, actor = effectHost(room)) {
+    const host = effectHost(room); const socket = host?.socket;
+    const live = socket?.readyState === WebSocket.OPEN && socket.effectExpiresAt > Date.now();
+    const g = gate(room);
+    return { roomId: room.roomId, roomEpoch: room.roomEpoch, state: room.state,
+      role: actor?.role, connectionId: live ? socket.effectConnectionId : null,
+      gate: live ? g : { allowed: false, reasons: [...g.reasons, 'CAR_DISCONNECTED'] } };
+  }
+  function queueEffectEvents(room, outcome, target = effectHost(room)?.socket) {
+    if (target) for (const event of outcome.events ?? []) send(target, event);
+  }
+  function applyEffects(room, outcome) {
+    queueEffectEvents(room, outcome);
+    if (outcome.changed) change(room);
+    return { effects: effects.snapshot(room.roomId), data: outcome.data, replayed: outcome.replayed === true };
+  }
   function snapshot(room, viewer) {
     if (!viewer.approved) {
       return {
@@ -214,6 +234,7 @@ export function createDemoServer(options = {}) {
         eligibility: viewer.role === 'CAR_HOST' ? 'DRIVER_CANNOT_COLLECT' : 'APPROVED_ROLE_AND_PASSENGER_SELF_DECLARATION_ONLY',
       },
       zombies: room.zombies.map(z => ({ ...z })),
+      effects: effects.snapshot(room.roomId),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
       serverTime: Date.now(),
@@ -235,7 +256,11 @@ export function createDemoServer(options = {}) {
     }
     observers.broadcast(room);
   }
-  function change(room) { room.stateVersion++; broadcast(room); }
+  function change(room) {
+    room.stateVersion++;
+    queueEffectEvents(room, effects.tick(effectContext(room)));
+    broadcast(room);
+  }
   function pause(room, reason) {
     if (room.state === 'PLAYING') {
       room.state = 'PAUSED'; room.roomEpoch++; room.pauseReason = reason;
@@ -269,7 +294,7 @@ export function createDemoServer(options = {}) {
     try {
       rateLimit('http:' + req.socket.remoteAddress);
       const path = new URL(req.url, 'http://localhost').pathname;
-      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 4 });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 5 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
       if (phoneClient.handleHttp(req, res, path)) return;
@@ -336,6 +361,19 @@ export function createDemoServer(options = {}) {
         room.members.set(session.sessionId, member); session.roomId = room.roomId; room.joinUsed = true;
         change(room);
         return result(res, 201, { roomId: room.roomId, memberId: member.memberId, pending: true, room: snapshot(room, member) });
+      }
+      const effectRoute = path.match(/^\/api\/rooms\/([^/]+)\/effects(?:\/(session|scene|cue|stop))?$/);
+      if (effectRoute) {
+        const room = roomFor(effectRoute[1]); const member = memberFor(room, session);
+        if (req.method === 'GET' && !effectRoute[2]) {
+          applyEffects(room, effects.tick(effectContext(room)));
+          return result(res, 200, { effects: effects.snapshot(room.roomId) });
+        }
+        if (req.method !== 'POST' || !effectRoute[2]) throw fail('METHOD_NOT_ALLOWED', 'Use the documented effects method', 405);
+        requireHost(room, session);
+        const operation = effectRoute[2];
+        const outcome = effects[operation](effectContext(room, member), body);
+        return result(res, 200, applyEffects(room, outcome));
       }
       const match = path.match(/^\/api\/rooms\/([^/]+)(?:\/(approve))?$/);
       if (match) {
@@ -482,15 +520,20 @@ export function createDemoServer(options = {}) {
           const session = findSession(message.token);
           if (!session || session.expiresAt <= Date.now()) throw fail('AUTH_EXPIRED', 'Invalid session', 401);
           const room = roomFor(message.roomId); const member = memberFor(room, session, false);
-          if (member.socket && member.socket !== ws) closeSocket(member.socket, 4409, 'Connection replaced');
+          if (member.socket && member.socket !== ws) {
+            if (member.role === 'CAR_HOST') queueEffectEvents(room, effects.stop(effectContext(room), 'CONNECTION_REPLACED'), member.socket);
+            closeSocket(member.socket, 4409, 'Connection replaced');
+          }
           member.socket = ws; current = { session, room, member }; clearTimeout(authTimer);
           if (member.role === 'CAR_HOST') {
+            ws.effectConnectionId = randomUUID(); ws.effectExpiresAt = session.expiresAt;
             member.lastReportSeq = 0;
             pause(room, 'VEHICLE_RECONNECTED'); room.vehicle.receivedAt = 0; room.vehicle.hostConnected = true;
             room.vehicle.ux = 'UNKNOWN'; room.vehicle.gear = 'UNKNOWN';
             room.vehicle.foreground = false;
           }
-          send(ws, { type: 'auth.ok', sessionId: session.sessionId, memberId: member.memberId });
+          send(ws, { type: 'auth.ok', sessionId: session.sessionId, memberId: member.memberId,
+            ...(member.role === 'CAR_HOST' ? { vehicleConnectionId: ws.effectConnectionId } : {}) });
           change(room); return;
         }
         const { session, room, member } = current;
@@ -498,6 +541,17 @@ export function createDemoServer(options = {}) {
         if (session.expiresAt <= Date.now()) { closeSocket(ws, 4401, 'Session expired'); return; }
         rateLimit('ws:' + session.sessionId, 120);
         if (!asText(message.commandId, 128)) throw fail('COMMAND_ID_REQUIRED', 'Unique commandId required');
+        if (message.type === 'vehicle.effect.report') {
+          let response;
+          try {
+            const data = applyEffects(room, effects.report(effectContext(room, member), message));
+            response = { type: 'result', commandId: message.commandId, ok: true, data, roomEpoch: room.roomEpoch };
+          } catch (error) {
+            response = { type: 'result', commandId: message.commandId, ok: false,
+              error: { code: error.code ?? 'INTERNAL_ERROR', message: error.code ? error.message : 'Internal error' }, roomEpoch: room.roomEpoch };
+          }
+          send(ws, response); return;
+        }
         const fingerprint = hash(message);
         const receipt = member.receipts.get(message.commandId);
         if (receipt) {
@@ -532,6 +586,12 @@ export function createDemoServer(options = {}) {
     for (const room of rooms.values()) if (!storageFailed && room.state === 'PLAYING' && !gate(room).allowed) {
       try { atomic(() => pause(room, gate(room).reasons.join(','))); } catch {}
     }
+    if (!storageFailed) for (const room of rooms.values()) {
+      try {
+        const outcome = effects.tick(effectContext(room));
+        if (outcome.changed) atomic(() => applyEffects(room, outcome));
+      } catch {}
+    }
     for (const room of rooms.values()) for (const member of room.members.values()) world.pruneQuality(member);
     for (const [key, value] of requestBuckets) if (value.until < Date.now()) requestBuckets.delete(key);
   }, 250);
@@ -565,6 +625,6 @@ function isDirectEntrypoint() {
 if (isDirectEntrypoint()) {
   const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '' });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 4, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 5, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }

@@ -1,4 +1,6 @@
-# 앱 팀 전달용 서버 연결 계약 — revision 4
+# 앱 팀 전달용 서버 연결 계약 — revision 5
+
+revision 5는 기존 계약에 4D 효과 REST 5개와 현재 차량 WS 실행 보고를 추가한다. 현재 전체 REST는 15개다. 효과 API·payload·만료·재접속·물리 실행의 경계는 [차량 효과 계약](vehicle-effects.md)을 따른다. 기존 참조 Android 앱의 SDK setter는 이번 서버 변경에 포함되지 않는다.
 
 2026-11-01. 현재 `server.mjs`·`world.mjs`·`protocol.json`에서 확인한 **구현된 로컬 데모 계약**이다. REST의 타입·필수값·예제·응답·오류는 [OpenAPI 3.1](../openapi.json), WS는 아래 별도 부록과 [protocol.json](../protocol.json)을 기준으로 한다. 제안 경로를 구현된 API처럼 추가하지 않았다.
 
@@ -23,13 +25,13 @@ MapLibre 위젯이나 SDK 화면 구현은 앱 팀 범위다. 서버는 지도 �
 - `/healthz`, `/api/session` 외 REST에는 `Authorization: Bearer <token>`을 넣는다. `/api/observer/rooms`는 게임 토큰 대신 별도 운영자 관찰키를 사용한다. 토큰은 URL·지도 요청·로그에 넣지 않는다. 현재 구현은 `Bearer ` 접두사를 정확히 검사한다.
 - 세션 유효기간은 8시간이며 refresh/logout/삭제 API는 없다. CLI는 SQLite에 세션 조회 해시·방·획득·재고·멱등 영수증을 저장하고 원래 만료 범위에서 복원한다. 프로그램에서 dbPath/stateStore를 생략한 시험 서버는 메모리 전용이다. [영속화 계약](persistence.md)을 따른다.
 
-## REST 10개 — 구현된 경로만
+## 기존 REST 10개 — 구현된 경로만
 
 모든 성공/오류 본문은 JSON이며, 오류 모양은 `{"error":{"code":"MEMBER_PENDING","message":"Waiting for vehicle approval"}}`이다. 본문을 파싱하는 경로는 JSON 객체·최대 16KiB를 받는다. `POST /api/rooms`는 본문을 읽지 않는다.
 
 | 메서드·경로 | 호출자 | 성공 응답·핵심 처리 |
 | --- | --- | --- |
-| GET `/healthz` | 공개 | 200: ok=true, protocol, contractRevision=4. 방 개수·식별자는 비공개. 저장 실패 시 503·ok=false |
+| GET `/healthz` | 공개 | 200: ok=true, protocol, contractRevision=5. 방 개수·식별자는 비공개. 저장 실패 시 503·ok=false |
 | POST `/api/session` | 배포에 따라 본문 accessKey 필요 | 201: sessionId, token, expiresAt(Unix ms), role |
 | POST `/api/rooms` | CAR_HOST | 새 방 201 / 기존 방 코드 갱신 200: roomId, joinCode, room |
 | POST `/api/join` | PHONE | 201: roomId, memberId, pending=true, 본인만 보이는 room |

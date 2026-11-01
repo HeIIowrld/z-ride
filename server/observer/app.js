@@ -110,7 +110,35 @@ function render() {
   const member = shot && room.members.find(value => value.memberId === shot.memberId);
   $('last-action').textContent = shot ? (member?.nickname || '참가자') + ' · ' + shot.angleDeg + '° · ' + (shot.accepted ? shot.hit ? '명중 / 피해 ' + shot.damage : '빗나감' : '허용 범위 밖 사격 거절') : '아직 사격 기록이 없습니다.';
   $('support-state').textContent = room.stats.supportActive ? '지원 효과 ×' + room.stats.supportDamage : '지원 대기';
+  renderEffects();
   renderPlayers();
+}
+function renderEffects() {
+  const effects = room.effects;
+  const channels = { AIRFLOW: '바람', AMBIENT: '실내 조명', AUDIO: '음향' };
+  const cues = { DRIVE_WIND: '가상 주행', DANGER: '위험', HIT: '피격', ESCAPE: '탈출' };
+  const statuses = { ISSUED: '의도 발행 · SDK 미확인', RECEIVED: '차량 수신 · SDK 미확인', DISPATCHED: '설정 호출 · SDK 미확인', APPLIED_CONFIRMED: '차량 보고: SDK 값 확인', UNSUPPORTED: '미지원', REJECTED_GATE: '차량 조건 거절', USER_OVERRIDDEN: '사용자 조작 우선', FAILED: '실행 실패', STOPPED: '중지' };
+  const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+  const observed = value => value === null || value === undefined ? '관측값 없음' : '관측값 ' + String(value).slice(0, 80);
+  $('effects-enabled').textContent = effects?.enabled ? '활성화' : '꺼짐';
+  $('effects-enabled').classList.toggle('enabled', effects?.enabled === true);
+  $('effects-scene').textContent = effects?.sceneId ? 'SCENE ' + effects.sceneId : '장면 없음';
+  $('effects-speed').textContent = finite(effects?.virtualSpeedMps).toFixed(1) + ' m/s';
+  $('effects-channels').textContent = effects?.channels?.length ? effects.channels.map(channel => channels[channel] || channel).join(' · ') + ' / ' + Math.round(finite(effects.maxIntensity01) * 100) + '%' : '활성 채널 없음';
+  const report = effects?.lastReport;
+  $('effects-report').textContent = report ? (statuses[report.status] || report.status) + ' · ' + observed(report.observedValue) : 'SDK 미확인';
+  $('effects-stop').textContent = effects?.lastStopReason || '—';
+  const active = effects?.active || [];
+  const items = active.map(effect => {
+    const item = document.createElement('li');
+    const name = document.createElement('b'); name.textContent = (channels[effect.channel] || effect.channel) + ' · ' + (cues[effect.cue] || effect.cue);
+    const intensity = document.createElement('span'); intensity.textContent = '강도 ' + Math.round(finite(effect.intensity01) * 100) + '%';
+    const state = document.createElement('span'); state.textContent = statuses[effect.status] || effect.status;
+    const value = document.createElement('small'); value.textContent = observed(effect.observedValue);
+    item.append(name, intensity, state, value); return item;
+  });
+  if (!items.length) { const item = document.createElement('li'); item.className = 'effects-empty'; item.textContent = '현재 유효한 효과 의도 없음'; items.push(item); }
+  $('effects-active').replaceChildren(...items);
 }
 function renderPlayers() {
   if (!room) return;
