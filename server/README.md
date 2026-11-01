@@ -1,6 +1,8 @@
 # Z-RIDE 최소 방 서버
 
-revision 5: 방별 `/effects` 조회와 `session / scene / cue / stop` POST, 현재 CAR_HOST WebSocket의 `vehicle.effect.report`를 구현했다. 서버는 가상 속도·장면을 4D 효과 의도로 전달하고, 실제 SDK 실행은 차량 앱이 로컬 조건을 확인해 수행한다. 현재 참조 Android 앱에는 이 native 실행기가 없으므로 실제 풍량·조명 제어 완료로 보지 않는다. [4D 차량 효과 API](docs/vehicle-effects.md)
+revision 6: 서버가 시나리오·임무 단계·역할·목표 기여·가상 이동과 공조·벨트·에너지 관측 상태를 관리한다. 조회 2개와 게임 POST 4개를 추가해 전체 REST는 21개다. 앱 팀은 입력·센서 관측을 보내고 서버 snapshot을 화면에 반영한다. [서버 상태 계약·시연 방법](docs/server-state.md)
+
+4D 효과는 방별 `/effects` 조회와 `session / scene / cue / stop` POST, 현재 CAR_HOST WebSocket의 `vehicle.effect.report`로 처리한다. heist 임무의 장면·속도는 서버 게임 상태에서 연결한다. 실제 SDK 실행은 차량 앱이 로컬 조건을 확인해 수행하며, 현재 참조 Android 앱에는 이 native 실행기가 없다. [4D 차량 효과 API](docs/vehicle-effects.md)
 
 현재 CLI 서버는 SQLite에 방·세션 해시·승인·재고·진행·중복 지급 기록을 저장한다. 재시작 때 연결/차량 lease를 초기화하고, 진행 중 전투를 PAUSED로 복구한다. 저장 실패는 503으로 차단하며 성공 응답과 방송은 커밋 후에만 전송한다. 테스트용 `createDemoServer()`는 dbPath를 생략하면 메모리 모드다. [영속성](docs/persistence.md)
 

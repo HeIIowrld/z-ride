@@ -11,7 +11,7 @@
       "response": {
         "ok": "boolean",
         "protocol": "zride-demo-v1",
-        "contractRevision": 5
+        "contractRevision": 6
       }
     },
     {
@@ -42,7 +42,8 @@
         "roomId": "uuid",
         "joinCode": "single-use 10-char code, 120s TTL",
         "room": "snapshot"
-      }
+      },
+      "note": "Optional bounded JSON object body is consumed; empty body means {}. Fields are unused. Malformed/non-object JSON returns 400; >16 KiB returns 413."
     },
     {
       "method": "POST",
@@ -162,7 +163,8 @@
         "effects": "current ephemeral summary",
         "data": "logical result",
         "replayed": "optional boolean; never re-emits effects"
-      }
+      },
+      "note": "Manual scene only for generic-coop-v1; heist-demo-v1 returns 409 GAME_SCENE_MANAGED because server game state owns scene and speed."
     },
     {
       "method": "POST",
@@ -184,6 +186,67 @@
         "effects": "current ephemeral summary",
         "data": "logical result",
         "replayed": "optional boolean; never re-emits effects"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/scenarios",
+      "auth": "any game Bearer session",
+      "response": {
+        "scenarios": "server scenario definitions"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/rooms/{roomId}/state",
+      "auth": "approved room member Bearer",
+      "response": {
+        "room": "approved composite snapshot",
+        "serverTime": "Unix ms"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/game/configure",
+      "auth": "CAR_HOST, not PLAYING",
+      "bodySchema": "GameConfigureRequest",
+      "response": {
+        "room": "current approved snapshot",
+        "data": "logical command outcome",
+        "replayed": "boolean"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/game/input",
+      "auth": "current CAR_HOST driverSessionId",
+      "bodySchema": "GameInputRequest",
+      "response": {
+        "room": "current approved snapshot",
+        "data": "logical command outcome",
+        "replayed": "boolean"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/game/advance",
+      "auth": "CAR_HOST",
+      "bodySchema": "GameAdvanceRequest",
+      "response": {
+        "room": "current approved snapshot",
+        "data": "logical command outcome",
+        "replayed": "boolean"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/game/interact",
+      "auth": "approved PHONE",
+      "bodySchema": "GameInteractRequest",
+      "response": {
+        "room": "current approved snapshot",
+        "data": "logical command outcome",
+        "replayed": "boolean"
       }
     }
   ],
@@ -495,7 +558,7 @@
   "vehicleEffects": {
     "status": "implemented semantic intent API; native HVAC/light executor not implemented",
     "docs": "docs/vehicle-effects.md",
-    "revision": 5,
+    "revision": 6,
     "channels": [
       "AIRFLOW",
       "AMBIENT",
@@ -546,7 +609,8 @@
         "409 EFFECT_CONTROL_STALE",
         "409 EFFECT_SESSION_STALE"
       ]
-    }
+    },
+    "gameSceneAuthority": "When heist-demo-v1 has opted-in active effects, sceneId and virtual speed derive from server game state; manual /effects/scene returns GAME_SCENE_MANAGED. Generic COOP retains manual demo input."
   },
   "authOk": {
     "CAR_HOST": {
@@ -560,5 +624,113 @@
       "sessionId": "own UUID",
       "memberId": "own UUID"
     }
+  },
+  "serverState": {
+    "revision": 6,
+    "docs": "docs/server-state.md",
+    "scenarioIds": [
+      "generic-coop-v1",
+      "heist-demo-v1"
+    ],
+    "missionRoles": [
+      "DRIVER",
+      "SCOUT",
+      "TECH",
+      "COVER"
+    ],
+    "lifecycle": "room.state is authoritative: LOBBY/READY/PLAYING/PAUSED/CLEARED; game stage is a scenario substate, not a competing lifecycle",
+    "hostMutations": [
+      "game.configure",
+      "game.input",
+      "game.advance"
+    ],
+    "phoneMutations": [
+      "game.interact",
+      "existing fire/mobile.collect/world claim"
+    ],
+    "stateConcurrency": "configure/advance/interact bind roomEpoch and expectedGameRevision; driver input binds current driverSessionId and monotonic inputSeq, not per-tick revision",
+    "persistence": "Logical game/scenario/roles/objective progress and logical idempotency records persist; driver controls/speed/session/tick and cabin/effect authority reset on restart",
+    "clock": "No offline progress catch-up. Virtual movement only while current game, driver lease and vehicle gate allow it.",
+    "gameSnapshot": "RoomSnapshot.game for approved members; current driverSessionId only to host; no such state to pending phones",
+    "cabinSnapshot": "RoomSnapshot.cabin for approved members; claimed SDK/source/availability/freshness, not independent vehicle attestation",
+    "transport": "Game configure/input/advance/interact are REST POSTs; /ws broadcasts room snapshots. vehicle.cabin.report is a distinct current-car WS message.",
+    "logicalGameFields": [
+      "schemaVersion",
+      "missionRunId",
+      "scenarioId",
+      "revision",
+      "motionSeq",
+      "stageId",
+      "stageIndex",
+      "virtualSpeedMps",
+      "distanceM",
+      "stageElapsedMs",
+      "totalElapsedMs",
+      "completed",
+      "completedAt",
+      "roleAssignments",
+      "interactions",
+      "objectiveState",
+      "lastTransition",
+      "updatedAt"
+    ],
+    "missionPresets": {
+      "generic-coop-v1": [
+        "COOP"
+      ],
+      "heist-demo-v1": [
+        "PREPARE:supplies>=2",
+        "INFILTRATE:two distinct approved PHONE interactions",
+        "DEFEND:server waveCleared",
+        "EXTRACT:server virtual distance>=100m",
+        "COMPLETE"
+      ]
+    },
+    "driverAuthority": "Current host snapshot only exposes a non-null driverSessionId. Fresh input uses roomEpoch+driverSessionId+monotonic inputSeq; held input expires after default 2000 ms. PHONE driverSessionId is null.",
+    "motion": "Server tick caps elapsed step at 250 ms by default; max virtual speed 30 m/s. Revision tracks logical mutations, motionSeq tracks motion snapshots. No wall-clock/offline catch-up.",
+    "missionRunId": "Persisted UUID changes on configure; sceneId is missionRunId:stageId. Configure keeps logical revision monotonic.",
+    "idempotency": "Logical configure/advance/interact receipts persist separately from physical effects and driver input. Receipt data must not contain driverSessionId or transient driver controls.",
+    "battleStageGuard": "heist fire/support.pulse are allowed only in DEFEND; otherwise GAME_ACTION_UNAVAILABLE. Killing the wave preserves PLAYING until mission COMPLETE; round.start after COMPLETE returns MISSION_COMPLETE until configure. Heist start/resume also requires approved connected non-EMPTY phone seats covering all remaining defense target angles; otherwise HEIST_CREW_REQUIRED (409). The initial preset needs REAR_LEFT and REAR_RIGHT; mission role names do not change seat firing sectors."
+  },
+  "cabin": {
+    "protocol": "zride-cabin-v1",
+    "reportType": "vehicle.cabin.report",
+    "currentConnectionBinding": "vehicleConnectionId from current CAR_HOST auth.ok; increasing reportSeq per connection",
+    "availability": [
+      "AVAILABLE",
+      "UNKNOWN",
+      "UNSUPPORTED",
+      "PERMISSION_DENIED",
+      "UNAVAILABLE"
+    ],
+    "sources": [
+      "PLEOS_READ",
+      "PLEOS_CALLBACK",
+      "SIMULATED",
+      "NONE"
+    ],
+    "freshnessMs": 6000,
+    "maxReportedAgeMs": 60000,
+    "signals": {
+      "hvac": [
+        "areaId",
+        "power",
+        "fanSpeed",
+        "fanMin",
+        "fanMax"
+      ],
+      "seatBelts": [
+        "seat",
+        "buckled"
+      ],
+      "energy": [
+        "socPercent"
+      ]
+    },
+    "observation": "Each observation has sampleSeq, availability, measuredAgeMs and source. AVAILABLE requires typed value/age/source; unavailable must not assert values.",
+    "freshness": "Same sampleSeq and same value is cached, not a fresh measurement. Older sequence and changed-value reuse are rejected. Ordinary vehicle heartbeat cannot revive stale observations.",
+    "derived": "Gate and freshness-qualified fanInput01, purificationInputEligible, approved-seat crew ready and beltProtection. AIRFLOW 4D output disables purification input eligibility. These derived fields do not grant inventory resources.",
+    "persistence": "No cabin observations or derived authority stored in SQLite; restart/reconnect clears to UNKNOWN",
+    "trust": "CLIENT_REPORTED_NOT_ATTESTED, hardwareAttested=false"
   }
 }

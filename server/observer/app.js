@@ -110,8 +110,59 @@ function render() {
   const member = shot && room.members.find(value => value.memberId === shot.memberId);
   $('last-action').textContent = shot ? (member?.nickname || '참가자') + ' · ' + shot.angleDeg + '° · ' + (shot.accepted ? shot.hit ? '명중 / 피해 ' + shot.damage : '빗나감' : '허용 범위 밖 사격 거절') : '아직 사격 기록이 없습니다.';
   $('support-state').textContent = room.stats.supportActive ? '지원 효과 ×' + room.stats.supportDamage : '지원 대기';
+  renderMissionAndCabin();
   renderEffects();
   renderPlayers();
+}
+function renderMissionAndCabin() {
+  const game = room.game, cabin = room.cabin;
+  const number = value => Number.isFinite(value) ? value : 0;
+  const seats = { DRIVER: '운전석', FRONT_PASSENGER: '앞 동승석', REAR_LEFT: '뒤 왼쪽', REAR_RIGHT: '뒤 오른쪽' };
+  const missionRoles = { DRIVER: '운전자', SCOUT: '정찰', TECH: '기술', COVER: '엄호' };
+  const stages = { COOP: '자유 협동', PREPARE: '보급 준비', INFILTRATE: '침투 · 장치 조작', DEFEND: '차량 방어', EXTRACT: '가상 탈출', COMPLETE: '임무 완료' };
+  const availability = { AVAILABLE: '보고 가능', UNKNOWN: '알 수 없음', UNSUPPORTED: '미지원', PERMISSION_DENIED: '권한 거부', UNAVAILABLE: '사용 불가' };
+  const quality = { FRESH: '신선', STALE: '만료', UNKNOWN: '미확인', UNAVAILABLE: '값 없음' };
+  const describe = observation => (availability[observation?.availability] || '알 수 없음') + ' · ' + (quality[observation?.quality] || '미확인') + ' · ' + (observation?.source || 'NONE');
+  $('mission-status').textContent = game?.completed ? '완료' : (stateNames[room.state] || '대기');
+  $('mission-status').classList.toggle('enabled', game?.completed === true || room.state === 'PLAYING');
+  $('mission-preset').textContent = game?.scenarioId || '시나리오 없음';
+  $('mission-stage').textContent = stages[game?.stageId] || game?.stageTitle || '—';
+  const objective = game?.objectiveState, target = number(objective?.target), progress = number(objective?.progress);
+  const objectiveNames = { SHARED_SUPPLIES: '공동 보급', UNIQUE_PHONE_INTERACTIONS: '승무원 장치 조작', SERVER_COMBAT_CLEAR: '서버 전투 완료', VIRTUAL_DISTANCE: '탈출 거리' };
+  $('mission-objective').textContent = game?.completed ? '모든 임무 완료' : objective?.objectiveId ? (objectiveNames[objective.type] || objective.objectiveId) + ' ' + progress + ' / ' + target + (objective.complete ? ' · 완료' : '') : '정해진 목표 없음';
+  $('mission-progress').value = game?.completed ? 1 : target > 0 ? Math.max(0, Math.min(1, progress / target)) : 0;
+  $('mission-motion').textContent = number(game?.virtualSpeedMps).toFixed(1) + ' m/s · ' + number(game?.distanceM).toFixed(1) + ' m';
+  $('mission-input').textContent = room.state !== 'PLAYING' || game?.completed ? '게임 중지 · 입력 해제' : game?.driverControl?.inputFresh ? '신선한 입력 · ' + Math.round(number(game.driverControl.leaseRemainingMs)) + 'ms 남음' : '입력 없음 · 만료';
+  const roles = (game?.missionRoles || []).map(item => {
+    const card = document.createElement('li'), name = document.createElement('b'), role = document.createElement('span');
+    const member = room.members.find(member => member.memberId === item.memberId), seat = member?.seat || item.seat;
+    name.textContent = member?.nickname || seats[seat] || '승무원';
+    role.textContent = (item.missionRole || '—') + ' · ' + (missionRoles[item.missionRole] || '미지정') + ' / ' + (seats[seat] || seat || '자리 미상'); card.append(name, role); return card;
+  });
+  if (!roles.length) { const card = document.createElement('li'); card.textContent = '승인된 역할 없음'; roles.push(card); }
+  $('mission-roles').replaceChildren(...roles);
+  $('mission-meta').textContent = game ? '논리 상태 v' + number(game.revision) + ' · 이동 seq ' + number(game.motionSeq) + ' · 임무 ' + game.missionRunId : '서버가 목표·역할·가상 이동을 판정합니다.';
+  $('cabin-status').textContent = cabin?.connected ? '차량 보고 연결' : '관측 없음';
+  $('cabin-status').classList.toggle('enabled', cabin?.connected === true);
+  $('cabin-received').textContent = cabin?.reportAgeMs == null ? '관측 없음' : (number(cabin.reportAgeMs) / 1000).toFixed(1) + '초 전 · 보고 #' + number(cabin.reportSeq);
+  $('cabin-power').textContent = typeof cabin?.hvac?.power === 'boolean' ? cabin.hvac.power ? '켜짐' : '꺼짐' : '알 수 없음';
+  $('cabin-hvac-quality').textContent = describe(cabin?.hvac);
+  const hvac = cabin?.hvac;
+  $('cabin-fan').textContent = Number.isFinite(hvac?.fanSpeed) ? hvac.fanSpeed + ' · 범위 ' + hvac.fanMin + '~' + hvac.fanMax : '알 수 없음';
+  $('cabin-fan-input').textContent = cabin?.derived?.purificationInputEligible ? '입력 자격 · ' + Math.round(number(cabin.derived.fanInput01) * 100) + '%' : (cabin?.derived?.purificationInputReason === 'AIRFLOW_EFFECT_ACTIVE' ? '4D 출력 중 · 입력 보상 차단' : '게임 입력 자격 없음');
+  $('cabin-soc').textContent = Number.isFinite(cabin?.energy?.socPercent) ? cabin.energy.socPercent + '%' : '알 수 없음';
+  $('cabin-energy-quality').textContent = describe(cabin?.energy);
+  $('cabin-freshness').textContent = (number(cabin?.freshnessMs ?? 6000) / 1000).toFixed(1) + '초';
+  const belts = (cabin?.seatBelts || Object.keys(seats).map(seat => ({ seat }))).map(item => {
+    const card = document.createElement('li'), seat = document.createElement('b'), value = document.createElement('span'), detail = document.createElement('small'), ready = document.createElement('small');
+    seat.textContent = seats[item.seat] || item.seat;
+    value.textContent = typeof item.buckled === 'boolean' ? item.buckled ? '벨트 체결 보고' : '벨트 미체결 보고' : '벨트 알 수 없음';
+    detail.textContent = describe(item);
+    const crew = cabin?.derived?.crew?.find(member => member.seat === item.seat && member.approved);
+    ready.textContent = crew?.ready ? '서버 준비·보호 자격 확인' : crew ? '준비 미확인 · ' + crew.reason : '승인된 승무원 없음';
+    card.append(seat, value, detail, ready); return card;
+  });
+  $('cabin-belts').replaceChildren(...belts);
 }
 function renderEffects() {
   const effects = room.effects;

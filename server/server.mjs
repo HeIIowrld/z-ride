@@ -8,6 +8,8 @@ import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
 import { createObserverService } from './observer.mjs';
 import { createPhoneClientService } from './phone-client.mjs';
 import { createEffectsService } from './effects.mjs';
+import { createGameStateService } from './game-state.mjs';
+import { createCabinService } from './cabin.mjs';
 import { resolve } from 'node:path';
 
 export const SECTORS = Object.freeze(Object.assign(Object.create(null), {
@@ -34,6 +36,8 @@ const fail = (code, message, status = 400) => Object.assign(new Error(message), 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const angularDistance = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 const asText = (value, max = 128) => typeof value === 'string' && value.length > 0 && value.length <= max;
+const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
+  ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 
 export function createDemoServer(options = {}) {
   const phoneClient = createPhoneClientService();
@@ -45,6 +49,9 @@ export function createDemoServer(options = {}) {
   const maxReceipts = options.maxReceiptsPerMember ?? 10000;
   const world = createWorldService({ clock: options.worldClock ?? Date.now, maxReceipts });
   const effects = createEffectsService({ clock: options.effectsClock ?? Date.now });
+  const gameState = createGameStateService({ clock: options.gameClock ?? Date.now });
+  const cabin = createCabinService({ clock: options.cabinClock ?? Date.now });
+  const autoEffects = new Map();
   const sessions = new Map();
   const rooms = new Map();
   const joinCodes = new Map();
@@ -68,12 +75,13 @@ export function createDemoServer(options = {}) {
         state: room.state, pauseReason: room.pauseReason, joinCode: room.joinCode,
         joinExpiresAt: room.joinExpiresAt, joinUsed: room.joinUsed,
         emptyLocks: [...room.emptyLocks], stats: room.stats, zombies: room.zombies,
-        collection: room.collection,
+        collection: room.collection, game: gameState.durable(room.game),
         members: [...room.members.values()].map(m => ({
           memberId: m.memberId, sessionId: m.sessionId, nickname: m.nickname, role: m.role,
           seat: m.seat, approved: m.approved, receipts: [...m.receipts],
           collectedPickups: [...(m.collectedPickups ?? [])],
           worldClaims: [...(m.worldClaims ?? [])], worldReceipts: [...(m.worldReceipts ?? [])],
+          gameReceipts: [...(m.gameReceipts ?? [])],
         })),
       })),
     };
@@ -83,10 +91,11 @@ export function createDemoServer(options = {}) {
     for (const [key, session] of saved.sessions) sessions.set(key, session);
     for (const savedRoom of saved.rooms) {
       const room = {
-        ...savedRoom, emptyLocks: new Set(savedRoom.emptyLocks),
+        ...savedRoom, game: gameState.restore(savedRoom.game), emptyLocks: new Set(savedRoom.emptyLocks),
         members: new Map(savedRoom.members.map(m => [m.sessionId, {
           ...m, socket: null, receipts: new Map(m.receipts), collectedPickups: new Set(m.collectedPickups),
           worldClaims: new Map(m.worldClaims), worldReceipts: new Map(m.worldReceipts),
+          gameReceipts: new Map(m.gameReceipts ?? []),
         }])),
         vehicle: { ux: 'UNKNOWN', gear: 'UNKNOWN', foreground: false, seats: [],
           charge: { state: 'UNKNOWN', portConnection: 'UNKNOWN', source: 'NONE' },
@@ -138,6 +147,8 @@ export function createDemoServer(options = {}) {
     getRooms: () => storageFailed ? [] : rooms.values(),
     getGate: room => storageFailed ? { allowed: false, reasons: ['STORAGE_UNAVAILABLE'] } : gate(room),
     getEffects: room => storageFailed ? null : effects.snapshot(room.roomId),
+    getGame: room => storageFailed ? null : gameState.snapshot(room.game, { ...gameContext(room), role: 'OBSERVER' }),
+    getCabin: room => storageFailed ? null : cabin.snapshot(cabinContext(room)),
     operatorToken: options.observerToken ?? '',
     allowedOrigins: options.observerAllowedOrigins ?? [],
   });
@@ -197,6 +208,40 @@ export function createDemoServer(options = {}) {
     if (outcome.changed) change(room);
     return { effects: effects.snapshot(room.roomId), data: outcome.data, replayed: outcome.replayed === true };
   }
+  function visibleMembers(room, viewer) {
+    return [...room.members.values()].filter(member => !viewer || viewer.role === 'CAR_HOST' || member.approved);
+  }
+  function gameContext(room, actor = effectHost(room)) {
+    return { ...effectContext(room, actor), memberId: actor?.memberId,
+      inventorySupplies: room.collection.inventory.supplies, waveCleared: room.stats.waveCleared,
+      members: visibleMembers(room, actor).map(member => ({ memberId: member.memberId, role: member.role,
+        seat: member.seat, approved: member.approved, connected: member.socket?.readyState === WebSocket.OPEN })) };
+  }
+  function cabinContext(room, viewer = effectHost(room)) {
+    const fx = effects.snapshot(room.roomId);
+    return { ...effectContext(room, viewer), members: visibleMembers(room, viewer).map(member => ({
+      memberId: member.memberId, seat: member.seat, approved: member.approved, seatEvidence: seatEvidence(room, member.seat),
+    })), airflowControlled: fx.enabled && fx.channels.includes('AIRFLOW') };
+  }
+  function resetCombat(room) {
+    room.zombies = newZombies();
+    Object.assign(room.stats, { shots: 0, rejectedShots: 0, hits: 0, kills: 0, waveCleared: false,
+      zombieHp: 5, lastShot: null, supportUntil: 0, supportCount: 0, supportSupplyUsed: false });
+  }
+  function syncGameEffects(room) {
+    const fx = effects.snapshot(room.roomId), ctx = effectContext(room);
+    if (room.game.scenarioId !== 'heist-demo-v1' || !fx.enabled || room.state !== 'PLAYING' || !ctx.gate.allowed) { autoEffects.delete(room.roomId); return; }
+    const at = (options.effectsClock ?? Date.now)();
+    const previous = autoEffects.get(room.roomId);
+    const sceneId = `${room.game.missionRunId}:${room.game.stageId}`;
+    if (previous && previous.effectSessionId === fx.effectSessionId && previous.sceneId === sceneId && at - previous.at < 2000) return;
+    try {
+      const outcome = effects.scene(ctx, { commandId: 'game-' + randomUUID(), effectSessionId: fx.effectSessionId,
+        sceneId, virtualSpeedMps: room.game.virtualSpeedMps });
+      queueEffectEvents(room, outcome);
+      autoEffects.set(room.roomId, { at, effectSessionId: fx.effectSessionId, sceneId });
+    } catch { queueEffectEvents(room, effects.stop(ctx, 'GAME_EFFECT_SYNC_FAILED')); autoEffects.delete(room.roomId); }
+  }
   function snapshot(room, viewer) {
     if (!viewer.approved) {
       return {
@@ -235,6 +280,8 @@ export function createDemoServer(options = {}) {
       },
       zombies: room.zombies.map(z => ({ ...z })),
       effects: effects.snapshot(room.roomId),
+      game: gameState.snapshot(room.game, gameContext(room, viewer)),
+      cabin: cabin.snapshot(cabinContext(room, viewer)),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
       serverTime: Date.now(),
@@ -258,7 +305,10 @@ export function createDemoServer(options = {}) {
   }
   function change(room) {
     room.stateVersion++;
+    gameState.tick(room.game, gameContext(room));
+    cabin.tick(cabinContext(room));
     queueEffectEvents(room, effects.tick(effectContext(room)));
+    syncGameEffects(room);
     broadcast(room);
   }
   function pause(room, reason) {
@@ -269,10 +319,20 @@ export function createDemoServer(options = {}) {
   }
   async function readJson(req) {
     let size = 0; const chunks = [];
-    for await (const chunk of req) {
-      size += chunk.length;
-      if (size > BODY_LIMIT) throw fail('PAYLOAD_TOO_LARGE', 'Maximum 16 KiB', 413);
-      chunks.push(chunk);
+    // Preserve the HTTP socket on a bounded-body rejection so the error
+    // response can be flushed, including with Connection: close.
+    if (Number(req.headers['content-length']) > BODY_LIMIT) {
+      req.on('error', () => {}); req.resume();
+      throw fail('PAYLOAD_TOO_LARGE', 'Maximum 16 KiB', 413);
+    }
+    try {
+      for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+        size += chunk.length;
+        if (size > BODY_LIMIT) throw fail('PAYLOAD_TOO_LARGE', 'Maximum 16 KiB', 413);
+        chunks.push(chunk);
+      }
+    } catch (error) {
+      req.on('error', () => {}); req.resume(); throw error;
     }
     try {
       const result = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
@@ -294,11 +354,11 @@ export function createDemoServer(options = {}) {
     try {
       rateLimit('http:' + req.socket.remoteAddress);
       const path = new URL(req.url, 'http://localhost').pathname;
-      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 5 });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 6 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
       if (phoneClient.handleHttp(req, res, path)) return;
-      const body = req.method === 'POST' && path !== '/api/rooms' ? await readJson(req) : null;
+      const body = req.method === 'POST' ? await readJson(req) : null;
       return atomic(() => {
       if (req.method === 'POST' && path === '/api/session') {
         if (testAccessDigest && !(asText(body.accessKey, 1024) && timingSafeEqual(testAccessDigest, createHash('sha256').update(body.accessKey).digest()))) throw fail('TEST_ACCESS_REQUIRED', 'Valid team test access key required', 401);
@@ -311,6 +371,7 @@ export function createDemoServer(options = {}) {
         return result(res, 201, { sessionId: session.sessionId, token: credential, expiresAt: session.expiresAt, role: session.role });
       }
       const session = authenticate(req);
+      if (path === '/api/scenarios' && req.method === 'GET') return result(res, 200, { scenarios: gameState.scenarios() });
       if (path.startsWith('/api/world/')) {
         if (session.role !== 'PHONE') throw fail('ROLE_FORBIDDEN', 'World collection APIs are passenger-phone only', 403);
         const room = roomFor(session.roomId); const member = memberFor(room, session);
@@ -343,7 +404,7 @@ export function createDemoServer(options = {}) {
           emptyLocks: new Set(),
           stats: { shots: 0, rejectedShots: 0, hits: 0, zombieHp: 5, zombieAngleDeg: 60, supportUntil: 0, supportCount: 0, supportDamage: 2, supportSupplyUsed: false, kills: 0, waveCleared: false, lastShot: null },
           zombies: newZombies(),
-          collection: { inventory: { supplies: 0 }, lastCollect: null },
+          collection: { inventory: { supplies: 0 }, lastCollect: null }, game: gameState.initial(),
         };
         session.roomId = roomId; rooms.set(roomId, room); joinCodes.set(joinCode, roomId);
         return result(res, 201, { roomId, joinCode, room: snapshot(room, member) });
@@ -362,6 +423,39 @@ export function createDemoServer(options = {}) {
         change(room);
         return result(res, 201, { roomId: room.roomId, memberId: member.memberId, pending: true, room: snapshot(room, member) });
       }
+      const stateRoute = path.match(/^\/api\/rooms\/([^/]+)\/state$/);
+      if (stateRoute && req.method === 'GET') {
+        const room = roomFor(stateRoute[1]); const member = memberFor(room, session);
+        return result(res, 200, { room: snapshot(room, member), serverTime: Date.now() });
+      }
+      const gameRoute = path.match(/^\/api\/rooms\/([^/]+)\/game\/(configure|input|advance|interact)$/);
+      if (gameRoute) {
+        const room = roomFor(gameRoute[1]); const member = memberFor(room, session);
+        if (req.method !== 'POST') throw fail('METHOD_NOT_ALLOWED', 'Game actions require POST JSON', 405);
+        const operation = gameRoute[2];
+        if (operation !== 'interact') requireHost(room, session);
+        if (!asText(body.commandId, 128)) throw fail('COMMAND_ID_REQUIRED', 'Unique commandId required');
+        let outcome, logicalData;
+        if (operation === 'input') outcome = gameState.input(room.game, gameContext(room, member), body);
+        else {
+          member.gameReceipts ??= new Map();
+          const fingerprint = hash(canonical({ operation, body })); const old = member.gameReceipts.get(body.commandId);
+          if (old) {
+            if (old.fingerprint !== fingerprint) throw fail('IDEMPOTENCY_CONFLICT', 'Same game command ID with different input', 409);
+            return result(res, 200, { room: snapshot(room, member), data: old.data, replayed: true });
+          }
+          if (member.gameReceipts.size >= maxReceipts) throw fail('COMMAND_LIMIT', 'Game command receipt capacity reached', 429);
+          outcome = gameState[operation](room.game, gameContext(room, member), body);
+          logicalData = gameState.durable(room.game);
+          member.gameReceipts.set(body.commandId, { fingerprint, data: logicalData });
+        }
+        logicalData ??= gameState.durable(room.game);
+        if (operation === 'configure') { room.roomEpoch++; resetCombat(room); queueEffectEvents(room, effects.stop(effectContext(room), 'MISSION_CONFIGURED')); }
+        if (operation === 'advance' && room.game.stageId === 'DEFEND') resetCombat(room);
+        if (operation === 'advance' && room.game.stageId === 'COMPLETE') { room.state = 'CLEARED'; room.roomEpoch++; }
+        if (outcome.changed) change(room);
+        return result(res, 200, { room: snapshot(room, member), data: logicalData, replayed: outcome.replayed === true });
+      }
       const effectRoute = path.match(/^\/api\/rooms\/([^/]+)\/effects(?:\/(session|scene|cue|stop))?$/);
       if (effectRoute) {
         const room = roomFor(effectRoute[1]); const member = memberFor(room, session);
@@ -372,6 +466,7 @@ export function createDemoServer(options = {}) {
         if (req.method !== 'POST' || !effectRoute[2]) throw fail('METHOD_NOT_ALLOWED', 'Use the documented effects method', 405);
         requireHost(room, session);
         const operation = effectRoute[2];
+        if (operation === 'scene' && room.game.scenarioId === 'heist-demo-v1') throw fail('GAME_SCENE_MANAGED', 'Mission motion owns the virtual scene; use game inputs', 409);
         const outcome = effects[operation](effectContext(room, member), body);
         return result(res, 200, applyEffects(room, outcome));
       }
@@ -460,13 +555,25 @@ export function createDemoServer(options = {}) {
     if (message.action === 'round.start') {
       if (member.role !== 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Vehicle starts round', 403);
       if (room.state === 'PLAYING') throw fail('ALREADY_PLAYING', 'Round already playing', 409);
+      if (room.game.completed) throw fail('MISSION_COMPLETE', 'Configure a new mission before starting again', 409);
       const activePhone = [...room.members.values()].some(m => m.role !== 'CAR_HOST' && m.approved && m.socket && seatEvidence(room, m.seat) !== 'EMPTY');
       if (!activePhone) throw fail('OPERATOR_REQUIRED', 'At least one approved phone in a non-empty seat required', 409);
+      if (room.game.scenarioId === 'heist-demo-v1') {
+        const crew = [...room.members.values()].filter(m => m.role !== 'CAR_HOST' && m.approved
+          && m.socket?.readyState === WebSocket.OPEN && seatEvidence(room, m.seat) !== 'EMPTY');
+        const uncovered = room.zombies.some(zombie => zombie.hp > 0 && !crew.some(m => {
+          const sector = SECTORS[m.seat];
+          return sector && (zombie.angleDeg >= sector[0] && zombie.angleDeg <= sector[1]
+            || Math.abs(zombie.angleDeg) === 180 && ['REAR_LEFT', 'REAR_RIGHT'].includes(m.seat));
+        }));
+        if (uncovered) throw fail('HEIST_CREW_REQUIRED', 'Connected approved crew must cover all defense target angles; this preset needs REAR_LEFT and REAR_RIGHT', 409);
+      }
       if (room.state === 'CLEARED') { room.zombies = newZombies(); room.stats.waveCleared = false; }
       room.state = 'PLAYING'; room.pauseReason = null; room.roomEpoch++; change(room); return { started: true };
     }
     if (room.state !== 'PLAYING') throw fail('NOT_PLAYING', 'Explicit vehicle start/resume required', 409);
     if (message.action === 'support.pulse') {
+      if (room.game.scenarioId === 'heist-demo-v1' && room.game.stageId !== 'DEFEND') throw fail('GAME_ACTION_UNAVAILABLE', 'Combat support belongs to the defense mini-game', 409);
       if (member.role !== 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Vehicle support only', 403);
       if (room.stats.supportUntil > Date.now()) throw fail('SUPPORT_COOLDOWN', 'Support is already active', 409);
       if (room.collection.inventory.supplies < 1) throw fail('SUPPLY_REQUIRED', 'Collect one demo supply before vehicle support', 409);
@@ -478,6 +585,7 @@ export function createDemoServer(options = {}) {
       return { supportUntil: room.stats.supportUntil, supportDamage: room.stats.supportDamage, suppliesConsumed: consumed, inventory: { ...room.collection.inventory } };
     }
     if (message.action === 'fire') {
+      if (room.game.scenarioId === 'heist-demo-v1' && room.game.stageId !== 'DEFEND') throw fail('GAME_ACTION_UNAVAILABLE', 'Shooting belongs to the defense mini-game', 409);
       const sector = SECTORS[member.seat];
       if (!sector) throw fail('ROLE_FORBIDDEN', 'Driver is commander, not shooter', 403);
       if (seatEvidence(room, member.seat) === 'EMPTY') throw fail('SEAT_EMPTY', 'Assigned seat is reported empty', 409);
@@ -500,7 +608,7 @@ export function createDemoServer(options = {}) {
       }
       room.stats.lastShot = { memberId: member.memberId, angleDeg: message.angleDeg, accepted: true, hit, targetId: hit ? target.id : null, damage, time: Date.now() };
       room.stats.waveCleared = room.zombies.every(z => z.hp === 0);
-      if (room.stats.waveCleared) { room.state = 'CLEARED'; room.roomEpoch++; }
+      if (room.stats.waveCleared && room.game.scenarioId === 'generic-coop-v1') { room.state = 'CLEARED'; room.roomEpoch++; }
       change(room); return { hit, damage, targetId: hit ? target.id : null, targetHp: hit ? target.hp : null, angleDeg: message.angleDeg };
     }
     throw fail('UNKNOWN_ACTION', 'Unknown game action');
@@ -541,6 +649,19 @@ export function createDemoServer(options = {}) {
         if (session.expiresAt <= Date.now()) { closeSocket(ws, 4401, 'Session expired'); return; }
         rateLimit('ws:' + session.sessionId, 120);
         if (!asText(message.commandId, 128)) throw fail('COMMAND_ID_REQUIRED', 'Unique commandId required');
+        if (message.type === 'vehicle.cabin.report') {
+          let response;
+          try {
+            const outcome = cabin.report(cabinContext(room, member), message);
+            if (outcome.changed) change(room);
+            response = { type: 'result', commandId: message.commandId, ok: true,
+              data: { cabin: cabin.snapshot(cabinContext(room, member)), replayed: outcome.replayed === true }, roomEpoch: room.roomEpoch };
+          } catch (error) {
+            response = { type: 'result', commandId: message.commandId, ok: false,
+              error: { code: error.code ?? 'INTERNAL_ERROR', message: error.code ? error.message : 'Internal error' }, roomEpoch: room.roomEpoch };
+          }
+          send(ws, response); return;
+        }
         if (message.type === 'vehicle.effect.report') {
           let response;
           try {
@@ -588,6 +709,11 @@ export function createDemoServer(options = {}) {
     }
     if (!storageFailed) for (const room of rooms.values()) {
       try {
+        const motion = gameState.tick(room.game, gameContext(room));
+        const observations = cabin.tick(cabinContext(room));
+        const fx = effects.snapshot(room.roomId), last = autoEffects.get(room.roomId);
+        const renewalDue = room.game.scenarioId === 'heist-demo-v1' && fx.enabled && (!last || (options.effectsClock ?? Date.now)() - last.at >= 2000);
+        if (motion.changed || observations.changed || renewalDue) atomic(() => change(room));
         const outcome = effects.tick(effectContext(room));
         if (outcome.changed) atomic(() => applyEffects(room, outcome));
       } catch {}
@@ -625,6 +751,6 @@ function isDirectEntrypoint() {
 if (isDirectEntrypoint()) {
   const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '' });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 5, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 6, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }

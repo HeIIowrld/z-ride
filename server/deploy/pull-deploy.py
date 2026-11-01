@@ -20,7 +20,7 @@ ROOT = Path('/srv/zride')
 MAX_DOWNLOAD = 16 * 1024 * 1024
 REQUIRED = {
     'package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
-    'state-store.mjs', 'effects.mjs', 'observer.mjs', 'observer/index.html',
+    'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'observer.mjs', 'observer/index.html',
     'observer/app.js', 'observer/style.css', 'phone-client.mjs',
     'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css',
 }

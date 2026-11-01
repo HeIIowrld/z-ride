@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.3.0-revision5",
-    "description": "Implemented server/world/storage/observer/4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
+    "version": "0.3.0-revision6",
+    "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders."
   },
   "servers": [
     {
@@ -44,6 +44,10 @@
     {
       "name": "Vehicle effects",
       "description": "Ephemeral semantic 4D intents, explicit current-connection opt-in, native execution reports. Not direct HVAC/light control."
+    },
+    {
+      "name": "ServerState",
+      "description": "Authoritative logical game state and current cabin telemetry"
     }
   ],
   "paths": {
@@ -66,7 +70,7 @@
                 "example": {
                   "ok": true,
                   "protocol": "zride-demo-v1",
-                  "contractRevision": 5
+                  "contractRevision": 6
                 }
               }
             }
@@ -107,7 +111,7 @@
                 "example": {
                   "ok": false,
                   "protocol": "zride-demo-v1",
-                  "contractRevision": 5
+                  "contractRevision": 6
                 }
               }
             }
@@ -267,7 +271,7 @@
           "Room"
         ],
         "summary": "Create a host room or refresh its single-use code",
-        "description": "CAR_HOST only. No request body is consumed. Reuse the existing host token to keep room/members/state and rotate the code. New code has 120-second TTL and permits one join; refresh separately for each next phone. Old code is invalidated. Creating another host session creates another room.",
+        "description": "CAR_HOST only. Optional bounded JSON object body is consumed before responding; empty body means an empty object. Valid fields are ignored. Malformed/non-object JSON returns 400; more than 16 KiB returns 413. Reuse the existing host token to keep room/members/state and rotate the code. New code has 120-second TTL and permits one join; refresh separately for each next phone. Old code is invalidated. Creating another host session creates another room.",
         "responses": {
           "201": {
             "description": "New room created",
@@ -278,14 +282,14 @@
                 },
                 "example": {
                   "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
-                  "joinCode": "8HOSYWZK84",
+                  "joinCode": "DEMO000001",
                   "room": {
                     "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
                     "roomEpoch": 0,
                     "stateVersion": 1,
                     "state": "LOBBY",
                     "pauseReason": null,
-                    "joinCode": "8HOSYWZK84",
+                    "joinCode": "DEMO000001",
                     "joinExpiresAt": 1793501226098,
                     "members": [
                       {
@@ -417,14 +421,14 @@
                 },
                 "example": {
                   "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
-                  "joinCode": "IMIXMUVSOP",
+                  "joinCode": "DEMO000001",
                   "room": {
                     "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
                     "roomEpoch": 0,
                     "stateVersion": 5,
                     "state": "LOBBY",
                     "pauseReason": null,
-                    "joinCode": "IMIXMUVSOP",
+                    "joinCode": "DEMO000001",
                     "joinExpiresAt": 1793501226184,
                     "members": [
                       {
@@ -626,9 +630,47 @@
             "x-error-codes": [
               "STORAGE_UNAVAILABLE"
             ]
+          },
+          "400": {
+            "description": "Malformed or non-object JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INVALID_JSON"
+            ]
+          },
+          "413": {
+            "description": "JSON body exceeds 16 KiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ]
           }
         },
-        "x-implementation-status": "implemented-prototype"
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {}
+            }
+          }
+        }
       }
     },
     "/api/join": {
@@ -878,7 +920,7 @@
                 "$ref": "#/components/schemas/JoinRequest"
               },
               "example": {
-                "joinCode": "ABCD12EFGH",
+                "joinCode": "DEMO000001",
                 "seat": "FRONT_PASSENGER"
               }
             }
@@ -2348,7 +2390,7 @@
                     "protocol": "zride-effects-v1",
                     "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                     "enabled": true,
-                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "effectSessionId": "00000000-0000-4000-8000-000000000002",
                     "roomEpoch": 1,
                     "controlVersion": 1,
                     "sceneId": null,
@@ -2369,7 +2411,7 @@
                     "protocol": "zride-effects-v1",
                     "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                     "enabled": true,
-                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "effectSessionId": "00000000-0000-4000-8000-000000000002",
                     "roomEpoch": 1,
                     "controlVersion": 1,
                     "sceneId": null,
@@ -2546,7 +2588,7 @@
               },
               "example": {
                 "commandId": "example-configureVehicleEffects",
-                "vehicleConnectionId": "dbbf64ad-1d73-4920-84c2-87e013587992",
+                "vehicleConnectionId": "00000000-0000-4000-8000-000000000001",
                 "expectedControlVersion": 0,
                 "enabled": true,
                 "locallyEnabled": true,
@@ -2592,7 +2634,7 @@
                     "protocol": "zride-effects-v1",
                     "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                     "enabled": true,
-                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "effectSessionId": "00000000-0000-4000-8000-000000000002",
                     "roomEpoch": 1,
                     "controlVersion": 1,
                     "sceneId": "escape-01",
@@ -2627,7 +2669,7 @@
                       "protocol": "zride-effects-v1",
                       "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                       "enabled": true,
-                      "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                      "effectSessionId": "00000000-0000-4000-8000-000000000002",
                       "roomEpoch": 1,
                       "controlVersion": 1,
                       "sceneId": "escape-01",
@@ -2663,7 +2705,7 @@
                         "schemaVersion": 1,
                         "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                         "roomEpoch": 1,
-                        "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                        "effectSessionId": "00000000-0000-4000-8000-000000000002",
                         "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
                         "effectSeq": 1,
                         "sceneId": "escape-01",
@@ -2821,7 +2863,8 @@
               "EFFECT_SUPERSEDED",
               "GATE_CLOSED",
               "IDEMPOTENCY_CONFLICT",
-              "NOT_PLAYING"
+              "NOT_PLAYING",
+              "GAME_SCENE_MANAGED"
             ]
           }
         },
@@ -2835,13 +2878,14 @@
               },
               "example": {
                 "commandId": "example-setVehicleEffectScene",
-                "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                "effectSessionId": "00000000-0000-4000-8000-000000000002",
                 "sceneId": "escape-01",
                 "virtualSpeedMps": 18
               }
             }
           }
-        }
+        },
+        "description": "CAR_HOST only. heist-demo-v1 scenes are derived from authoritative game state; manual scene requests return 409 GAME_SCENE_MANAGED. generic-coop-v1 permits this manual demo path."
       }
     },
     "/api/rooms/{roomId}/effects/cue": {
@@ -2874,7 +2918,7 @@
                     "protocol": "zride-effects-v1",
                     "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                     "enabled": true,
-                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "effectSessionId": "00000000-0000-4000-8000-000000000002",
                     "roomEpoch": 1,
                     "controlVersion": 1,
                     "sceneId": "escape-01",
@@ -2940,7 +2984,7 @@
                       "protocol": "zride-effects-v1",
                       "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                       "enabled": true,
-                      "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                      "effectSessionId": "00000000-0000-4000-8000-000000000002",
                       "roomEpoch": 1,
                       "controlVersion": 1,
                       "sceneId": "escape-01",
@@ -3007,7 +3051,7 @@
                         "schemaVersion": 1,
                         "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                         "roomEpoch": 1,
-                        "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                        "effectSessionId": "00000000-0000-4000-8000-000000000002",
                         "effectId": "a9435ff1-ead5-4181-8401-94615edefe48",
                         "effectSeq": 2,
                         "sceneId": "escape-01",
@@ -3023,7 +3067,7 @@
                         "schemaVersion": 1,
                         "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
                         "roomEpoch": 1,
-                        "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                        "effectSessionId": "00000000-0000-4000-8000-000000000002",
                         "effectId": "3f5ba86c-590a-46a2-b389-b5f7e408639b",
                         "effectSeq": 3,
                         "sceneId": "escape-01",
@@ -3183,7 +3227,7 @@
               },
               "example": {
                 "commandId": "example-emitVehicleEffectCue",
-                "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                "effectSessionId": "00000000-0000-4000-8000-000000000002",
                 "sceneId": "escape-01",
                 "cue": "DANGER",
                 "intensity01": 0.8,
@@ -3420,6 +3464,2716 @@
           }
         }
       }
+    },
+    "/api/scenarios": {
+      "get": {
+        "operationId": "getScenarioCatalog",
+        "tags": [
+          "ServerState"
+        ],
+        "summary": "List reusable server-owned scenario definitions",
+        "description": "Caller: any authenticated CAR_HOST or PHONE. Current implemented revision 6; server owns logical state. Native SDK and game rendering remain client work.",
+        "responses": {
+          "200": {
+            "description": "Current committed logical state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioResponse"
+                },
+                "example": {
+                  "scenarios": [
+                    {
+                      "scenarioId": "generic-coop-v1",
+                      "title": "Generic cooperative session",
+                      "stages": [
+                        {
+                          "stageId": "COOP",
+                          "title": "Cooperative play",
+                          "objectiveId": null,
+                          "type": "OPEN",
+                          "target": 0,
+                          "drivable": true
+                        }
+                      ]
+                    },
+                    {
+                      "scenarioId": "heist-demo-v1",
+                      "title": "Cooperative heist demonstration",
+                      "stages": [
+                        {
+                          "stageId": "PREPARE",
+                          "title": "Prepare shared supplies",
+                          "objectiveId": "SUPPLIES_READY",
+                          "type": "SHARED_SUPPLIES",
+                          "target": 2,
+                          "drivable": false
+                        },
+                        {
+                          "stageId": "INFILTRATE",
+                          "title": "Crew terminal interaction",
+                          "objectiveId": "TERMINALS",
+                          "type": "UNIQUE_PHONE_INTERACTIONS",
+                          "target": 2,
+                          "drivable": false
+                        },
+                        {
+                          "stageId": "DEFEND",
+                          "title": "Defend the vehicle",
+                          "objectiveId": "DEFENSE_CLEAR",
+                          "type": "SERVER_COMBAT_CLEAR",
+                          "target": 1,
+                          "drivable": false
+                        },
+                        {
+                          "stageId": "EXTRACT",
+                          "title": "Virtual extraction",
+                          "objectiveId": "EXTRACTION_DISTANCE",
+                          "type": "VIRTUAL_DISTANCE",
+                          "target": 100,
+                          "drivable": true
+                        },
+                        {
+                          "stageId": "COMPLETE",
+                          "title": "Mission complete",
+                          "objectiveId": null,
+                          "type": "COMPLETE",
+                          "target": 0,
+                          "drivable": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid input",
+            "x-error-codes": [
+              "INVALID_GAME_REQUEST",
+              "COMMAND_ID_REQUIRED"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or expired session",
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Wrong role, membership or approval",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Room or scenario not found",
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Stale state, gate or unmet objective",
+            "x-error-codes": [
+              "STALE_EPOCH",
+              "GAME_REVISION_CONFLICT",
+              "GAME_STAGE_BLOCKED",
+              "GATE_CLOSED"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Capacity or rate limit",
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Durable state unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype"
+      }
+    },
+    "/api/rooms/{roomId}/state": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getRoomState",
+        "tags": [
+          "ServerState"
+        ],
+        "summary": "Get the approved room composite snapshot",
+        "description": "Caller: approved room member. Current implemented revision 6; server owns logical state. Native SDK and game rendering remain client work.",
+        "responses": {
+          "200": {
+            "description": "Current committed logical state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                    "roomEpoch": 0,
+                    "stateVersion": 6,
+                    "state": "LOBBY",
+                    "pauseReason": null,
+                    "joinCode": null,
+                    "joinExpiresAt": 1793519762979,
+                    "members": [
+                      {
+                        "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                        "sessionId": "1c4dcc51-e289-43e3-9488-aa4cb032649f",
+                        "nickname": "State schema host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "sessionId": "4df4a981-c5e6-4f38-b3d5-0afd28d02870",
+                        "nickname": "State schema phone",
+                        "role": "REAR_LEFT",
+                        "seat": "REAR_LEFT",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": [
+                          -180,
+                          -45
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "UNKNOWN",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "APP_INACTIVE",
+                        "LEASE_EXPIRED",
+                        "UX_UNKNOWN",
+                        "GEAR_UNKNOWN"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null,
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "enabled": false,
+                      "effectSessionId": null,
+                      "roomEpoch": null,
+                      "controlVersion": 0,
+                      "sceneId": null,
+                      "virtualSpeedMps": 0,
+                      "channels": [],
+                      "maxIntensity01": 0,
+                      "effectSeq": 0,
+                      "active": [],
+                      "lastReport": null,
+                      "lastStopReason": "NOT_ENABLED",
+                      "updatedAt": 1793519643069
+                    },
+                    "game": {
+                      "schemaVersion": 1,
+                      "missionRunId": "70f96daf-91d2-4c38-b730-d24237e4dd22",
+                      "scenarioId": "generic-coop-v1",
+                      "revision": 0,
+                      "motionSeq": 0,
+                      "stageId": "COOP",
+                      "stageIndex": 0,
+                      "virtualSpeedMps": 0,
+                      "distanceM": 0,
+                      "stageElapsedMs": 0,
+                      "totalElapsedMs": 0,
+                      "completed": false,
+                      "completedAt": null,
+                      "roleAssignments": [],
+                      "interactions": [],
+                      "objectiveState": {
+                        "objectiveId": null,
+                        "type": "OPEN",
+                        "target": 0,
+                        "progress": 0,
+                        "complete": false
+                      },
+                      "lastTransition": {
+                        "from": null,
+                        "to": "COOP",
+                        "reason": "CREATED",
+                        "at": 1793519642979
+                      },
+                      "updatedAt": 1793519642979,
+                      "sceneId": "70f96daf-91d2-4c38-b730-d24237e4dd22:COOP",
+                      "missionStatus": "LOBBY",
+                      "stageTitle": "Cooperative play",
+                      "drivable": true,
+                      "objectives": [],
+                      "missionRoles": [
+                        {
+                          "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                          "missionRole": "DRIVER"
+                        },
+                        {
+                          "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                          "missionRole": "TECH"
+                        }
+                      ],
+                      "driverSessionId": null,
+                      "driverControl": {
+                        "throttle": 0,
+                        "brake": 0,
+                        "inputSeq": 0,
+                        "inputFresh": false,
+                        "leaseRemainingMs": 0
+                      },
+                      "motionPolicy": {
+                        "driverLeaseMs": 2000,
+                        "maxTickMs": 250,
+                        "maximumVirtualSpeedMps": 30,
+                        "accelerationMps2": 6,
+                        "brakingMps2": 10
+                      }
+                    },
+                    "cabin": {
+                      "protocol": "zride-cabin-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "revision": 0,
+                      "connected": false,
+                      "reportSeq": 0,
+                      "receivedAt": null,
+                      "reportAgeMs": null,
+                      "freshnessMs": 6000,
+                      "resetReason": "NOT_REPORTED",
+                      "hardwareAttested": false,
+                      "trust": "CLIENT_REPORTED_NOT_ATTESTED",
+                      "hvac": {
+                        "areaId": null,
+                        "power": null,
+                        "fanSpeed": null,
+                        "fanMin": null,
+                        "fanMax": null,
+                        "normalizedFan01": null,
+                        "availability": "UNKNOWN",
+                        "sampleSeq": 0,
+                        "source": "NONE",
+                        "receivedAt": null,
+                        "ageMs": null,
+                        "quality": "UNKNOWN"
+                      },
+                      "seatBelts": [
+                        {
+                          "seat": "DRIVER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "FRONT_PASSENGER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "REAR_LEFT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "REAR_RIGHT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        }
+                      ],
+                      "energy": {
+                        "socPercent": null,
+                        "availability": "UNKNOWN",
+                        "sampleSeq": 0,
+                        "source": "NONE",
+                        "receivedAt": null,
+                        "ageMs": null,
+                        "quality": "UNKNOWN"
+                      },
+                      "derived": {
+                        "purificationInputEligible": false,
+                        "fanInput01": 0,
+                        "purificationInputReason": "GATE_CLOSED",
+                        "crew": [
+                          {
+                            "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                            "seat": "DRIVER",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "GATE_CLOSED"
+                          },
+                          {
+                            "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                            "seat": "REAR_LEFT",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "GATE_CLOSED"
+                          }
+                        ]
+                      }
+                    },
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793519643069
+                  },
+                  "serverTime": 1793519643069
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid input",
+            "x-error-codes": [
+              "INVALID_GAME_REQUEST",
+              "COMMAND_ID_REQUIRED"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or expired session",
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Wrong role, membership or approval",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Room or scenario not found",
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Stale state, gate or unmet objective",
+            "x-error-codes": [
+              "STALE_EPOCH",
+              "GAME_REVISION_CONFLICT",
+              "GAME_STAGE_BLOCKED",
+              "GATE_CLOSED"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Capacity or rate limit",
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Durable state unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype"
+      }
+    },
+    "/api/rooms/{roomId}/game/configure": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "gameConfigure",
+        "tags": [
+          "ServerState"
+        ],
+        "summary": "Submit authoritative game configure",
+        "description": "Caller: current room CAR_HOST; game not PLAYING. Current implemented revision 6; server owns logical state. Native SDK and game rendering remain client work.",
+        "responses": {
+          "200": {
+            "description": "Current committed logical state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameCommandResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                    "roomEpoch": 1,
+                    "stateVersion": 7,
+                    "state": "LOBBY",
+                    "pauseReason": null,
+                    "joinCode": null,
+                    "joinExpiresAt": 1793519762979,
+                    "members": [
+                      {
+                        "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                        "sessionId": "1c4dcc51-e289-43e3-9488-aa4cb032649f",
+                        "nickname": "State schema host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "sessionId": "4df4a981-c5e6-4f38-b3d5-0afd28d02870",
+                        "nickname": "State schema phone",
+                        "role": "REAR_LEFT",
+                        "seat": "REAR_LEFT",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": [
+                          -180,
+                          -45
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "UNKNOWN",
+                      "gear": "UNKNOWN",
+                      "foreground": false,
+                      "seats": [],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "UNKNOWN",
+                      "reportAgeMs": null,
+                      "playAllowed": false,
+                      "gateReasons": [
+                        "APP_INACTIVE",
+                        "LEASE_EXPIRED",
+                        "UX_UNKNOWN",
+                        "GEAR_UNKNOWN"
+                      ]
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null,
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "enabled": false,
+                      "effectSessionId": null,
+                      "roomEpoch": null,
+                      "controlVersion": 0,
+                      "sceneId": null,
+                      "virtualSpeedMps": 0,
+                      "channels": [],
+                      "maxIntensity01": 0,
+                      "effectSeq": 0,
+                      "active": [],
+                      "lastReport": null,
+                      "lastStopReason": "NOT_ENABLED",
+                      "updatedAt": 1793519643085
+                    },
+                    "game": {
+                      "schemaVersion": 1,
+                      "missionRunId": "d83d94e3-50f4-46fd-bfea-ca707846daf5",
+                      "scenarioId": "generic-coop-v1",
+                      "revision": 1,
+                      "motionSeq": 0,
+                      "stageId": "COOP",
+                      "stageIndex": 0,
+                      "virtualSpeedMps": 0,
+                      "distanceM": 0,
+                      "stageElapsedMs": 0,
+                      "totalElapsedMs": 0,
+                      "completed": false,
+                      "completedAt": null,
+                      "roleAssignments": [],
+                      "interactions": [],
+                      "objectiveState": {
+                        "objectiveId": null,
+                        "type": "OPEN",
+                        "target": 0,
+                        "progress": 0,
+                        "complete": false
+                      },
+                      "lastTransition": {
+                        "from": null,
+                        "to": "COOP",
+                        "reason": "CREATED",
+                        "at": 1793519643085
+                      },
+                      "updatedAt": 1793519643085,
+                      "sceneId": "d83d94e3-50f4-46fd-bfea-ca707846daf5:COOP",
+                      "missionStatus": "LOBBY",
+                      "stageTitle": "Cooperative play",
+                      "drivable": true,
+                      "objectives": [],
+                      "missionRoles": [
+                        {
+                          "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                          "missionRole": "DRIVER"
+                        },
+                        {
+                          "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                          "missionRole": "TECH"
+                        }
+                      ],
+                      "driverSessionId": null,
+                      "driverControl": {
+                        "throttle": 0,
+                        "brake": 0,
+                        "inputSeq": 0,
+                        "inputFresh": false,
+                        "leaseRemainingMs": 0
+                      },
+                      "motionPolicy": {
+                        "driverLeaseMs": 2000,
+                        "maxTickMs": 250,
+                        "maximumVirtualSpeedMps": 30,
+                        "accelerationMps2": 6,
+                        "brakingMps2": 10
+                      }
+                    },
+                    "cabin": {
+                      "protocol": "zride-cabin-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "revision": 0,
+                      "connected": false,
+                      "reportSeq": 0,
+                      "receivedAt": null,
+                      "reportAgeMs": null,
+                      "freshnessMs": 6000,
+                      "resetReason": "NOT_REPORTED",
+                      "hardwareAttested": false,
+                      "trust": "CLIENT_REPORTED_NOT_ATTESTED",
+                      "hvac": {
+                        "areaId": null,
+                        "power": null,
+                        "fanSpeed": null,
+                        "fanMin": null,
+                        "fanMax": null,
+                        "normalizedFan01": null,
+                        "availability": "UNKNOWN",
+                        "sampleSeq": 0,
+                        "source": "NONE",
+                        "receivedAt": null,
+                        "ageMs": null,
+                        "quality": "UNKNOWN"
+                      },
+                      "seatBelts": [
+                        {
+                          "seat": "DRIVER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "FRONT_PASSENGER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "REAR_LEFT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "REAR_RIGHT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        }
+                      ],
+                      "energy": {
+                        "socPercent": null,
+                        "availability": "UNKNOWN",
+                        "sampleSeq": 0,
+                        "source": "NONE",
+                        "receivedAt": null,
+                        "ageMs": null,
+                        "quality": "UNKNOWN"
+                      },
+                      "derived": {
+                        "purificationInputEligible": false,
+                        "fanInput01": 0,
+                        "purificationInputReason": "GATE_CLOSED",
+                        "crew": [
+                          {
+                            "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                            "seat": "DRIVER",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "GATE_CLOSED"
+                          },
+                          {
+                            "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                            "seat": "REAR_LEFT",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "GATE_CLOSED"
+                          }
+                        ]
+                      }
+                    },
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793519643085
+                  },
+                  "data": {
+                    "schemaVersion": 1,
+                    "missionRunId": "d83d94e3-50f4-46fd-bfea-ca707846daf5",
+                    "scenarioId": "generic-coop-v1",
+                    "revision": 1,
+                    "motionSeq": 0,
+                    "stageId": "COOP",
+                    "stageIndex": 0,
+                    "virtualSpeedMps": 0,
+                    "distanceM": 0,
+                    "stageElapsedMs": 0,
+                    "totalElapsedMs": 0,
+                    "completed": false,
+                    "completedAt": null,
+                    "roleAssignments": [],
+                    "interactions": [],
+                    "objectiveState": {
+                      "objectiveId": null,
+                      "type": "OPEN",
+                      "target": 0,
+                      "progress": 0,
+                      "complete": false
+                    },
+                    "lastTransition": {
+                      "from": null,
+                      "to": "COOP",
+                      "reason": "CREATED",
+                      "at": 1793519643085
+                    },
+                    "updatedAt": 1793519643085
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid input",
+            "x-error-codes": [
+              "INVALID_GAME_REQUEST",
+              "COMMAND_ID_REQUIRED",
+              "INVALID_MISSION_ROLES"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or expired session",
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Wrong role, membership or approval",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Room or scenario not found",
+            "x-error-codes": [
+              "ROOM_NOT_FOUND",
+              "GAME_SCENARIO_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Stale state, gate or unmet objective",
+            "x-error-codes": [
+              "GAME_REQUIRES_PAUSE",
+              "GAME_REVISION_STALE",
+              "STALE_EPOCH",
+              "IDEMPOTENCY_CONFLICT"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Capacity or rate limit",
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Durable state unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameConfigureRequest"
+              },
+              "example": {
+                "commandId": "example-gameConfigure",
+                "roomEpoch": 0,
+                "expectedGameRevision": 0,
+                "scenarioId": "generic-coop-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/game/input": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "gameInput",
+        "tags": [
+          "ServerState"
+        ],
+        "summary": "Submit authoritative game input",
+        "description": "Caller: current CAR_HOST driver connection during PLAYING. Current implemented revision 6; server owns logical state. Native SDK and game rendering remain client work.",
+        "responses": {
+          "200": {
+            "description": "Current committed logical state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameCommandResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                    "roomEpoch": 2,
+                    "stateVersion": 10,
+                    "state": "PLAYING",
+                    "pauseReason": null,
+                    "joinCode": null,
+                    "joinExpiresAt": 1793519762979,
+                    "members": [
+                      {
+                        "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                        "sessionId": "1c4dcc51-e289-43e3-9488-aa4cb032649f",
+                        "nickname": "State schema host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "sessionId": "4df4a981-c5e6-4f38-b3d5-0afd28d02870",
+                        "nickname": "State schema phone",
+                        "role": "REAR_LEFT",
+                        "seat": "REAR_LEFT",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "SENSOR",
+                        "sector": [
+                          -180,
+                          -45
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "ALLOWED",
+                      "gear": "P",
+                      "foreground": true,
+                      "seats": [
+                        {
+                          "seat": "REAR_LEFT",
+                          "occupancy": "OCCUPIED"
+                        }
+                      ],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "SIMULATED_API_CLIENTS",
+                      "reportAgeMs": 78,
+                      "playAllowed": true,
+                      "gateReasons": []
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 0
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": null,
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "enabled": false,
+                      "effectSessionId": null,
+                      "roomEpoch": null,
+                      "controlVersion": 0,
+                      "sceneId": null,
+                      "virtualSpeedMps": 0,
+                      "channels": [],
+                      "maxIntensity01": 0,
+                      "effectSeq": 0,
+                      "active": [],
+                      "lastReport": null,
+                      "lastStopReason": "NOT_ENABLED",
+                      "updatedAt": 1793519643166
+                    },
+                    "game": {
+                      "schemaVersion": 1,
+                      "missionRunId": "d83d94e3-50f4-46fd-bfea-ca707846daf5",
+                      "scenarioId": "generic-coop-v1",
+                      "revision": 1,
+                      "motionSeq": 2,
+                      "stageId": "COOP",
+                      "stageIndex": 0,
+                      "virtualSpeedMps": 0,
+                      "distanceM": 0,
+                      "stageElapsedMs": 48,
+                      "totalElapsedMs": 48,
+                      "completed": false,
+                      "completedAt": null,
+                      "roleAssignments": [],
+                      "interactions": [],
+                      "objectiveState": {
+                        "objectiveId": null,
+                        "type": "OPEN",
+                        "target": 0,
+                        "progress": 0,
+                        "complete": false
+                      },
+                      "lastTransition": {
+                        "from": null,
+                        "to": "COOP",
+                        "reason": "CREATED",
+                        "at": 1793519643085
+                      },
+                      "updatedAt": 1793519643166,
+                      "sceneId": "d83d94e3-50f4-46fd-bfea-ca707846daf5:COOP",
+                      "missionStatus": "PLAYING",
+                      "stageTitle": "Cooperative play",
+                      "drivable": true,
+                      "objectives": [],
+                      "missionRoles": [
+                        {
+                          "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                          "missionRole": "DRIVER"
+                        },
+                        {
+                          "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                          "missionRole": "TECH"
+                        }
+                      ],
+                      "driverSessionId": "example-driver-session-not-live",
+                      "driverControl": {
+                        "throttle": 0.5,
+                        "brake": 0,
+                        "inputSeq": 1,
+                        "inputFresh": true,
+                        "leaseRemainingMs": 2000
+                      },
+                      "motionPolicy": {
+                        "driverLeaseMs": 2000,
+                        "maxTickMs": 250,
+                        "maximumVirtualSpeedMps": 30,
+                        "accelerationMps2": 6,
+                        "brakingMps2": 10
+                      }
+                    },
+                    "cabin": {
+                      "protocol": "zride-cabin-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "revision": 0,
+                      "connected": false,
+                      "reportSeq": 0,
+                      "receivedAt": null,
+                      "reportAgeMs": null,
+                      "freshnessMs": 6000,
+                      "resetReason": "NOT_REPORTED",
+                      "hardwareAttested": false,
+                      "trust": "CLIENT_REPORTED_NOT_ATTESTED",
+                      "hvac": {
+                        "areaId": null,
+                        "power": null,
+                        "fanSpeed": null,
+                        "fanMin": null,
+                        "fanMax": null,
+                        "normalizedFan01": null,
+                        "availability": "UNKNOWN",
+                        "sampleSeq": 0,
+                        "source": "NONE",
+                        "receivedAt": null,
+                        "ageMs": null,
+                        "quality": "UNKNOWN"
+                      },
+                      "seatBelts": [
+                        {
+                          "seat": "DRIVER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "FRONT_PASSENGER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "REAR_LEFT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "REAR_RIGHT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        }
+                      ],
+                      "energy": {
+                        "socPercent": null,
+                        "availability": "UNKNOWN",
+                        "sampleSeq": 0,
+                        "source": "NONE",
+                        "receivedAt": null,
+                        "ageMs": null,
+                        "quality": "UNKNOWN"
+                      },
+                      "derived": {
+                        "purificationInputEligible": false,
+                        "fanInput01": 0,
+                        "purificationInputReason": "GATE_CLOSED",
+                        "crew": [
+                          {
+                            "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                            "seat": "DRIVER",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "GATE_CLOSED"
+                          },
+                          {
+                            "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                            "seat": "REAR_LEFT",
+                            "approved": true,
+                            "seatEvidence": "SENSOR",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "GATE_CLOSED"
+                          }
+                        ]
+                      }
+                    },
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793519643166
+                  },
+                  "data": {
+                    "schemaVersion": 1,
+                    "missionRunId": "d83d94e3-50f4-46fd-bfea-ca707846daf5",
+                    "scenarioId": "generic-coop-v1",
+                    "revision": 1,
+                    "motionSeq": 2,
+                    "stageId": "COOP",
+                    "stageIndex": 0,
+                    "virtualSpeedMps": 0,
+                    "distanceM": 0,
+                    "stageElapsedMs": 48,
+                    "totalElapsedMs": 48,
+                    "completed": false,
+                    "completedAt": null,
+                    "roleAssignments": [],
+                    "interactions": [],
+                    "objectiveState": {
+                      "objectiveId": null,
+                      "type": "OPEN",
+                      "target": 0,
+                      "progress": 0,
+                      "complete": false
+                    },
+                    "lastTransition": {
+                      "from": null,
+                      "to": "COOP",
+                      "reason": "CREATED",
+                      "at": 1793519643085
+                    },
+                    "updatedAt": 1793519643166
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid input",
+            "x-error-codes": [
+              "INVALID_GAME_REQUEST",
+              "COMMAND_ID_REQUIRED",
+              "INVALID_DRIVER_INPUT"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or expired session",
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Wrong role, membership or approval",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Room or scenario not found",
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Stale state, gate or unmet objective",
+            "x-error-codes": [
+              "GAME_CONTROL_STALE",
+              "GAME_INPUT_ORDER",
+              "GAME_SCENE_NOT_DRIVABLE",
+              "STALE_EPOCH",
+              "GATE_CLOSED",
+              "NOT_PLAYING",
+              "IDEMPOTENCY_CONFLICT"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Capacity or rate limit",
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Durable state unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameInputRequest"
+              },
+              "example": {
+                "commandId": "example-gameInput",
+                "roomEpoch": 2,
+                "driverSessionId": "example-driver-session-not-live",
+                "inputSeq": 1,
+                "throttle": 0.5,
+                "brake": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/game/advance": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "gameAdvance",
+        "tags": [
+          "ServerState"
+        ],
+        "summary": "Submit authoritative game advance",
+        "description": "Caller: current room CAR_HOST; stage objective completed. Current implemented revision 6; server owns logical state. Native SDK and game rendering remain client work.",
+        "responses": {
+          "200": {
+            "description": "Current committed logical state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameCommandResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                    "roomEpoch": 5,
+                    "stateVersion": 18,
+                    "state": "PLAYING",
+                    "pauseReason": null,
+                    "joinCode": null,
+                    "joinExpiresAt": 1793519762979,
+                    "members": [
+                      {
+                        "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                        "sessionId": "1c4dcc51-e289-43e3-9488-aa4cb032649f",
+                        "nickname": "State schema host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "sessionId": "4df4a981-c5e6-4f38-b3d5-0afd28d02870",
+                        "nickname": "State schema phone",
+                        "role": "REAR_LEFT",
+                        "seat": "REAR_LEFT",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "SENSOR",
+                        "sector": [
+                          -180,
+                          -45
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "ALLOWED",
+                      "gear": "P",
+                      "foreground": true,
+                      "seats": [
+                        {
+                          "seat": "REAR_LEFT",
+                          "occupancy": "OCCUPIED"
+                        }
+                      ],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "SIMULATED_API_CLIENTS",
+                      "reportAgeMs": 332,
+                      "playAllowed": true,
+                      "gateReasons": []
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 2
+                      },
+                      "collectedPickupIds": [],
+                      "lastCollect": {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "pickupId": "DEMO_PICKUP_B",
+                        "amount": 1,
+                        "at": 1793519643376
+                      },
+                      "eligibility": "DRIVER_CANNOT_COLLECT"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "enabled": false,
+                      "effectSessionId": null,
+                      "roomEpoch": null,
+                      "controlVersion": 0,
+                      "sceneId": null,
+                      "virtualSpeedMps": 0,
+                      "channels": [],
+                      "maxIntensity01": 0,
+                      "effectSeq": 0,
+                      "active": [],
+                      "lastReport": null,
+                      "lastStopReason": "NOT_ENABLED",
+                      "updatedAt": 1793519643420
+                    },
+                    "game": {
+                      "schemaVersion": 1,
+                      "missionRunId": "9404c065-cbcf-4bff-ad98-19626b8a24d9",
+                      "scenarioId": "heist-demo-v1",
+                      "revision": 4,
+                      "motionSeq": 3,
+                      "stageId": "INFILTRATE",
+                      "stageIndex": 1,
+                      "virtualSpeedMps": 0,
+                      "distanceM": 0,
+                      "stageElapsedMs": 0,
+                      "totalElapsedMs": 90,
+                      "completed": false,
+                      "completedAt": null,
+                      "roleAssignments": [],
+                      "interactions": [],
+                      "objectiveState": {
+                        "objectiveId": "TERMINALS",
+                        "type": "UNIQUE_PHONE_INTERACTIONS",
+                        "target": 2,
+                        "progress": 0,
+                        "complete": false
+                      },
+                      "lastTransition": {
+                        "from": "PREPARE",
+                        "to": "INFILTRATE",
+                        "reason": "OBJECTIVE_COMPLETE",
+                        "at": 1793519643420
+                      },
+                      "updatedAt": 1793519643420,
+                      "sceneId": "9404c065-cbcf-4bff-ad98-19626b8a24d9:INFILTRATE",
+                      "missionStatus": "PLAYING",
+                      "stageTitle": "Crew terminal interaction",
+                      "drivable": false,
+                      "objectives": [
+                        {
+                          "objectiveId": "TERMINALS",
+                          "type": "UNIQUE_PHONE_INTERACTIONS",
+                          "target": 2,
+                          "progress": 0,
+                          "complete": false
+                        }
+                      ],
+                      "missionRoles": [
+                        {
+                          "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                          "missionRole": "DRIVER"
+                        },
+                        {
+                          "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                          "missionRole": "TECH"
+                        }
+                      ],
+                      "driverSessionId": "example-driver-session-not-live",
+                      "driverControl": {
+                        "throttle": 0,
+                        "brake": 1,
+                        "inputSeq": 0,
+                        "inputFresh": false,
+                        "leaseRemainingMs": 0
+                      },
+                      "motionPolicy": {
+                        "driverLeaseMs": 2000,
+                        "maxTickMs": 250,
+                        "maximumVirtualSpeedMps": 30,
+                        "accelerationMps2": 6,
+                        "brakingMps2": 10
+                      }
+                    },
+                    "cabin": {
+                      "protocol": "zride-cabin-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "revision": 1,
+                      "connected": true,
+                      "reportSeq": 1,
+                      "receivedAt": 1793519643170,
+                      "reportAgeMs": 250,
+                      "freshnessMs": 6000,
+                      "resetReason": null,
+                      "hardwareAttested": false,
+                      "trust": "CLIENT_REPORTED_NOT_ATTESTED",
+                      "hvac": {
+                        "sampleSeq": 1,
+                        "availability": "AVAILABLE",
+                        "source": "SIMULATED",
+                        "areaId": "FRONT_ROW",
+                        "power": true,
+                        "fanSpeed": 4,
+                        "fanMin": 0,
+                        "fanMax": 8,
+                        "receivedAt": 1793519643170,
+                        "ageMs": 250,
+                        "quality": "FRESH",
+                        "normalizedFan01": 0.5
+                      },
+                      "seatBelts": [
+                        {
+                          "seat": "DRIVER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "FRONT_PASSENGER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "sampleSeq": 1,
+                          "availability": "AVAILABLE",
+                          "source": "SIMULATED",
+                          "seat": "REAR_LEFT",
+                          "buckled": false,
+                          "receivedAt": 1793519643170,
+                          "ageMs": 250,
+                          "quality": "FRESH"
+                        },
+                        {
+                          "seat": "REAR_RIGHT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        }
+                      ],
+                      "energy": {
+                        "sampleSeq": 1,
+                        "availability": "AVAILABLE",
+                        "source": "SIMULATED",
+                        "socPercent": 67,
+                        "receivedAt": 1793519643170,
+                        "ageMs": 250,
+                        "quality": "FRESH"
+                      },
+                      "derived": {
+                        "purificationInputEligible": true,
+                        "fanInput01": 0.5,
+                        "purificationInputReason": "AVAILABLE",
+                        "crew": [
+                          {
+                            "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                            "seat": "DRIVER",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "BELT_NOT_FRESH"
+                          },
+                          {
+                            "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                            "seat": "REAR_LEFT",
+                            "approved": true,
+                            "seatEvidence": "SENSOR",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "BELT_UNBUCKLED"
+                          }
+                        ]
+                      }
+                    },
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793519643420
+                  },
+                  "data": {
+                    "schemaVersion": 1,
+                    "missionRunId": "9404c065-cbcf-4bff-ad98-19626b8a24d9",
+                    "scenarioId": "heist-demo-v1",
+                    "revision": 4,
+                    "motionSeq": 3,
+                    "stageId": "INFILTRATE",
+                    "stageIndex": 1,
+                    "virtualSpeedMps": 0,
+                    "distanceM": 0,
+                    "stageElapsedMs": 0,
+                    "totalElapsedMs": 90,
+                    "completed": false,
+                    "completedAt": null,
+                    "roleAssignments": [],
+                    "interactions": [],
+                    "objectiveState": {
+                      "objectiveId": "TERMINALS",
+                      "type": "UNIQUE_PHONE_INTERACTIONS",
+                      "target": 2,
+                      "progress": 0,
+                      "complete": false
+                    },
+                    "lastTransition": {
+                      "from": "PREPARE",
+                      "to": "INFILTRATE",
+                      "reason": "OBJECTIVE_COMPLETE",
+                      "at": 1793519643420
+                    },
+                    "updatedAt": 1793519643420
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid input",
+            "x-error-codes": [
+              "INVALID_GAME_REQUEST",
+              "COMMAND_ID_REQUIRED"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or expired session",
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "message": "Vehicle host only"
+                  }
+                }
+              }
+            },
+            "description": "Wrong role, membership or approval",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Room or scenario not found",
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "GAME_OBJECTIVE_INCOMPLETE",
+                    "message": "Server objective must complete before advancing"
+                  }
+                }
+              }
+            },
+            "description": "Stale state, gate or unmet objective",
+            "x-error-codes": [
+              "GAME_NO_NEXT_STAGE",
+              "GAME_OBJECTIVE_INCOMPLETE",
+              "GAME_REVISION_STALE",
+              "STALE_EPOCH",
+              "GATE_CLOSED",
+              "NOT_PLAYING",
+              "IDEMPOTENCY_CONFLICT"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Capacity or rate limit",
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Durable state unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameAdvanceRequest"
+              },
+              "example": {
+                "commandId": "example-gameAdvance",
+                "roomEpoch": 5,
+                "expectedGameRevision": 3
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/game/interact": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "gameInteract",
+        "tags": [
+          "ServerState"
+        ],
+        "summary": "Submit authoritative game interact",
+        "description": "Caller: approved PHONE. The current stage must permit this objective. TERMINALS counts any two distinct approved PHONE actors; missionRole labels do not add a skill restriction. Current implemented revision 6; server owns logical state. Native SDK and game rendering remain client work.",
+        "responses": {
+          "200": {
+            "description": "Current committed logical state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameCommandResponse"
+                },
+                "example": {
+                  "room": {
+                    "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                    "roomEpoch": 5,
+                    "stateVersion": 20,
+                    "state": "PLAYING",
+                    "pauseReason": null,
+                    "joinCode": null,
+                    "joinExpiresAt": 1793519762979,
+                    "members": [
+                      {
+                        "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                        "sessionId": "1c4dcc51-e289-43e3-9488-aa4cb032649f",
+                        "nickname": "State schema host",
+                        "role": "CAR_HOST",
+                        "seat": "DRIVER",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "MANUAL_UNKNOWN",
+                        "sector": null
+                      },
+                      {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "sessionId": "4df4a981-c5e6-4f38-b3d5-0afd28d02870",
+                        "nickname": "State schema phone",
+                        "role": "REAR_LEFT",
+                        "seat": "REAR_LEFT",
+                        "approved": true,
+                        "connected": true,
+                        "seatEvidence": "SENSOR",
+                        "sector": [
+                          -180,
+                          -45
+                        ]
+                      }
+                    ],
+                    "vehicle": {
+                      "ux": "ALLOWED",
+                      "gear": "P",
+                      "foreground": true,
+                      "seats": [
+                        {
+                          "seat": "REAR_LEFT",
+                          "occupancy": "OCCUPIED"
+                        }
+                      ],
+                      "charge": {
+                        "state": "UNKNOWN",
+                        "portConnection": "UNKNOWN",
+                        "source": "NONE"
+                      },
+                      "source": "SIMULATED_API_CLIENTS",
+                      "reportAgeMs": 362,
+                      "playAllowed": true,
+                      "gateReasons": []
+                    },
+                    "stats": {
+                      "shots": 0,
+                      "rejectedShots": 0,
+                      "hits": 0,
+                      "zombieHp": 5,
+                      "zombieAngleDeg": 60,
+                      "supportUntil": 0,
+                      "supportCount": 0,
+                      "supportDamage": 2,
+                      "supportSupplyUsed": false,
+                      "kills": 0,
+                      "waveCleared": false,
+                      "lastShot": null,
+                      "supportActive": false
+                    },
+                    "collection": {
+                      "mode": "DEMO_PICKUP",
+                      "gpsVerified": false,
+                      "label": "테스트 수집 지점 · GPS 미검증",
+                      "fixtures": [
+                        {
+                          "pickupId": "DEMO_PICKUP_A",
+                          "title": "테스트 보급 상자 A",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_B",
+                          "title": "테스트 보급 상자 B",
+                          "resource": "supplies",
+                          "amount": 1
+                        },
+                        {
+                          "pickupId": "DEMO_PICKUP_C",
+                          "title": "테스트 보급 상자 C",
+                          "resource": "supplies",
+                          "amount": 1
+                        }
+                      ],
+                      "inventory": {
+                        "supplies": 2
+                      },
+                      "collectedPickupIds": [
+                        "DEMO_PICKUP_A",
+                        "DEMO_PICKUP_B"
+                      ],
+                      "lastCollect": {
+                        "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                        "pickupId": "DEMO_PICKUP_B",
+                        "amount": 1,
+                        "at": 1793519643376
+                      },
+                      "eligibility": "APPROVED_ROLE_AND_PASSENGER_SELF_DECLARATION_ONLY"
+                    },
+                    "zombies": [
+                      {
+                        "id": "zombie_left",
+                        "angleDeg": -100,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_front",
+                        "angleDeg": 60,
+                        "hp": 5,
+                        "maxHp": 5
+                      },
+                      {
+                        "id": "zombie_rear",
+                        "angleDeg": 140,
+                        "hp": 5,
+                        "maxHp": 5
+                      }
+                    ],
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "enabled": false,
+                      "effectSessionId": null,
+                      "roomEpoch": null,
+                      "controlVersion": 0,
+                      "sceneId": null,
+                      "virtualSpeedMps": 0,
+                      "channels": [],
+                      "maxIntensity01": 0,
+                      "effectSeq": 0,
+                      "active": [],
+                      "lastReport": null,
+                      "lastStopReason": "NOT_ENABLED",
+                      "updatedAt": 1793519643450
+                    },
+                    "game": {
+                      "schemaVersion": 1,
+                      "missionRunId": "9404c065-cbcf-4bff-ad98-19626b8a24d9",
+                      "scenarioId": "heist-demo-v1",
+                      "revision": 5,
+                      "motionSeq": 5,
+                      "stageId": "INFILTRATE",
+                      "stageIndex": 1,
+                      "virtualSpeedMps": 0,
+                      "distanceM": 0,
+                      "stageElapsedMs": 30,
+                      "totalElapsedMs": 120,
+                      "completed": false,
+                      "completedAt": null,
+                      "roleAssignments": [],
+                      "interactions": [
+                        "2c30bd5a-0407-41f2-8fb6-35fab64449af"
+                      ],
+                      "objectiveState": {
+                        "objectiveId": "TERMINALS",
+                        "type": "UNIQUE_PHONE_INTERACTIONS",
+                        "target": 2,
+                        "progress": 1,
+                        "complete": false
+                      },
+                      "lastTransition": {
+                        "from": "PREPARE",
+                        "to": "INFILTRATE",
+                        "reason": "OBJECTIVE_COMPLETE",
+                        "at": 1793519643420
+                      },
+                      "updatedAt": 1793519643450,
+                      "sceneId": "9404c065-cbcf-4bff-ad98-19626b8a24d9:INFILTRATE",
+                      "missionStatus": "PLAYING",
+                      "stageTitle": "Crew terminal interaction",
+                      "drivable": false,
+                      "objectives": [
+                        {
+                          "objectiveId": "TERMINALS",
+                          "type": "UNIQUE_PHONE_INTERACTIONS",
+                          "target": 2,
+                          "progress": 1,
+                          "complete": false
+                        }
+                      ],
+                      "missionRoles": [
+                        {
+                          "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                          "missionRole": "DRIVER"
+                        },
+                        {
+                          "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                          "missionRole": "TECH"
+                        }
+                      ],
+                      "driverSessionId": null,
+                      "driverControl": {
+                        "throttle": 0,
+                        "brake": 1,
+                        "inputSeq": 0,
+                        "inputFresh": false,
+                        "leaseRemainingMs": 0
+                      },
+                      "motionPolicy": {
+                        "driverLeaseMs": 2000,
+                        "maxTickMs": 250,
+                        "maximumVirtualSpeedMps": 30,
+                        "accelerationMps2": 6,
+                        "brakingMps2": 10
+                      }
+                    },
+                    "cabin": {
+                      "protocol": "zride-cabin-v1",
+                      "roomId": "68af4538-6009-48a4-9815-513dd5d74047",
+                      "revision": 1,
+                      "connected": true,
+                      "reportSeq": 1,
+                      "receivedAt": 1793519643170,
+                      "reportAgeMs": 280,
+                      "freshnessMs": 6000,
+                      "resetReason": null,
+                      "hardwareAttested": false,
+                      "trust": "CLIENT_REPORTED_NOT_ATTESTED",
+                      "hvac": {
+                        "sampleSeq": 1,
+                        "availability": "AVAILABLE",
+                        "source": "SIMULATED",
+                        "areaId": "FRONT_ROW",
+                        "power": true,
+                        "fanSpeed": 4,
+                        "fanMin": 0,
+                        "fanMax": 8,
+                        "receivedAt": 1793519643170,
+                        "ageMs": 280,
+                        "quality": "FRESH",
+                        "normalizedFan01": 0.5
+                      },
+                      "seatBelts": [
+                        {
+                          "seat": "DRIVER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "seat": "FRONT_PASSENGER",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        },
+                        {
+                          "sampleSeq": 1,
+                          "availability": "AVAILABLE",
+                          "source": "SIMULATED",
+                          "seat": "REAR_LEFT",
+                          "buckled": false,
+                          "receivedAt": 1793519643170,
+                          "ageMs": 280,
+                          "quality": "FRESH"
+                        },
+                        {
+                          "seat": "REAR_RIGHT",
+                          "buckled": null,
+                          "availability": "UNKNOWN",
+                          "sampleSeq": 0,
+                          "source": "NONE",
+                          "receivedAt": null,
+                          "ageMs": null,
+                          "quality": "UNKNOWN"
+                        }
+                      ],
+                      "energy": {
+                        "sampleSeq": 1,
+                        "availability": "AVAILABLE",
+                        "source": "SIMULATED",
+                        "socPercent": 67,
+                        "receivedAt": 1793519643170,
+                        "ageMs": 280,
+                        "quality": "FRESH"
+                      },
+                      "derived": {
+                        "purificationInputEligible": true,
+                        "fanInput01": 0.5,
+                        "purificationInputReason": "AVAILABLE",
+                        "crew": [
+                          {
+                            "memberId": "c12e0423-81bf-49f8-8a0f-8b25a326a7f3",
+                            "seat": "DRIVER",
+                            "approved": true,
+                            "seatEvidence": "MANUAL_UNKNOWN",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "BELT_NOT_FRESH"
+                          },
+                          {
+                            "memberId": "2c30bd5a-0407-41f2-8fb6-35fab64449af",
+                            "seat": "REAR_LEFT",
+                            "approved": true,
+                            "seatEvidence": "SENSOR",
+                            "ready": false,
+                            "beltProtection": false,
+                            "reason": "BELT_UNBUCKLED"
+                          }
+                        ]
+                      }
+                    },
+                    "sectors": {
+                      "FRONT_PASSENGER": [
+                        -45,
+                        90
+                      ],
+                      "REAR_LEFT": [
+                        -180,
+                        -45
+                      ],
+                      "REAR_RIGHT": [
+                        45,
+                        180
+                      ]
+                    },
+                    "trust": "LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION",
+                    "serverTime": 1793519643450
+                  },
+                  "data": {
+                    "schemaVersion": 1,
+                    "missionRunId": "9404c065-cbcf-4bff-ad98-19626b8a24d9",
+                    "scenarioId": "heist-demo-v1",
+                    "revision": 5,
+                    "motionSeq": 4,
+                    "stageId": "INFILTRATE",
+                    "stageIndex": 1,
+                    "virtualSpeedMps": 0,
+                    "distanceM": 0,
+                    "stageElapsedMs": 28,
+                    "totalElapsedMs": 118,
+                    "completed": false,
+                    "completedAt": null,
+                    "roleAssignments": [],
+                    "interactions": [
+                      "2c30bd5a-0407-41f2-8fb6-35fab64449af"
+                    ],
+                    "objectiveState": {
+                      "objectiveId": "TERMINALS",
+                      "type": "UNIQUE_PHONE_INTERACTIONS",
+                      "target": 2,
+                      "progress": 1,
+                      "complete": false
+                    },
+                    "lastTransition": {
+                      "from": "PREPARE",
+                      "to": "INFILTRATE",
+                      "reason": "OBJECTIVE_COMPLETE",
+                      "at": 1793519643420
+                    },
+                    "updatedAt": 1793519643450
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid input",
+            "x-error-codes": [
+              "INVALID_GAME_REQUEST",
+              "COMMAND_ID_REQUIRED"
+            ]
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or expired session",
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Wrong role, membership or approval",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "NOT_MEMBER",
+              "MEMBER_PENDING"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Room or scenario not found",
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "GAME_ALREADY_INTERACTED",
+                    "message": "Each crew member contributes once"
+                  }
+                }
+              }
+            },
+            "description": "Stale state, gate or unmet objective",
+            "x-error-codes": [
+              "GAME_INTERACTION_UNAVAILABLE",
+              "GAME_ALREADY_INTERACTED",
+              "GAME_STAGE_COMPLETE",
+              "GAME_REVISION_STALE",
+              "STALE_EPOCH",
+              "GATE_CLOSED",
+              "NOT_PLAYING",
+              "IDEMPOTENCY_CONFLICT"
+            ]
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Capacity or rate limit",
+            "x-error-codes": [
+              "RATE_LIMITED",
+              "COMMAND_LIMIT"
+            ]
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Durable state unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameInteractRequest"
+              },
+              "example": {
+                "commandId": "example-gameInteract",
+                "roomEpoch": 5,
+                "expectedGameRevision": 4,
+                "objectiveId": "TERMINALS",
+                "action": "INTERACT"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3507,7 +6261,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 5
+            "const": 6
           }
         },
         "required": [
@@ -4187,6 +6941,12 @@
           },
           "effects": {
             "$ref": "#/components/schemas/EffectSummary"
+          },
+          "game": {
+            "$ref": "#/components/schemas/GameSnapshot"
+          },
+          "cabin": {
+            "$ref": "#/components/schemas/CabinSnapshot"
           }
         },
         "required": [
@@ -4677,7 +7437,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 5
+            "const": 6
           }
         },
         "required": [
@@ -5440,6 +8200,1520 @@
           "reason",
           "issuedAt"
         ]
+      },
+      "MissionRole": {
+        "type": "string",
+        "enum": [
+          "DRIVER",
+          "SCOUT",
+          "TECH",
+          "COVER"
+        ]
+      },
+      "GameConfigureRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedGameRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "scenarioId": {
+            "type": "string",
+            "enum": [
+              "generic-coop-v1",
+              "heist-demo-v1"
+            ]
+          },
+          "roleAssignments": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "memberId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "missionRole": {
+                  "$ref": "#/components/schemas/MissionRole"
+                }
+              },
+              "required": [
+                "memberId",
+                "missionRole"
+              ]
+            }
+          }
+        },
+        "required": [
+          "commandId",
+          "roomEpoch",
+          "expectedGameRevision",
+          "scenarioId"
+        ]
+      },
+      "GameInputRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "driverSessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "inputSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "throttle": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "brake": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "commandId",
+          "roomEpoch",
+          "driverSessionId",
+          "inputSeq",
+          "throttle",
+          "brake"
+        ]
+      },
+      "GameAdvanceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedGameRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "commandId",
+          "roomEpoch",
+          "expectedGameRevision"
+        ]
+      },
+      "GameInteractRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedGameRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "objectiveId": {
+            "const": "TERMINALS"
+          },
+          "action": {
+            "const": "INTERACT"
+          }
+        },
+        "required": [
+          "commandId",
+          "roomEpoch",
+          "expectedGameRevision",
+          "objectiveId",
+          "action"
+        ]
+      },
+      "GameSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "missionRunId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "scenarioId": {
+            "enum": [
+              "generic-coop-v1",
+              "heist-demo-v1"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "motionSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stageId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "stageIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "virtualSpeedMps": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 30
+          },
+          "distanceM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "stageElapsedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalElapsedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completedAt": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "roleAssignments": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "memberId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "missionRole": {
+                  "$ref": "#/components/schemas/MissionRole"
+                }
+              },
+              "required": [
+                "memberId",
+                "missionRole"
+              ]
+            }
+          },
+          "interactions": {
+            "type": "array",
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "objectiveState": {
+            "$ref": "#/components/schemas/GameObjective"
+          },
+          "lastTransition": {
+            "$ref": "#/components/schemas/GameTransition"
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sceneId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "missionStatus": {
+            "enum": [
+              "LOBBY",
+              "READY",
+              "PLAYING",
+              "PAUSED",
+              "CLEARED",
+              "COMPLETED"
+            ]
+          },
+          "stageTitle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "drivable": {
+            "type": "boolean"
+          },
+          "objectives": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/GameObjective"
+            }
+          },
+          "missionRoles": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "memberId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "missionRole": {
+                  "$ref": "#/components/schemas/MissionRole"
+                }
+              },
+              "required": [
+                "memberId",
+                "missionRole"
+              ]
+            }
+          },
+          "driverSessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driverControl": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "throttle": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "brake": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "inputSeq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inputFresh": {
+                "type": "boolean"
+              },
+              "leaseRemainingMs": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "throttle",
+              "brake",
+              "inputSeq",
+              "inputFresh",
+              "leaseRemainingMs"
+            ]
+          },
+          "motionPolicy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "driverLeaseMs": {
+                "type": "number",
+                "minimum": 0
+              },
+              "maxTickMs": {
+                "type": "number",
+                "minimum": 0
+              },
+              "maximumVirtualSpeedMps": {
+                "const": 30
+              },
+              "accelerationMps2": {
+                "const": 6
+              },
+              "brakingMps2": {
+                "const": 10
+              }
+            },
+            "required": [
+              "driverLeaseMs",
+              "maxTickMs",
+              "maximumVirtualSpeedMps",
+              "accelerationMps2",
+              "brakingMps2"
+            ]
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "missionRunId",
+          "scenarioId",
+          "revision",
+          "motionSeq",
+          "stageId",
+          "stageIndex",
+          "virtualSpeedMps",
+          "distanceM",
+          "stageElapsedMs",
+          "totalElapsedMs",
+          "completed",
+          "completedAt",
+          "roleAssignments",
+          "interactions",
+          "objectiveState",
+          "lastTransition",
+          "updatedAt",
+          "sceneId",
+          "missionStatus",
+          "stageTitle",
+          "drivable",
+          "objectives",
+          "missionRoles",
+          "driverSessionId",
+          "driverControl",
+          "motionPolicy"
+        ]
+      },
+      "CabinSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "const": "zride-cabin-v1"
+          },
+          "roomId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "reportSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "receivedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "reportAgeMs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "freshnessMs": {
+            "const": 6000
+          },
+          "resetReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hardwareAttested": {
+            "const": false
+          },
+          "trust": {
+            "const": "CLIENT_REPORTED_NOT_ATTESTED"
+          },
+          "hvac": {
+            "$ref": "#/components/schemas/CabinHvacState"
+          },
+          "seatBelts": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/CabinBeltState"
+            }
+          },
+          "energy": {
+            "$ref": "#/components/schemas/CabinEnergyState"
+          },
+          "derived": {
+            "$ref": "#/components/schemas/CabinDerivedState"
+          }
+        },
+        "required": [
+          "protocol",
+          "roomId",
+          "revision",
+          "connected",
+          "reportSeq",
+          "receivedAt",
+          "reportAgeMs",
+          "freshnessMs",
+          "resetReason",
+          "hardwareAttested",
+          "trust",
+          "hvac",
+          "seatBelts",
+          "energy",
+          "derived"
+        ]
+      },
+      "ScenarioDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scenarioId": {
+            "enum": [
+              "generic-coop-v1",
+              "heist-demo-v1"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "stages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/GameStageDefinition"
+            }
+          }
+        },
+        "required": [
+          "scenarioId",
+          "title",
+          "stages"
+        ]
+      },
+      "StateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          },
+          "serverTime": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "room",
+          "serverTime"
+        ]
+      },
+      "ScenarioResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioDefinition"
+            }
+          }
+        },
+        "required": [
+          "scenarios"
+        ]
+      },
+      "GameCommandResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          },
+          "data": {
+            "$ref": "#/components/schemas/GameLogicalState"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "room",
+          "data",
+          "replayed"
+        ]
+      },
+      "CabinAvailability": {
+        "type": "string",
+        "enum": [
+          "AVAILABLE",
+          "UNKNOWN",
+          "UNSUPPORTED",
+          "PERMISSION_DENIED",
+          "UNAVAILABLE"
+        ]
+      },
+      "CabinSource": {
+        "type": "string",
+        "enum": [
+          "PLEOS_READ",
+          "PLEOS_CALLBACK",
+          "SIMULATED",
+          "NONE"
+        ]
+      },
+      "CabinSeat": {
+        "type": "string",
+        "enum": [
+          "DRIVER",
+          "FRONT_PASSENGER",
+          "REAR_LEFT",
+          "REAR_RIGHT"
+        ]
+      },
+      "CabinHvacObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sampleSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "availability": {
+            "$ref": "#/components/schemas/CabinAvailability"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CabinSource"
+          },
+          "measuredAgeMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "areaId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 96,
+            "pattern": "^[ -~]+$"
+          },
+          "power": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "fanSpeed": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fanMin": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "fanMax": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sampleSeq",
+          "availability",
+          "source"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "AVAILABLE"
+                }
+              },
+              "required": [
+                "availability"
+              ]
+            },
+            "then": {
+              "required": [
+                "measuredAgeMs",
+                "areaId",
+                "power",
+                "fanSpeed",
+                "fanMin",
+                "fanMax"
+              ],
+              "properties": {
+                "measuredAgeMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60000
+                },
+                "source": {
+                  "enum": [
+                    "PLEOS_READ",
+                    "PLEOS_CALLBACK",
+                    "SIMULATED"
+                  ]
+                },
+                "power": {
+                  "type": "boolean"
+                },
+                "fanSpeed": {
+                  "type": "number"
+                },
+                "fanMin": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "fanMax": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "areaId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 96,
+                  "pattern": "^[ -~]+$"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "source": {
+                  "const": "NONE"
+                },
+                "measuredAgeMs": {
+                  "type": "null"
+                },
+                "power": {
+                  "type": "null"
+                },
+                "fanSpeed": {
+                  "type": "null"
+                },
+                "fanMin": {
+                  "type": "null"
+                },
+                "fanMax": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CabinBeltObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sampleSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "availability": {
+            "$ref": "#/components/schemas/CabinAvailability"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CabinSource"
+          },
+          "measuredAgeMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "seat": {
+            "$ref": "#/components/schemas/CabinSeat"
+          },
+          "buckled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sampleSeq",
+          "availability",
+          "source",
+          "seat"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "AVAILABLE"
+                }
+              },
+              "required": [
+                "availability"
+              ]
+            },
+            "then": {
+              "required": [
+                "measuredAgeMs",
+                "seat",
+                "buckled"
+              ],
+              "properties": {
+                "measuredAgeMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60000
+                },
+                "source": {
+                  "enum": [
+                    "PLEOS_READ",
+                    "PLEOS_CALLBACK",
+                    "SIMULATED"
+                  ]
+                },
+                "buckled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "source": {
+                  "const": "NONE"
+                },
+                "measuredAgeMs": {
+                  "type": "null"
+                },
+                "buckled": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CabinEnergyObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sampleSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "availability": {
+            "$ref": "#/components/schemas/CabinAvailability"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CabinSource"
+          },
+          "measuredAgeMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "socPercent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "sampleSeq",
+          "availability",
+          "source"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "AVAILABLE"
+                }
+              },
+              "required": [
+                "availability"
+              ]
+            },
+            "then": {
+              "required": [
+                "measuredAgeMs",
+                "socPercent"
+              ],
+              "properties": {
+                "measuredAgeMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 60000
+                },
+                "source": {
+                  "enum": [
+                    "PLEOS_READ",
+                    "PLEOS_CALLBACK",
+                    "SIMULATED"
+                  ]
+                },
+                "socPercent": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "source": {
+                  "const": "NONE"
+                },
+                "measuredAgeMs": {
+                  "type": "null"
+                },
+                "socPercent": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CabinReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "vehicle.cabin.report"
+          },
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "vehicleConnectionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reportSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "hvac": {
+            "$ref": "#/components/schemas/CabinHvacObservation"
+          },
+          "seatBelts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/CabinBeltObservation"
+            }
+          },
+          "energy": {
+            "$ref": "#/components/schemas/CabinEnergyObservation"
+          }
+        },
+        "required": [
+          "type",
+          "commandId",
+          "vehicleConnectionId",
+          "reportSeq"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "hvac"
+            ]
+          },
+          {
+            "required": [
+              "seatBelts"
+            ]
+          },
+          {
+            "required": [
+              "energy"
+            ]
+          }
+        ]
+      },
+      "CabinHvacState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CabinAvailability"
+          },
+          "sampleSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source": {
+            "$ref": "#/components/schemas/CabinSource"
+          },
+          "receivedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "ageMs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "UNKNOWN",
+              "UNAVAILABLE",
+              "FRESH",
+              "STALE"
+            ]
+          },
+          "areaId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "power": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "fanSpeed": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fanMin": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fanMax": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "normalizedFan01": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "availability",
+          "sampleSeq",
+          "source",
+          "receivedAt",
+          "ageMs",
+          "quality",
+          "areaId",
+          "power",
+          "fanSpeed",
+          "fanMin",
+          "fanMax",
+          "normalizedFan01"
+        ]
+      },
+      "CabinBeltState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CabinAvailability"
+          },
+          "sampleSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source": {
+            "$ref": "#/components/schemas/CabinSource"
+          },
+          "receivedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "ageMs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "UNKNOWN",
+              "UNAVAILABLE",
+              "FRESH",
+              "STALE"
+            ]
+          },
+          "seat": {
+            "$ref": "#/components/schemas/CabinSeat"
+          },
+          "buckled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "availability",
+          "sampleSeq",
+          "source",
+          "receivedAt",
+          "ageMs",
+          "quality",
+          "seat",
+          "buckled"
+        ]
+      },
+      "CabinEnergyState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/CabinAvailability"
+          },
+          "sampleSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source": {
+            "$ref": "#/components/schemas/CabinSource"
+          },
+          "receivedAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "ageMs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "quality": {
+            "enum": [
+              "UNKNOWN",
+              "UNAVAILABLE",
+              "FRESH",
+              "STALE"
+            ]
+          },
+          "socPercent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "availability",
+          "sampleSeq",
+          "source",
+          "receivedAt",
+          "ageMs",
+          "quality",
+          "socPercent"
+        ]
+      },
+      "CabinCrewState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "memberId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seat": {
+            "$ref": "#/components/schemas/CabinSeat"
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "seatEvidence": {
+            "enum": [
+              "SENSOR",
+              "EMPTY",
+              "MANUAL_UNKNOWN"
+            ]
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "beltProtection": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "memberId",
+          "seat",
+          "approved",
+          "seatEvidence",
+          "ready",
+          "beltProtection",
+          "reason"
+        ]
+      },
+      "CabinDerivedState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "purificationInputEligible": {
+            "type": "boolean"
+          },
+          "fanInput01": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "purificationInputReason": {
+            "type": "string"
+          },
+          "crew": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/CabinCrewState"
+            }
+          }
+        },
+        "required": [
+          "purificationInputEligible",
+          "fanInput01",
+          "purificationInputReason",
+          "crew"
+        ]
+      },
+      "GameStageDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stageId": {
+            "enum": [
+              "COOP",
+              "PREPARE",
+              "INFILTRATE",
+              "DEFEND",
+              "EXTRACT",
+              "COMPLETE"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "objectiveId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "OPEN",
+              "SHARED_SUPPLIES",
+              "UNIQUE_PHONE_INTERACTIONS",
+              "SERVER_COMBAT_CLEAR",
+              "VIRTUAL_DISTANCE",
+              "COMPLETE"
+            ]
+          },
+          "target": {
+            "type": "number",
+            "minimum": 0
+          },
+          "drivable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stageId",
+          "title",
+          "objectiveId",
+          "type",
+          "target",
+          "drivable"
+        ]
+      },
+      "GameObjective": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "objectiveId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "target": {
+            "type": "number",
+            "minimum": 0
+          },
+          "progress": {
+            "type": "number",
+            "minimum": 0
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "objectiveId",
+          "type",
+          "target",
+          "progress",
+          "complete"
+        ]
+      },
+      "GameTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "at": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "reason",
+          "at"
+        ]
+      },
+      "GameLogicalState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "missionRunId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "scenarioId": {
+            "enum": [
+              "generic-coop-v1",
+              "heist-demo-v1"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "motionSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stageId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "stageIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "virtualSpeedMps": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 30
+          },
+          "distanceM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "stageElapsedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalElapsedMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completedAt": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "roleAssignments": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "memberId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "missionRole": {
+                  "$ref": "#/components/schemas/MissionRole"
+                }
+              },
+              "required": [
+                "memberId",
+                "missionRole"
+              ]
+            }
+          },
+          "interactions": {
+            "type": "array",
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "objectiveState": {
+            "$ref": "#/components/schemas/GameObjective"
+          },
+          "lastTransition": {
+            "$ref": "#/components/schemas/GameTransition"
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "missionRunId",
+          "scenarioId",
+          "revision",
+          "motionSeq",
+          "stageId",
+          "stageIndex",
+          "virtualSpeedMps",
+          "distanceM",
+          "stageElapsedMs",
+          "totalElapsedMs",
+          "completed",
+          "completedAt",
+          "roleAssignments",
+          "interactions",
+          "objectiveState",
+          "lastTransition",
+          "updatedAt"
+        ]
       }
     }
   },
@@ -5508,5 +9782,14 @@
     },
     "executionRule": "Never execute HTTP data.intents, GET state, room/observer snapshots or retried receipts. Only a fresh matching nonexpired WS intent may be mapped locally to supported SDK calls.",
     "physicalVerification": "APPLIED_CONFIRMED is client-reported get/callback observation, not hardware attestation."
+  },
+  "x-cabin-websocket": {
+    "path": "/ws",
+    "messageSchema": {
+      "$ref": "#/components/schemas/CabinReport"
+    },
+    "role": "current CAR_HOST connection only",
+    "meaning": "Client-reported SDK/quality observation; no hardware attestation; never creates arbitrary physical setter calls",
+    "state": "ephemeral; same sampleSeq never refreshes observation freshness"
   }
 }

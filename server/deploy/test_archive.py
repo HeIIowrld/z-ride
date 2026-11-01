@@ -11,7 +11,7 @@ import unittest
 SCRIPT = Path(__file__).with_name('zride-deploy.sh').read_text(encoding='utf-8')
 EXTRACTOR = SCRIPT.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 REQUIRED = ['package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
-            'state-store.mjs', 'effects.mjs', 'observer.mjs', 'observer/index.html',
+            'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'observer.mjs', 'observer/index.html',
             'observer/app.js', 'observer/style.css', 'phone-client.mjs',
             'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css']
 

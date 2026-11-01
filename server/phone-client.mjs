@@ -17,6 +17,7 @@ export function createPhoneClientService() {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
       const file = assets.get(path);
       if (!file || !['GET', 'HEAD'].includes(req.method)) {
+        req.resume();
         res.writeHead(file ? 405 : 404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
         res.end('Not available'); return true;
       }
