@@ -77,6 +77,13 @@ with tarfile.open(archive, 'r:gz') as source:
             with source.extractfile(member) as incoming, target.open('xb') as output:
                 shutil.copyfileobj(incoming, output)
             target.chmod(0o644)
+    # File-only tar producers need not emit parent directory entries. mkdir's
+    # implicit parents inherit the deployer's private umask, so normalize every
+    # directory after extraction, not only explicit directory members.
+    destination.chmod(0o755)
+    for directory in destination.rglob('*'):
+        if directory.is_dir():
+            directory.chmod(0o755)
 PY
   chown -R zride:zride "$release"
   chmod 755 "$release"

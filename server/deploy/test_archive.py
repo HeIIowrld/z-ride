@@ -16,7 +16,7 @@ REQUIRED = ['package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
 
 
 class DeploymentArchiveTests(unittest.TestCase):
-    def run_archive(self, extra=None, omit=None):
+    def run_archive(self, extra=None, omit=None, private_umask=False):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             archive, output = directory/'source.tar.gz', directory/'release'
@@ -32,17 +32,31 @@ class DeploymentArchiveTests(unittest.TestCase):
                 if extra:
                     for item, content in extra:
                         package.addfile(item, io.BytesIO(content) if content is not None else None)
-            result = subprocess.run([sys.executable, '-c', EXTRACTOR, str(archive), str(output)],
+            extractor = ('import os; os.umask(0o077)\n' if private_umask else '') + EXTRACTOR
+            result = subprocess.run([sys.executable, '-c', extractor, str(archive), str(output)],
                                     capture_output=True, text=True, timeout=20)
             files = [path.relative_to(output).as_posix() for path in output.rglob('*') if path.is_file()]
             if result.returncode == 0 and os.name == 'posix':
                 self.assertEqual((output/'server.mjs').stat().st_mode & 0o7777, 0o644)
+                self.assertEqual(output.stat().st_mode & 0o7777, 0o755)
+                for path in output.rglob('*'):
+                    if path.is_dir():
+                        self.assertEqual(path.stat().st_mode & 0o7777, 0o755, path.relative_to(output).as_posix())
             return result, files
 
     def test_expected_runtime_is_extracted(self):
         result, files = self.run_archive()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(files), set(REQUIRED))
+
+    @unittest.skipUnless(os.name == 'posix', 'Unix mode checks run on Linux CI and deployment guest')
+    def test_file_only_tar_implicit_parent_directories_ignore_private_umask(self):
+        # No directory TarInfo entries are emitted by this fixture producer.
+        nested = tarfile.TarInfo('observer/nested/screens/view.js')
+        nested.size = 2
+        result, files = self.run_archive([(nested, b'{}')], private_umask=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('observer/nested/screens/view.js', files)
 
     def test_rejects_traversal_and_absolute_path_before_extracting(self):
         for path in ['../escape', '/tmp/escape', 'observer/../../escape']:
