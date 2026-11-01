@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-11-01",
+  "contractRevision": 6,
+  "openapiDocumentValid": true,
+  "captured": {
+    "httpResponses": 25,
+    "validRequests": 5,
+    "wsSamples": 2
+  },
+  "newSuccessfulRestRouteCoverage": "6/6",
+  "allStoredExamplesValid": true,
+  "scope": "isolated actual HTTP/WS; server mission/cabin state, no physical SDK",
+  "integrationTests": {
+    "file": "test/server-state.test.mjs",
+    "passed": 7,
+    "failed": 0
+  },
+  "integrationScope": [
+    "actor projection/authorization",
+    "heist objectives and stage guards",
+    "driver lease/session/sequence",
+    "cabin freshness/UNKNOWN/connection reset",
+    "durable progress/idempotency and ephemeral authority reset",
+    "failed-commit publication guard",
+    "bounded POST room body with Connection:close"
+  ]
+}

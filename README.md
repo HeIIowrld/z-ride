@@ -19,12 +19,13 @@ npm start
 
 | 작업 기준 | 문서 |
 | --- | --- |
-| REST 15개·타입·요청/응답·오류 | [OpenAPI 3.1](server/openapi.json) |
+| REST 21개·타입·요청/응답·오류 | [OpenAPI 3.1](server/openapi.json) |
 | WS 메시지·승인·역할·재접속 | [앱 팀 연동 계약](server/docs/client-handoff.md), [protocol.json](server/protocol.json) |
 | 지도 데이터·위치·수집 판정 | [world API 결정 기록](server/docs/ADR-003-phone-world.md) |
 | Docker·접속 주소·운영 한계 | [인프라 인계서](server/docs/infra-runbook.md) |
 | 연결 유지·EOF 조사 | [연결 감사](server/docs/connection-audit.md) |
 | 4D 가상 속도·장면 효과·차량 실행 보고 | [차량 효과 API](server/docs/vehicle-effects.md) |
+| 협동 임무·목표·입력·차량 관측 상태 | [서버 상태 계약](server/docs/server-state.md) |
 
 GitHub Actions는 서버·계약 테스트, Docker/Compose의 정상 재시작·강제 종료·볼륨 복구를 검증한다. 공개 저장소의 PR은 GitHub-hosted runner에서만 실행한다. Proxmox LXC는 별도 pull timer로 같은 리포의 main CI 성공 SHA만 가져와 서비스를 갱신한다. DB는 배포 디렉터리와 분리된 SQLite 파일에 두며 방·참가 승인·재고·중복 지급 원장이 재시작 뒤에도 유지된다. [영속성 설계](server/docs/persistence.md), [실제 배포 절차](server/docs/deployment.md)를 따른다.
 
@@ -32,7 +33,9 @@ GitHub Actions는 서버·계약 테스트, Docker/Compose의 정상 재시작·
 
 ## 실시간 관제
 
-revision 5는 4D 효과 세션·가상 속도에 따른 바람·위험/피격/탈출 cue·중지 REST API와 현재 차량 소켓의 실행 보고를 추가한다. 효과 의도는 차량에만 보내며 만료·주행 조건·소켓 교체·서버 재시작 뒤 재생하지 않는다. 관제에는 의도와 차량 보고를 구분해 표시한다. 실제 공조·조명 setter와 물리 반영/원복은 차량 앱 팀의 후속 구현이다. [연동 계약](server/docs/vehicle-effects.md)
+revision 6는 서버가 협동 임무·단계·목표·역할·가상 주행을 판정하고 차량의 공조·벨트·SOC 관측값을 관리한다. `heist-demo-v1`은 준비 → 잠입 → 방어 → 탈출 예시이며 좀비는 방어 단계의 한 미니게임이다. 임무·재고는 DB에 보존하고 주행 입력·센서 신선도·물리 효과 권한은 재시작 시 초기화한다. 관제에 임무 진행과 차량 관측 품질을 표시한다. [서버 상태 계약](server/docs/server-state.md)
+
+4D 효과 세션·가상 속도에 따른 바람·위험/피격/탈출 cue·중지 API는 유지한다. 효과 의도는 차량에만 보내며 만료·주행 조건·소켓 교체·서버 재시작 뒤 재생하지 않는다. 실제 공조·조명 setter와 물리 반영/원복은 차량 앱 팀의 후속 구현이다. [연동 계약](server/docs/vehicle-effects.md)
 
 서버의 `/observer`에서 운영자 관찰키로 방을 고르고 전체 참가자·개인별 역할 화면을 본다. 관찰키는 환경변수 `ZRIDE_OBSERVER_TOKEN`으로 설정하고 URL·소스·브라우저 저장소에 넣지 않는다. 참가자별 레이더·좀비 HP·보급품·차량 게이트를 서버 상태로 재구성한 화면이며 실제 기기의 영상 스트림은 아니다. [관제 계약](server/docs/observer.md)
 
@@ -82,7 +85,7 @@ Android 변경은 별도 워크플로에서 차량·폰 APK를 빌드·lint하�
 
 실제 AVD에서 조회·콜백·미지원·미허용을 구분한다. CarUxRestrictions·P 조건이 공동 전투의 허용 조건이며, 케이블 연결이나 충전 스위치만으로 실제 충전 중을 추정하지 않는다. 충전 정보의 별도 권한은 선택 버튼에서 요청하며 기본 착석·주차·통신 시험을 막지 않는다.
 
-공조·벨트·문·창·조명 후보는 capability와 읽기 진단부터 확인한다. 게임용 음향은 AudioFocus·USAGE_GAME을 따르며 개별 실제 좌석 스피커 제어는 확인되지 않았다. 차량 설정을 자동 변경하는 기능은 이 최소 데모에 넣지 않는다.
+공조·벨트·문·창·조명 후보는 capability와 읽기 진단부터 확인한다. 게임용 음향은 AudioFocus·USAGE_GAME을 따르며 개별 실제 좌석 스피커 제어는 확인되지 않았다. 서버는 4D 효과 의도와 차량 실행 보고를 처리하며, 실제 차량 설정의 자동 변경·원복은 차량 앱에서 구현해야 한다.
 
 ## 검증 범위
 

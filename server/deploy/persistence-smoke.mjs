@@ -53,8 +53,14 @@ if (mode === 'seed') {
   const reward = await request('/api/world/claim', claimBody, phone.token);
   assert.equal(reward.claimed, true);
   assert.equal(reward.inventory.supplies, 1);
-  await writeFile(stateFile, JSON.stringify({ hostToken: host.token, phoneToken: phone.token, roomId: created.roomId, memberId: joined.memberId, claimBody }), { mode: 0o600 });
-  console.log('Persistence fixture seeded: approved room, inventory=1, idempotent claim.');
+  const before = (await request(`/api/rooms/${created.roomId}`, undefined, host.token, 'GET')).room;
+  const missionBody = { commandId: randomUUID(), roomEpoch: before.roomEpoch,
+    expectedGameRevision: before.game.revision, scenarioId: 'heist-demo-v1' };
+  const mission = await request(`/api/rooms/${created.roomId}/game/configure`, missionBody, host.token);
+  assert.equal(mission.room.game.stageId, 'PREPARE');
+  await writeFile(stateFile, JSON.stringify({ hostToken: host.token, phoneToken: phone.token, roomId: created.roomId, memberId: joined.memberId,
+    claimBody, missionBody, missionRunId: mission.room.game.missionRunId, missionRevision: mission.room.game.revision }), { mode: 0o600 });
+  console.log('Persistence fixture seeded: approved room, inventory=1, idempotent claim and mission configuration.');
 } else if (mode === 'verify') {
   const saved = JSON.parse(await readFile(stateFile, 'utf8'));
   const { room } = await request(`/api/rooms/${saved.roomId}`, undefined, saved.hostToken, 'GET');
@@ -68,7 +74,19 @@ if (mode === 'seed') {
   assert.equal(replay.inventory.supplies, 1);
   const latest = await request(`/api/rooms/${saved.roomId}`, undefined, saved.hostToken, 'GET');
   assert.equal(latest.room.collection.inventory.supplies, 1);
-  console.log('Persistence verified: same room/session/approval/inventory, one reward, unsafe vehicle gate closed.');
+  if (saved.missionBody) {
+    assert.equal(latest.room.game.missionRunId, saved.missionRunId);
+    assert.equal(latest.room.game.revision, saved.missionRevision);
+    assert.equal(latest.room.game.stageId, 'PREPARE');
+    assert.equal(latest.room.game.virtualSpeedMps, 0);
+    assert.equal(latest.room.game.driverSessionId, null);
+    assert.equal(latest.room.cabin.connected, false);
+    assert.equal(latest.room.effects.enabled, false);
+    const missionReplay = await request(`/api/rooms/${saved.roomId}/game/configure`, saved.missionBody, saved.hostToken);
+    assert.equal(missionReplay.replayed, true);
+    assert.equal(missionReplay.room.game.missionRunId, saved.missionRunId);
+  }
+  console.log('Persistence verified: same room/session/approval/inventory, one reward, unsafe vehicle gate closed; saved mission/receipt retained when present.');
 } else {
   console.log('Server health endpoint passed.');
 }

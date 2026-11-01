@@ -1,6 +1,6 @@
-# 앱 팀 전달용 서버 연결 계약 — revision 5
+# 앱 팀 전달용 서버 연결 계약 — revision 6
 
-revision 5는 기존 계약에 4D 효과 REST 5개와 현재 차량 WS 실행 보고를 추가한다. 현재 전체 REST는 15개다. 효과 API·payload·만료·재접속·물리 실행의 경계는 [차량 효과 계약](vehicle-effects.md)을 따른다. 기존 참조 Android 앱의 SDK setter는 이번 서버 변경에 포함되지 않는다.
+revision 6은 기존 4D 계약에 시나리오·통합 상태 조회 2개, 게임 설정·운전 입력·단계 전환·폰 목표 기여 POST 4개와 실내 신호 WS 보고를 더한다. 현재 전체 REST는 21개다. [서버 상태 계약](server-state.md)에서 임무·권한·영속화·신호 품질을 확인한다. 효과 API·payload·만료·재접속·물리 실행의 경계는 [차량 효과 계약](vehicle-effects.md)을 따른다. 기존 참조 Android 앱의 SDK setter는 이번 서버 변경에 포함되지 않는다.
 
 2026-11-01. 현재 `server.mjs`·`world.mjs`·`protocol.json`에서 확인한 **구현된 로컬 데모 계약**이다. REST의 타입·필수값·예제·응답·오류는 [OpenAPI 3.1](../openapi.json), WS는 아래 별도 부록과 [protocol.json](../protocol.json)을 기준으로 한다. 제안 경로를 구현된 API처럼 추가하지 않았다.
 
@@ -9,7 +9,7 @@ revision 5는 기존 계약에 4D 효과 REST 5개와 현재 차량 WS 실행 �
 | 담당 | 맡을 범위 | 앱 팀에 전달할 것 |
 | --- | --- | --- |
 | 사용자: 서버·API·통신·인프라 | 세션·방·승인·획득·게임 판정, 메시지 계약, 오류·멱등·상태 버전, 배포 연결 | 이 문서, OpenAPI, 테스트 결과, 사용할 base URL |
-| 차량 앱 팀 | Pleos UX/P/foreground·착석 신호 어댑터, 차량 UI·로컬 중단, 관제·지원 입력 | 아래 vehicle.report를 실제 가용 신호로 구성. 미상 신호를 허용으로 바꾸지 않음 |
+| 차량 앱 팀 | Pleos UX/P/foreground·착석·공조·벨트·에너지 신호 어댑터, 차량 UI·로컬 중단, 운전 입력·관제·지원 | vehicle.report와 vehicle.cabin.report를 실제 가용 신호로 구성. 미상 신호를 허용으로 바꾸지 않음 |
 | 폰 앱 팀 | 지도·위치 권한·위치 측정·UI·수집 입력, snapshot 반영 | nearby/claim 요청, 위치 source·age·accuracy 표시, 동승자 자기 확인 |
 | 함께 확인 | ID·enum·단위·에러 처리, 주행 전환·재접속·중복 요청 | 양쪽 앱의 같은 roomId·stateVersion, 서버 통합시험 |
 
@@ -27,11 +27,11 @@ MapLibre 위젯이나 SDK 화면 구현은 앱 팀 범위다. 서버는 지도 �
 
 ## 기존 REST 10개 — 구현된 경로만
 
-모든 성공/오류 본문은 JSON이며, 오류 모양은 `{"error":{"code":"MEMBER_PENDING","message":"Waiting for vehicle approval"}}`이다. 본문을 파싱하는 경로는 JSON 객체·최대 16KiB를 받는다. `POST /api/rooms`는 본문을 읽지 않는다.
+모든 성공/오류 본문은 JSON이며, 오류 모양은 `{"error":{"code":"MEMBER_PENDING","message":"Waiting for vehicle approval"}}`이다. POST 본문은 JSON 객체·최대 16KiB를 받는다. `POST /api/rooms`는 본문을 생략하거나 `{}`를 보낼 수 있고, 전달된 유효 JSON 객체의 필드는 사용하지 않지만 연결 종료 전에 본문을 소비한다. 잘못된 JSON·객체가 아닌 본문·용량 초과는 각각 400/413으로 거부한다.
 
 | 메서드·경로 | 호출자 | 성공 응답·핵심 처리 |
 | --- | --- | --- |
-| GET `/healthz` | 공개 | 200: ok=true, protocol, contractRevision=5. 방 개수·식별자는 비공개. 저장 실패 시 503·ok=false |
+| GET `/healthz` | 공개 | 200: ok=true, protocol, contractRevision=6. 방 개수·식별자는 비공개. 저장 실패 시 503·ok=false |
 | POST `/api/session` | 배포에 따라 본문 accessKey 필요 | 201: sessionId, token, expiresAt(Unix ms), role |
 | POST `/api/rooms` | CAR_HOST | 새 방 201 / 기존 방 코드 갱신 200: roomId, joinCode, room |
 | POST `/api/join` | PHONE | 201: roomId, memberId, pending=true, 본인만 보이는 room |
@@ -152,7 +152,7 @@ OpenAPI의 REST operation으로 등록하지 않았다. 연결 후 **5초 안에
 
 ## 검증과 남은 인프라
 
-[검증 결과](../openapi-validation-results.json): OpenAPI 3.1 문서·모든 내부 참조·요청/응답 예제 통과. 임시 로컬 서버에서 REST 10/10 성공 경로, 응답 35개·유효 요청 16개를 스키마와 대조했다. `node --test test/openapi-contract.test.mjs`는 protocol.json의 실제 경로·정책과 계약 일치를 검사한다. 앱/AVD 통합 결과는 별도 evidence이며 이 검증이 실물 GPS 인증을 뜻하지 않는다.
+[기존 10개 경로 검증](../openapi-validation-results.json)에 더해 [revision 6 검증](../server-state-validation-results.json)에서 새 REST 6/6 성공 경로, 실제 응답 25개·요청 5개·실내 WS/상태 샘플 2개를 현재 스키마와 대조했다. OpenAPI 3.1 문서·모든 내부 참조·저장된 요청/응답 예제도 통과했다. `node --test test/openapi-contract.test.mjs`는 protocol.json의 실제 경로·정책과 계약 일치를 검사한다. 앱/AVD 통합 결과는 별도 evidence이며 이 검증이 실물 GPS 인증을 뜻하지 않는다.
 
 **후속 제안이며 미구현:** TLS·원격 배포 주소/프록시·로그 정책, 정규화된 대규모 원장·보존/삭제, 신뢰 가능한 계정/차량 자격, 실물 폰 네트워크 검증, 충전소 데이터와 시설 ID, bbox/cell/nonce, 운영 모니터링. 기존 확장 제안의 optionalSignals·벨트/HVAC·스피커 제어는 현 서버 계약에 포함되지 않는다.
 

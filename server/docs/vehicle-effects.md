@@ -1,4 +1,4 @@
-# 4D 차량 효과 API — revision 5
+# 4D 차량 효과 API — revision 6
 
 2026-11-01 (Asia/Seoul). 서버가 게임의 가상 속도·위험 이벤트를 **의미 있는 효과 의도**로 보내고, 차량 앱이 지원되는 공조·조명·음향으로 바꾸는 통신 계약이다. 물리 SDK 실행은 차량 앱의 역할이다. 현재 Android 참조 앱에는 이 효과 수신·실제 setter 실행기가 없다. 이 API의 성공을 실제 바람·조명 변화나 공조 원복의 증거로 해석하지 않는다.
 
@@ -57,6 +57,8 @@ CAR_HOST의 WS `auth.ok`에는 자기 현재 연결의 `vehicleConnectionId`가 
 `POST …/effects/session` 성공 시 새 `effectSessionId`를 만든다. `channels`는 실제 차량 앱이 지원·허용한 채널만 선언한다. 서버가 SDK capability를 직접 읽지는 않는다. intensity는 0~1의 논리 강도이며 물리 풍속·팬 단계·색상 코드가 아니다.
 
 ## 가상 속도 → 바람
+
+`heist-demo-v1`에서는 활성 4D 세션의 장면·속도를 서버 게임 상태에서 자동 갱신한다. 수동 `/effects/scene` 요청은 409 `GAME_SCENE_MANAGED`로 거부하며 게임의 `/game/input`으로 가속·제동 입력을 보낸다. 기본 `generic-coop-v1`의 수동 시연은 아래 API를 사용한다. [임무·가상 이동 계약](server-state.md)
 
 `POST …/effects/scene`:
 

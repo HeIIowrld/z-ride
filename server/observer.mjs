@@ -14,7 +14,7 @@ const text = (value, maximum = 128) => typeof value === 'string' ? value.slice(0
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 
 /** Deliberate allow-list: never pass a raw player/host snapshot to observers. */
-export function observerSnapshot(room, gateResult, now = Date.now(), effects = null) {
+export function observerSnapshot(room, gateResult, now = Date.now(), effects = null, game = null, cabin = null) {
   const vehicle = room.vehicle ?? {};
   const evidence = seat => {
     if (room.emptyLocks?.has(seat)) return 'EMPTY';
@@ -50,12 +50,14 @@ export function observerSnapshot(room, gateResult, now = Date.now(), effects = n
     zombies: (room.zombies ?? []).map(item => ({ id: text(item.id), angleDeg: finite(item.angleDeg), hp: finite(item.hp), maxHp: finite(item.maxHp) })),
     inventory: { supplies: finite(room.collection?.inventory?.supplies) },
     effects,
+    game,
+    cabin,
     serverTime: now,
   };
 }
 
 /** Separate read-only channel. A viewer never occupies/replaces a game socket. */
-export function createObserverService({ getSession, getRoom, getRooms = () => [], getGate, getEffects = () => null, operatorToken = '', clock = Date.now, heartbeatMs = 15000, authTimeoutMs = 5000, maxObservers = 20, allowedOrigins = [] }) {
+export function createObserverService({ getSession, getRoom, getRooms = () => [], getGate, getEffects = () => null, getGame = () => null, getCabin = () => null, operatorToken = '', clock = Date.now, heartbeatMs = 15000, authTimeoutMs = 5000, maxObservers = 20, allowedOrigins = [] }) {
   const viewers = new Map();
   const connections = new Set();
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, { bytes: readFileSync(new URL('./observer/' + file, import.meta.url)), type }]));
@@ -81,7 +83,7 @@ export function createObserverService({ getSession, getRoom, getRooms = () => []
     if (session.role !== 'CAR_HOST' || !member?.approved || member.role !== 'CAR_HOST') throw codeError('ROLE_FORBIDDEN', 'Only this room host can observe');
     return { room, authorization: 'ROOM_HOST', expiresAt: session.expiresAt };
   }
-  const sendRoom = (ws, room) => send(ws, { type: 'observer.snapshot', room: observerSnapshot(room, getGate(room), clock(), getEffects(room)) });
+  const sendRoom = (ws, room) => send(ws, { type: 'observer.snapshot', room: observerSnapshot(room, getGate(room), clock(), getEffects(room), getGame(room), getCabin(room)) });
   wss.on('connection', ws => {
     connections.add(ws); ws.observerAlive = true;
     const deadline = setTimeout(() => ws.close(4401, 'Authenticate observer first'), authTimeoutMs);
