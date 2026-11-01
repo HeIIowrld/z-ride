@@ -6,3 +6,5 @@
 !*.mjs
 !observer/
 !observer/**
+!phone-client/
+!phone-client/**

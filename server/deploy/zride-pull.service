@@ -16,4 +16,3 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/srv/zride/incoming /srv/zride/releases /srv/zride /var/lib/zride /var/backups/zride /run /tmp
-
