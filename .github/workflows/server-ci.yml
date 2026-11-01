@@ -22,7 +22,11 @@ concurrency:
 jobs:
   test-and-container:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      ZRIDE_PORT: '18000'
+      ZRIDE_SMOKE_BASE_URL: http://127.0.0.1:18000
+      ZRIDE_SMOKE_STATE_FILE: /tmp/zride-persistence-smoke.json
     defaults:
       run:
         working-directory: server
@@ -41,38 +45,30 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Test server and API contract
         run: npm test
-      - name: Build container
-        run: docker build --tag zride-api:ci .
-      - name: Start container on loopback
-        run: docker run --detach --name zride-api-ci --publish 127.0.0.1:18000:8000 zride-api:ci
-      - name: Verify container health endpoint
+      - name: Validate deployment archive boundary
+        run: python3 deploy/test_archive.py
+      - name: Validate Compose configuration
+        run: docker compose --project-name zride-ci config --quiet
+      - name: Build and start SQLite-backed container
+        run: docker compose --project-name zride-ci up --detach --build
+      - name: Seed approved room and collected inventory
+        run: node deploy/persistence-smoke.mjs seed
+      - name: Gracefully restart container
+        run: docker compose --project-name zride-ci restart --timeout 10 api
+      - name: Verify persistent session room approval and inventory
+        run: node deploy/persistence-smoke.mjs verify
+      - name: Kill process and recreate container with the same data volume
         run: |
-          node --input-type=module <<'JS'
-          import assert from 'node:assert/strict';
-          const deadline = Date.now() + 60000;
-          for (;;) {
-            try {
-              const response = await fetch('http://127.0.0.1:18000/healthz', {
-                signal: AbortSignal.timeout(3000),
-              });
-              const body = await response.json();
-              assert.equal(response.ok, true);
-              assert.equal(body.ok, true);
-              assert.equal(body.contractRevision, 3);
-              console.log('Container health endpoint passed; contract revision 3.');
-              break;
-            } catch (error) {
-              if (Date.now() >= deadline) throw error;
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-          JS
+          docker update --restart=no "$(docker compose --project-name zride-ci ps --quiet api)"
+          docker compose --project-name zride-ci kill --signal SIGKILL api
+          docker compose --project-name zride-ci rm --force api
+          docker compose --project-name zride-ci up --detach --no-build api
+      - name: Verify durable commit and idempotent reward after process kill
+        run: node deploy/persistence-smoke.mjs verify
       - name: Stop container gracefully
-        run: docker stop --time 10 zride-api-ci
-      - name: Show container logs and clean up
+        run: docker compose --project-name zride-ci stop --timeout 10 api
+      - name: Show logs and remove disposable CI resources
         if: always()
         run: |
-          if docker container inspect zride-api-ci >/dev/null 2>&1; then
-            docker logs zride-api-ci
-            docker rm --force zride-api-ci
-          fi
+          docker compose --project-name zride-ci logs --no-color api
+          docker compose --project-name zride-ci down --volumes --remove-orphans

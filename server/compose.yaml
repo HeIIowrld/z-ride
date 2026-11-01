@@ -1,7 +1,7 @@
 name: zride-demo
 services:
   api:
-    image: zride-room-server:demo
+    image: ${ZRIDE_IMAGE:-zride-room-server:demo}
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,9 +10,13 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "8000"
+      ZRIDE_DB_PATH: /data/zride.sqlite
+      ZRIDE_OBSERVER_TOKEN: ${ZRIDE_OBSERVER_TOKEN:-}
     ports:
-      - "127.0.0.1:${ZRIDE_PORT:-8000}:8000"
-    restart: "no"
+      - "${ZRIDE_BIND_ADDR:-127.0.0.1}:${ZRIDE_PORT:-8000}:8000"
+    volumes:
+      - zride-data:/data
+    restart: unless-stopped
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -28,3 +32,5 @@ services:
       options:
         max-size: 10m
         max-file: "3"
+volumes:
+  zride-data:

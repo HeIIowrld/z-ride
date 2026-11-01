@@ -25,7 +25,15 @@ npm start
 | Docker·접속 주소·운영 한계 | [인프라 인계서](server/docs/infra-runbook.md) |
 | 연결 유지·EOF 조사 | [연결 감사](server/docs/connection-audit.md) |
 
-GitHub Actions는 서버·계약 테스트와 Docker 이미지 빌드·컨테이너 기동·healthcheck를 수행한다. 클라우드 서비스 배포는 하지 않는다. 현재 인벤토리·방은 메모리 저장이므로 서버 재시작 때 사라진다.
+GitHub Actions는 서버·계약 테스트, Docker/Compose의 정상 재시작·강제 종료·볼륨 복구를 검증한다. 신뢰된 main CI가 성공하면 전용 runner가 Proxmox LXC의 서비스를 갱신한다. DB는 배포 디렉터리와 분리된 SQLite 파일에 두며 방·참가 승인·재고·중복 지급 원장이 재시작 뒤에도 유지된다. [영속성 설계](server/docs/persistence.md), [실제 배포 절차](server/docs/deployment.md)를 따른다.
+
+## 실시간 관제
+
+서버의 `/observer`에서 운영자 관찰키로 방을 고르고 전체 참가자·개인별 역할 화면을 본다. 관찰키는 환경변수 `ZRIDE_OBSERVER_TOKEN`으로 설정하고 URL·소스·브라우저 저장소에 넣지 않는다. 참가자별 레이더·좀비 HP·보급품·차량 게이트를 서버 상태로 재구성한 화면이며 실제 기기의 영상 스트림은 아니다. [관제 계약](server/docs/observer.md)
+
+실제 API를 사용하는 4인 시뮬레이션은 서버 실행 후 `node tools/demo-party.mjs --base http://127.0.0.1:8000`으로 만든다. 모든 참가자와 차량 신호는 TEST로 표시한다. [시연 도구](server/docs/demo-party.md)
+
+Android 변경은 별도 워크플로에서 차량·폰 APK를 빌드·lint하고 artifact로 제공한다. 실제 폰·차량의 자동 설치나 스토어 배포는 포함하지 않는다.
 
 2026-11-01. Pleos API34 차량 앱, Android 폰 앱, 로컬 게임 서버를 연결하는 개발용 프로젝트다. 상용 서비스·실차 인증·완성된 3D 좀비게임이 아니다.
 
@@ -63,7 +71,7 @@ GitHub Actions는 서버·계약 테스트와 Docker 이미지 빌드·컨테이
 
 차량·폰 AVD는 화면 없이 `-no-window -no-snapshot`으로 부팅해 ADB와 테스트 Intent로 시험할 수 있다. 설치 후 신호 테스트에 데스크톱 클릭은 필요 없다. SDK의 실제 기본 명령은 설치·검증 보고서에 기록한다.
 
-로컬 서버는 기본 `127.0.0.1:8000`, AVD 앱은 호스트 별칭 `http://10.0.2.2:8000`을 사용한다. 현재 HTTP/WS는 debug 용도이며 실제 배포에는 HTTPS/WSS·차량 등록·영속 DB 등 보강이 필요하다. 서버 재시작은 현재 메모리 방·세션을 삭제한다.
+로컬 서버는 기본 `127.0.0.1:8000`, AVD 앱은 호스트 별칭 `http://10.0.2.2:8000`을 사용한다. CLI 기본 DB는 `data/zride.sqlite`, 배포 환경은 `/var/lib/zride/zride.sqlite`다. 현재 HTTP/WS는 사설망 데모용이며 외부 공개에는 HTTPS/WSS·차량 등록 신뢰 등이 추가로 필요하다. 게스트 토큰은 기존 8시간 만료 정책을 유지하므로 영속 저장이 무기한 로그인이나 계정 복구를 뜻하지 않는다.
 
 ## 차량 신호·권한
 

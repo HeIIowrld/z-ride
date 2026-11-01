@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.1.0-revision3",
-    "description": "Implemented server.mjs/world.mjs contract, checked 2026-11-01. This is a memory-only local demo, not the proposed full product API. REST only; WS /ws is documented separately in docs/client-handoff.md. Unknown object fields are generally tolerated; only documented fields are interpreted. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
+    "version": "0.2.0-revision3",
+    "description": "Implemented server/world/storage/observer contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
   },
   "servers": [
     {
@@ -32,6 +32,10 @@
     },
     {
       "name": "World"
+    },
+    {
+      "name": "Observer",
+      "description": "Read-only operations visibility, not app pixel streaming."
     }
   ],
   "paths": {
@@ -42,7 +46,7 @@
           "Health"
         ],
         "summary": "Read public process health",
-        "description": "Public, process-local health; rooms is the in-memory count. Does not attest app/GPS/vehicle connectivity.",
+        "description": "Public process health; rooms counts currently loaded rooms. A failed durable write poisons this process: 503 with ok=false until database access is restored and the server restarts. Does not attest app/GPS/vehicle connectivity.",
         "responses": {
           "200": {
             "description": "Server is running",
@@ -85,6 +89,22 @@
             "x-error-codes": [
               "INTERNAL_ERROR"
             ]
+          },
+          "503": {
+            "description": "Durable storage failed; database recovery and restart required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthUnavailable"
+                },
+                "example": {
+                  "ok": false,
+                  "protocol": "zride-demo-v1",
+                  "contractRevision": 3,
+                  "rooms": 1
+                }
+              }
+            }
           }
         },
         "x-implementation-status": "implemented-prototype",
@@ -164,16 +184,23 @@
             ]
           },
           "503": {
-            "description": "500 retained guest sessions reached",
+            "description": "500 retained guest sessions reached; or durable storage unavailable",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "STORAGE_UNAVAILABLE",
+                    "message": "Durable state is unavailable; restart after restoring database access"
+                  }
                 }
               }
             },
             "x-error-codes": [
-              "SESSION_LIMIT"
+              "SESSION_LIMIT",
+              "STORAGE_UNAVAILABLE"
             ]
           },
           "500": {
@@ -561,6 +588,19 @@
             "x-error-codes": [
               "INTERNAL_ERROR"
             ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
           }
         },
         "x-implementation-status": "implemented-prototype"
@@ -789,6 +829,19 @@
             "x-error-codes": [
               "INTERNAL_ERROR"
             ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
           }
         },
         "x-implementation-status": "implemented-prototype",
@@ -1000,6 +1053,19 @@
             },
             "x-error-codes": [
               "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
             ]
           }
         },
@@ -1285,6 +1351,19 @@
             "x-error-codes": [
               "INTERNAL_ERROR"
             ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
           }
         },
         "x-implementation-status": "implemented-prototype",
@@ -1492,6 +1571,19 @@
             "x-error-codes": [
               "INTERNAL_ERROR"
             ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
           }
         },
         "x-implementation-status": "implemented-prototype",
@@ -1656,6 +1748,19 @@
             },
             "x-error-codes": [
               "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
             ]
           }
         },
@@ -1845,6 +1950,19 @@
             "x-error-codes": [
               "INTERNAL_ERROR"
             ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
           }
         },
         "x-implementation-status": "implemented-prototype",
@@ -1874,6 +1992,154 @@
           }
         }
       }
+    },
+    "/api/observer/rooms": {
+      "get": {
+        "operationId": "listObserverRooms",
+        "tags": [
+          "Observer"
+        ],
+        "summary": "List room summaries with a separate read-only operator credential",
+        "description": "Requires configured observerToken / ZRIDE_OBSERVER_TOKEN. Game CAR_HOST/PHONE session tokens are insufficient. Returns no member session IDs, join codes, phone positions or individual claim histories. Static product UI /observer and read-only WS /observer/ws are separate. A storage-poisoned process returns 503 before reading uncommitted in-memory state.",
+        "security": [
+          {
+            "observerOperatorAuth": []
+          }
+        ],
+        "x-implementation-status": "implemented-prototype",
+        "responses": {
+          "200": {
+            "description": "Read-only room summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObserverRoomsResponse"
+                },
+                "example": {
+                  "protocol": "zride-observer-v1",
+                  "readOnly": true,
+                  "serverTime": 1793501106098,
+                  "rooms": [
+                    {
+                      "roomId": "c4635e45-b094-440e-811d-58c3266c3d7f",
+                      "state": "PAUSED",
+                      "roomEpoch": 4,
+                      "stateVersion": 9,
+                      "memberCount": 2,
+                      "connectedCount": 0,
+                      "supplies": 3,
+                      "playAllowed": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing operator Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "AUTH_REQUIRED",
+                    "message": "Operator Bearer token required"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED"
+            ]
+          },
+          "403": {
+            "description": "Operator access disabled or wrong credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "message": "Read-only operator credential required"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "OPERATOR_ACCESS_DISABLED",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "405": {
+            "description": "This observer route accepts GET only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "METHOD_NOT_ALLOWED",
+                    "message": "Use GET"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "METHOD_NOT_ALLOWED"
+            ]
+          },
+          "429": {
+            "description": "Shared HTTP rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no uncommitted memory is exposed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "STORAGE_UNAVAILABLE",
+                    "message": "Durable state is unavailable; restart after restoring database access"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1882,6 +2148,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Opaque token returned by POST /api/session. Header must be Authorization: Bearer <token>; the current implementation checks the exact Bearer prefix. Never put credentials in URLs."
+      },
+      "observerOperatorAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Separate read-only deployment key ZRIDE_OBSERVER_TOKEN, not a game session token. Disabled by default; never put it in URL, browser storage or logs."
       }
     },
     "schemas": {
@@ -3110,6 +3381,112 @@
           "replayed"
         ],
         "description": "inventory is the historical value when the original claim committed, including on replay. Fetch GET room or use a newer WS stateVersion for current inventory. No currentInventory/stateVersion field exists in this HTTP receipt."
+      },
+      "HealthUnavailable": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "const": false
+          },
+          "protocol": {
+            "const": "zride-demo-v1"
+          },
+          "contractRevision": {
+            "const": 3
+          },
+          "rooms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "ok",
+          "protocol",
+          "contractRevision",
+          "rooms"
+        ]
+      },
+      "ObserverRoomSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "roomId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "LOBBY",
+              "READY",
+              "PLAYING",
+              "PAUSED",
+              "CLEARED",
+              "PENDING"
+            ]
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stateVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "memberCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "connectedCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "supplies": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "playAllowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "roomId",
+          "state",
+          "roomEpoch",
+          "stateVersion",
+          "memberCount",
+          "connectedCount",
+          "supplies",
+          "playAllowed"
+        ]
+      },
+      "ObserverRoomsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "const": "zride-observer-v1"
+          },
+          "readOnly": {
+            "const": true
+          },
+          "serverTime": {
+            "$ref": "#/components/schemas/EpochMillis"
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObserverRoomSummary"
+            }
+          }
+        },
+        "required": [
+          "protocol",
+          "readOnly",
+          "serverTime",
+          "rooms"
+        ]
       }
     }
   },
@@ -3133,5 +3510,32 @@
     "bbox/cell/nonce world API",
     "hardware GPS or passenger identity attestation",
     "climate/seatbelt/audio-zone server control"
-  ]
+  ],
+  "x-persistence": {
+    "formatVersion": 1,
+    "cliDefault": "data/zride.sqlite",
+    "environment": "ZRIDE_DB_PATH",
+    "programmatic": "createDemoServer({dbPath}) / stateStore; omission is ephemeral",
+    "transaction": "Commit reward and receipt together before success response/broadcast",
+    "restore": "Socket null; vehicle UNKNOWN, foreground false and lease invalid; PLAYING becomes PAUSED with new epoch; fresh report and explicit host start required",
+    "rawPhoneCoordinatesStored": false,
+    "singleInstanceOnly": true
+  },
+  "x-observer-websocket": {
+    "path": "/observer/ws",
+    "firstMessage": {
+      "type": "observer.auth",
+      "token": "operator key OR own room CAR_HOST token",
+      "roomId": "room UUID"
+    },
+    "events": [
+      "observer.auth.ok",
+      "observer.snapshot",
+      "observer.heartbeat",
+      "observer.error"
+    ],
+    "readOnly": true,
+    "viewMode": "SERVER_STATE_NOT_SCREEN_CAPTURE",
+    "docs": "docs/observer.md"
+  }
 }

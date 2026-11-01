@@ -3,5 +3,6 @@
 !Dockerfile
 !package.json
 !package-lock.json
-!server.mjs
-!world.mjs
+!*.mjs
+!observer/
+!observer/**

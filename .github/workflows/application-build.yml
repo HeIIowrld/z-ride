@@ -1,0 +1,65 @@
+name: Android reference APKs
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/application-build.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/application-build.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug-apks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK command-line tools and API 34
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: '15859902'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          log-accepted-android-sdk-licenses: 'false'
+      - name: Assemble and lint vehicle and phone debug APKs
+        run: ./gradlew --no-daemon :carapp:assembleDebug :phoneapp:assembleDebug :carapp:lintDebug :phoneapp:lintDebug
+      - name: Upload reference APKs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: zride-debug-apks-${{ github.sha }}
+          path: |
+            android/carapp/build/outputs/apk/debug/carapp-debug.apk
+            android/phoneapp/build/outputs/apk/debug/phoneapp-debug.apk
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Upload text and XML lint reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: zride-android-lint-${{ github.sha }}
+          path: |
+            android/carapp/build/reports/lint-results-debug.txt
+            android/carapp/build/reports/lint-results-debug.xml
+            android/phoneapp/build/reports/lint-results-debug.txt
+            android/phoneapp/build/reports/lint-results-debug.xml
+          if-no-files-found: ignore
+          retention-days: 3
