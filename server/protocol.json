@@ -11,7 +11,7 @@
       "response": {
         "ok": "boolean",
         "protocol": "zride-demo-v1",
-        "contractRevision": 4
+        "contractRevision": 5
       }
     },
     {
@@ -133,6 +133,58 @@
         "rooms": "allow-listed summaries without session IDs/join codes/phone positions/individual claims"
       },
       "note": "Disabled if observerToken / ZRIDE_OBSERVER_TOKEN is unset"
+    },
+    {
+      "method": "GET",
+      "path": "/api/rooms/{roomId}/effects",
+      "auth": "Bearer approved room member",
+      "response": {
+        "effects": "current ephemeral 4D summary"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/effects/session",
+      "auth": "Bearer current room CAR_HOST; physical intent execution still belongs to native vehicle client",
+      "bodySchema": "EffectSessionRequest",
+      "response": {
+        "effects": "current ephemeral summary",
+        "data": "logical result",
+        "replayed": "optional boolean; never re-emits effects"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/effects/scene",
+      "auth": "Bearer current room CAR_HOST; physical intent execution still belongs to native vehicle client",
+      "bodySchema": "EffectSceneRequest",
+      "response": {
+        "effects": "current ephemeral summary",
+        "data": "logical result",
+        "replayed": "optional boolean; never re-emits effects"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/effects/cue",
+      "auth": "Bearer current room CAR_HOST; physical intent execution still belongs to native vehicle client",
+      "bodySchema": "EffectCueRequest",
+      "response": {
+        "effects": "current ephemeral summary",
+        "data": "logical result",
+        "replayed": "optional boolean; never re-emits effects"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/effects/stop",
+      "auth": "Bearer current room CAR_HOST; physical intent execution still belongs to native vehicle client",
+      "bodySchema": "EffectStopRequest",
+      "response": {
+        "effects": "current ephemeral summary",
+        "data": "logical result",
+        "replayed": "optional boolean; never re-emits effects"
+      }
     }
   ],
   "authFirstMessage": {
@@ -177,7 +229,9 @@
   "events": [
     "auth.ok",
     "snapshot",
-    "result"
+    "result",
+    "vehicle.effect.intent",
+    "vehicle.effect.stop"
   ],
   "resultExample": {
     "type": "result",
@@ -388,7 +442,8 @@
       "sockets",
       "live vehicle authorization/lease",
       "raw phone coordinates",
-      "temporary location-quality summary"
+      "temporary location-quality summary",
+      "all 4D effect sessions/intents/reports/receipts"
     ],
     "restart": "PLAYING -> PAUSED; unsafe vehicle values reset; existing token/room reconnect, fresh report and explicit host start",
     "saveFailure": "STORAGE_UNAVAILABLE503; health503 ok:false; no new success/broadcast; restart from committed checkpoint",
@@ -436,5 +491,74 @@
     "health": "Public health omits room count and identities",
     "transport": "HTTP/WS prototype supports team test connectivity; HTTPS/WSS required for confidentiality and browser GPS secure context. Never place keys in URL.",
     "gameBrowserOrigins": "Absent Origin for non-browser clients, same request Host with http/https, or programmatic allowedOrigins allow-list; unrelated browser origins denied"
+  },
+  "vehicleEffects": {
+    "status": "implemented semantic intent API; native HVAC/light executor not implemented",
+    "docs": "docs/vehicle-effects.md",
+    "revision": 5,
+    "channels": [
+      "AIRFLOW",
+      "AMBIENT",
+      "AUDIO"
+    ],
+    "sceneCues": [
+      "DANGER",
+      "HIT",
+      "ESCAPE"
+    ],
+    "reportStatuses": [
+      "RECEIVED",
+      "DISPATCHED",
+      "APPLIED_CONFIRMED",
+      "UNSUPPORTED",
+      "REJECTED_GATE",
+      "USER_OVERRIDDEN",
+      "FAILED",
+      "STOPPED"
+    ],
+    "executionReport": {
+      "type": "vehicle.effect.report",
+      "commandId": "new unique ID",
+      "effectSessionId": "current session UUID",
+      "effectId": "issued effect UUID",
+      "effectSeq": "issued effect sequence",
+      "status": "EffectReportStatus",
+      "observedValue": "optional finite number, boolean or null; APPLIED_CONFIRMED requires non-null"
+    },
+    "authorization": "HTTP mutations require host bearer AND the current authenticated host socket; enabled session, PLAYING and fresh P/UX/foreground gate required before emitting intents; only the current host socket reports physical execution",
+    "intensity": "virtualSpeedMps 0..100; DRIVE_WIND=min(speed/30,1)*maxIntensity01; other cues clamped to configured intensity cap",
+    "persistence": "No effect session, pending physical intent, report or replay receipt is checkpointed. Never replay on reconnect/restart.",
+    "ackMeaning": "RECEIVED/DISPATCHED are not actual actuator confirmation; APPLIED_CONFIRMED is client-reported get/callback state, not hardware attestation",
+    "defaultTtlMs": 3000,
+    "maxTtlMs": 5000,
+    "minCueDurationMs": 100,
+    "perRoomReceiptLimit": 10000,
+    "perRoomRetainedEffectRecords": 256,
+    "sceneId": "1..64 ASCII letters/digits/dot/colon/underscore/hyphen",
+    "observedValue": "finite number, boolean or null; APPLIED_CONFIRMED requires a non-null value",
+    "expiry": "Individual effect TTL expiration stops that channel; opt-in session remains enabled until invalidated or stopped",
+    "executionRule": "Only new current-host WS vehicle.effect.intent may execute. Never execute REST data.intents, GET effects.active, room/observer snapshots or retry responses.",
+    "sessionScope": {
+      "vehicleConnectionId": "required on enabled=true; use the current CAR_HOST auth.ok field, never a room/game snapshot",
+      "expectedControlVersion": "required on enabled=true; use latest GET effects.controlVersion; increments on enable/invalidation and each new explicit stop/disable, even already disabled",
+      "effectSessionId": "required in scene/cue; binds even a delayed first delivery to the exact enabled effect session",
+      "errors": [
+        "409 EFFECT_CONTROL_STALE",
+        "409 EFFECT_SESSION_STALE"
+      ]
+    }
+  },
+  "authOk": {
+    "CAR_HOST": {
+      "type": "auth.ok",
+      "sessionId": "own UUID",
+      "memberId": "own UUID",
+      "vehicleConnectionId": "fresh current socket UUID"
+    },
+    "PHONE": {
+      "type": "auth.ok",
+      "sessionId": "own UUID",
+      "memberId": "own UUID"
+    }
   }
 }

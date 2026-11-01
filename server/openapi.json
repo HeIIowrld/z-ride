@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.2.0-revision4",
-    "description": "Implemented server/world/storage/observer contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
+    "version": "0.3.0-revision5",
+    "description": "Implemented server/world/storage/observer/4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location trust is CLIENT_REPORTED/MOCK_DEMO, never hardware attested."
   },
   "servers": [
     {
@@ -13,6 +13,10 @@
     {
       "url": "http://10.0.2.2:8000",
       "description": "Android Emulator route to PC loopback, not a physical-phone address"
+    },
+    {
+      "url": "http://afsd.iptime.org:8000",
+      "description": "Shared team demo; private enrollment/observer keys. HTTP is not encrypted."
     }
   ],
   "security": [
@@ -36,6 +40,10 @@
     {
       "name": "Observer",
       "description": "Read-only operations visibility, not app pixel streaming."
+    },
+    {
+      "name": "Vehicle effects",
+      "description": "Ephemeral semantic 4D intents, explicit current-connection opt-in, native execution reports. Not direct HVAC/light control."
     }
   ],
   "paths": {
@@ -58,7 +66,7 @@
                 "example": {
                   "ok": true,
                   "protocol": "zride-demo-v1",
-                  "contractRevision": 4
+                  "contractRevision": 5
                 }
               }
             }
@@ -99,7 +107,7 @@
                 "example": {
                   "ok": false,
                   "protocol": "zride-demo-v1",
-                  "contractRevision": 4
+                  "contractRevision": 5
                 }
               }
             }
@@ -2157,6 +2165,1261 @@
           }
         }
       }
+    },
+    "/api/rooms/{roomId}/effects": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getVehicleEffects",
+        "tags": [
+          "Vehicle effects"
+        ],
+        "summary": "Read current 4D summary; approved room member only",
+        "responses": {
+          "200": {
+            "description": "Current 4D state and, for a mutation, its logical result. Retrying never re-emits an actuator effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectResponse"
+                },
+                "example": {
+                  "effects": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": false,
+                    "effectSessionId": null,
+                    "roomEpoch": null,
+                    "controlVersion": 0,
+                    "sceneId": null,
+                    "virtualSpeedMps": 0,
+                    "channels": [],
+                    "maxIntensity01": 0,
+                    "effectSeq": 0,
+                    "active": [],
+                    "lastReport": null,
+                    "lastStopReason": "NOT_ENABLED",
+                    "updatedAt": 1793518009261
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "NOT_MEMBER",
+              "MEMBER_PENDING",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          },
+          "400": {
+            "description": "Malformed or out-of-range effect input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Current vehicle/effect session or game gate does not permit this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-implementation-status": "implemented-prototype"
+      }
+    },
+    "/api/rooms/{roomId}/effects/session": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "configureVehicleEffects",
+        "tags": [
+          "Vehicle effects"
+        ],
+        "summary": "Enable or disable an explicitly opted-in current vehicle effect session",
+        "responses": {
+          "200": {
+            "description": "Current 4D state and, for a mutation, its logical result. Retrying never re-emits an actuator effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectMutationResponse"
+                },
+                "example": {
+                  "effects": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": true,
+                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "roomEpoch": 1,
+                    "controlVersion": 1,
+                    "sceneId": null,
+                    "virtualSpeedMps": 0,
+                    "channels": [
+                      "AIRFLOW",
+                      "AMBIENT",
+                      "AUDIO"
+                    ],
+                    "maxIntensity01": 0.5,
+                    "effectSeq": 0,
+                    "active": [],
+                    "lastReport": null,
+                    "lastStopReason": null,
+                    "updatedAt": 1793518009322
+                  },
+                  "data": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": true,
+                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "roomEpoch": 1,
+                    "controlVersion": 1,
+                    "sceneId": null,
+                    "virtualSpeedMps": 0,
+                    "channels": [
+                      "AIRFLOW",
+                      "AMBIENT",
+                      "AUDIO"
+                    ],
+                    "maxIntensity01": 0.5,
+                    "effectSeq": 0,
+                    "active": [],
+                    "lastReport": null,
+                    "lastStopReason": null,
+                    "updatedAt": 1793518009322
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "ROLE_FORBIDDEN",
+                    "message": "Vehicle host only"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBER_PENDING",
+              "NOT_MEMBER",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_NOT_FOUND",
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_LIMIT",
+              "EFFECT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          },
+          "400": {
+            "description": "Malformed or out-of-range effect input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_ID_REQUIRED",
+              "INVALID_EFFECT_CHANNELS",
+              "INVALID_EFFECT_CUE",
+              "INVALID_EFFECT_DURATION",
+              "INVALID_EFFECT_INTENSITY",
+              "INVALID_EFFECT_REPORT",
+              "INVALID_EFFECT_REQUEST",
+              "INVALID_EFFECT_SCENE",
+              "INVALID_VIRTUAL_SPEED",
+              "ROOM_REQUIRED"
+            ]
+          },
+          "409": {
+            "description": "Current vehicle/effect session or game gate does not permit this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "EFFECT_LOCAL_OPT_IN_REQUIRED",
+                    "message": "The vehicle user must explicitly enable physical effects"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_CHANNEL_UNAVAILABLE",
+              "EFFECT_CONNECTION_REQUIRED",
+              "EFFECT_CONTROL_STALE",
+              "EFFECT_EXPIRED",
+              "EFFECT_LOCAL_OPT_IN_REQUIRED",
+              "EFFECT_REPORT_CONFLICT",
+              "EFFECT_REPORT_REGRESSION",
+              "EFFECT_SCENE_MISMATCH",
+              "EFFECT_SESSION_REQUIRED",
+              "EFFECT_SESSION_STALE",
+              "EFFECT_SUPERSEDED",
+              "GATE_CLOSED",
+              "IDEMPOTENCY_CONFLICT",
+              "NOT_PLAYING"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectSessionRequest"
+              },
+              "example": {
+                "commandId": "example-configureVehicleEffects",
+                "vehicleConnectionId": "dbbf64ad-1d73-4920-84c2-87e013587992",
+                "expectedControlVersion": 0,
+                "enabled": true,
+                "locallyEnabled": true,
+                "channels": [
+                  "AIRFLOW",
+                  "AMBIENT",
+                  "AUDIO"
+                ],
+                "maxIntensity01": 0.5
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/effects/scene": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "setVehicleEffectScene",
+        "tags": [
+          "Vehicle effects"
+        ],
+        "summary": "Set virtual scene speed and emit supported wind intent",
+        "responses": {
+          "200": {
+            "description": "Current 4D state and, for a mutation, its logical result. Retrying never re-emits an actuator effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectMutationResponse"
+                },
+                "example": {
+                  "effects": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": true,
+                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "roomEpoch": 1,
+                    "controlVersion": 1,
+                    "sceneId": "escape-01",
+                    "virtualSpeedMps": 18,
+                    "channels": [
+                      "AIRFLOW",
+                      "AMBIENT",
+                      "AUDIO"
+                    ],
+                    "maxIntensity01": 0.5,
+                    "effectSeq": 1,
+                    "active": [
+                      {
+                        "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                        "effectSeq": 1,
+                        "sceneId": "escape-01",
+                        "channel": "AIRFLOW",
+                        "cue": "DRIVE_WIND",
+                        "intensity01": 0.3,
+                        "issuedAt": 1793518009337,
+                        "expiresAt": 1793518012337,
+                        "status": "ISSUED",
+                        "observedValue": null
+                      }
+                    ],
+                    "lastReport": null,
+                    "lastStopReason": null,
+                    "updatedAt": 1793518009337
+                  },
+                  "data": {
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                      "enabled": true,
+                      "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                      "roomEpoch": 1,
+                      "controlVersion": 1,
+                      "sceneId": "escape-01",
+                      "virtualSpeedMps": 18,
+                      "channels": [
+                        "AIRFLOW",
+                        "AMBIENT",
+                        "AUDIO"
+                      ],
+                      "maxIntensity01": 0.5,
+                      "effectSeq": 1,
+                      "active": [
+                        {
+                          "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                          "effectSeq": 1,
+                          "sceneId": "escape-01",
+                          "channel": "AIRFLOW",
+                          "cue": "DRIVE_WIND",
+                          "intensity01": 0.3,
+                          "issuedAt": 1793518009337,
+                          "expiresAt": 1793518012337,
+                          "status": "ISSUED",
+                          "observedValue": null
+                        }
+                      ],
+                      "lastReport": null,
+                      "lastStopReason": null,
+                      "updatedAt": 1793518009337
+                    },
+                    "intents": [
+                      {
+                        "type": "vehicle.effect.intent",
+                        "schemaVersion": 1,
+                        "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                        "roomEpoch": 1,
+                        "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                        "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                        "effectSeq": 1,
+                        "sceneId": "escape-01",
+                        "channel": "AIRFLOW",
+                        "cue": "DRIVE_WIND",
+                        "intensity01": 0.3,
+                        "transitionMs": 500,
+                        "issuedAt": 1793518009337,
+                        "expiresAt": 1793518012337
+                      }
+                    ]
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBER_PENDING",
+              "NOT_MEMBER",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_NOT_FOUND",
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_LIMIT",
+              "EFFECT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          },
+          "400": {
+            "description": "Malformed or out-of-range effect input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_VIRTUAL_SPEED",
+                    "message": "virtualSpeedMps must be finite and 0..100"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_ID_REQUIRED",
+              "INVALID_EFFECT_CHANNELS",
+              "INVALID_EFFECT_CUE",
+              "INVALID_EFFECT_DURATION",
+              "INVALID_EFFECT_INTENSITY",
+              "INVALID_EFFECT_REPORT",
+              "INVALID_EFFECT_REQUEST",
+              "INVALID_EFFECT_SCENE",
+              "INVALID_VIRTUAL_SPEED",
+              "ROOM_REQUIRED"
+            ]
+          },
+          "409": {
+            "description": "Current vehicle/effect session or game gate does not permit this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "EFFECT_SESSION_REQUIRED",
+                    "message": "Explicitly enable effects for this vehicle connection"
+                  }
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_CHANNEL_UNAVAILABLE",
+              "EFFECT_CONNECTION_REQUIRED",
+              "EFFECT_EXPIRED",
+              "EFFECT_LOCAL_OPT_IN_REQUIRED",
+              "EFFECT_REPORT_CONFLICT",
+              "EFFECT_REPORT_REGRESSION",
+              "EFFECT_SCENE_MISMATCH",
+              "EFFECT_SESSION_REQUIRED",
+              "EFFECT_SESSION_STALE",
+              "EFFECT_SUPERSEDED",
+              "GATE_CLOSED",
+              "IDEMPOTENCY_CONFLICT",
+              "NOT_PLAYING"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectSceneRequest"
+              },
+              "example": {
+                "commandId": "example-setVehicleEffectScene",
+                "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                "sceneId": "escape-01",
+                "virtualSpeedMps": 18
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/effects/cue": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "emitVehicleEffectCue",
+        "tags": [
+          "Vehicle effects"
+        ],
+        "summary": "Emit a supported DANGER, HIT or ESCAPE scene cue",
+        "responses": {
+          "200": {
+            "description": "Current 4D state and, for a mutation, its logical result. Retrying never re-emits an actuator effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectMutationResponse"
+                },
+                "example": {
+                  "effects": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": true,
+                    "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                    "roomEpoch": 1,
+                    "controlVersion": 1,
+                    "sceneId": "escape-01",
+                    "virtualSpeedMps": 18,
+                    "channels": [
+                      "AIRFLOW",
+                      "AMBIENT",
+                      "AUDIO"
+                    ],
+                    "maxIntensity01": 0.5,
+                    "effectSeq": 3,
+                    "active": [
+                      {
+                        "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                        "effectSeq": 1,
+                        "sceneId": "escape-01",
+                        "channel": "AIRFLOW",
+                        "cue": "DRIVE_WIND",
+                        "intensity01": 0.3,
+                        "issuedAt": 1793518009337,
+                        "expiresAt": 1793518012337,
+                        "status": "APPLIED_CONFIRMED",
+                        "observedValue": 5
+                      },
+                      {
+                        "effectId": "a9435ff1-ead5-4181-8401-94615edefe48",
+                        "effectSeq": 2,
+                        "sceneId": "escape-01",
+                        "channel": "AMBIENT",
+                        "cue": "DANGER",
+                        "intensity01": 0.5,
+                        "issuedAt": 1793518009384,
+                        "expiresAt": 1793518012384,
+                        "status": "ISSUED",
+                        "observedValue": null
+                      },
+                      {
+                        "effectId": "3f5ba86c-590a-46a2-b389-b5f7e408639b",
+                        "effectSeq": 3,
+                        "sceneId": "escape-01",
+                        "channel": "AUDIO",
+                        "cue": "DANGER",
+                        "intensity01": 0.5,
+                        "issuedAt": 1793518009384,
+                        "expiresAt": 1793518012384,
+                        "status": "ISSUED",
+                        "observedValue": null
+                      }
+                    ],
+                    "lastReport": {
+                      "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                      "effectSeq": 1,
+                      "channel": "AIRFLOW",
+                      "status": "APPLIED_CONFIRMED",
+                      "observedValue": 5,
+                      "receivedAt": 1793518009340
+                    },
+                    "lastStopReason": null,
+                    "updatedAt": 1793518009384
+                  },
+                  "data": {
+                    "effects": {
+                      "protocol": "zride-effects-v1",
+                      "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                      "enabled": true,
+                      "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                      "roomEpoch": 1,
+                      "controlVersion": 1,
+                      "sceneId": "escape-01",
+                      "virtualSpeedMps": 18,
+                      "channels": [
+                        "AIRFLOW",
+                        "AMBIENT",
+                        "AUDIO"
+                      ],
+                      "maxIntensity01": 0.5,
+                      "effectSeq": 3,
+                      "active": [
+                        {
+                          "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                          "effectSeq": 1,
+                          "sceneId": "escape-01",
+                          "channel": "AIRFLOW",
+                          "cue": "DRIVE_WIND",
+                          "intensity01": 0.3,
+                          "issuedAt": 1793518009337,
+                          "expiresAt": 1793518012337,
+                          "status": "APPLIED_CONFIRMED",
+                          "observedValue": 5
+                        },
+                        {
+                          "effectId": "a9435ff1-ead5-4181-8401-94615edefe48",
+                          "effectSeq": 2,
+                          "sceneId": "escape-01",
+                          "channel": "AMBIENT",
+                          "cue": "DANGER",
+                          "intensity01": 0.5,
+                          "issuedAt": 1793518009384,
+                          "expiresAt": 1793518012384,
+                          "status": "ISSUED",
+                          "observedValue": null
+                        },
+                        {
+                          "effectId": "3f5ba86c-590a-46a2-b389-b5f7e408639b",
+                          "effectSeq": 3,
+                          "sceneId": "escape-01",
+                          "channel": "AUDIO",
+                          "cue": "DANGER",
+                          "intensity01": 0.5,
+                          "issuedAt": 1793518009384,
+                          "expiresAt": 1793518012384,
+                          "status": "ISSUED",
+                          "observedValue": null
+                        }
+                      ],
+                      "lastReport": {
+                        "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                        "effectSeq": 1,
+                        "channel": "AIRFLOW",
+                        "status": "APPLIED_CONFIRMED",
+                        "observedValue": 5,
+                        "receivedAt": 1793518009340
+                      },
+                      "lastStopReason": null,
+                      "updatedAt": 1793518009384
+                    },
+                    "intents": [
+                      {
+                        "type": "vehicle.effect.intent",
+                        "schemaVersion": 1,
+                        "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                        "roomEpoch": 1,
+                        "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                        "effectId": "a9435ff1-ead5-4181-8401-94615edefe48",
+                        "effectSeq": 2,
+                        "sceneId": "escape-01",
+                        "channel": "AMBIENT",
+                        "cue": "DANGER",
+                        "intensity01": 0.5,
+                        "transitionMs": 200,
+                        "issuedAt": 1793518009384,
+                        "expiresAt": 1793518012384
+                      },
+                      {
+                        "type": "vehicle.effect.intent",
+                        "schemaVersion": 1,
+                        "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                        "roomEpoch": 1,
+                        "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                        "effectId": "3f5ba86c-590a-46a2-b389-b5f7e408639b",
+                        "effectSeq": 3,
+                        "sceneId": "escape-01",
+                        "channel": "AUDIO",
+                        "cue": "DANGER",
+                        "intensity01": 0.5,
+                        "transitionMs": 200,
+                        "issuedAt": 1793518009384,
+                        "expiresAt": 1793518012384
+                      }
+                    ]
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBER_PENDING",
+              "NOT_MEMBER",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_NOT_FOUND",
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_LIMIT",
+              "EFFECT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          },
+          "400": {
+            "description": "Malformed or out-of-range effect input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_ID_REQUIRED",
+              "INVALID_EFFECT_CHANNELS",
+              "INVALID_EFFECT_CUE",
+              "INVALID_EFFECT_DURATION",
+              "INVALID_EFFECT_INTENSITY",
+              "INVALID_EFFECT_REPORT",
+              "INVALID_EFFECT_REQUEST",
+              "INVALID_EFFECT_SCENE",
+              "INVALID_VIRTUAL_SPEED",
+              "ROOM_REQUIRED"
+            ]
+          },
+          "409": {
+            "description": "Current vehicle/effect session or game gate does not permit this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_CHANNEL_UNAVAILABLE",
+              "EFFECT_CONNECTION_REQUIRED",
+              "EFFECT_EXPIRED",
+              "EFFECT_LOCAL_OPT_IN_REQUIRED",
+              "EFFECT_REPORT_CONFLICT",
+              "EFFECT_REPORT_REGRESSION",
+              "EFFECT_SCENE_MISMATCH",
+              "EFFECT_SESSION_REQUIRED",
+              "EFFECT_SESSION_STALE",
+              "EFFECT_SUPERSEDED",
+              "GATE_CLOSED",
+              "IDEMPOTENCY_CONFLICT",
+              "NOT_PLAYING"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectCueRequest"
+              },
+              "example": {
+                "commandId": "example-emitVehicleEffectCue",
+                "effectSessionId": "a3dc2983-f13b-4785-9b0e-11f531014eab",
+                "sceneId": "escape-01",
+                "cue": "DANGER",
+                "intensity01": 0.8,
+                "durationMs": null
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/effects/stop": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "stopVehicleEffects",
+        "tags": [
+          "Vehicle effects"
+        ],
+        "summary": "Stop and invalidate the current effect session",
+        "responses": {
+          "200": {
+            "description": "Current 4D state and, for a mutation, its logical result. Retrying never re-emits an actuator effect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectMutationResponse"
+                },
+                "example": {
+                  "effects": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": false,
+                    "effectSessionId": null,
+                    "roomEpoch": 1,
+                    "controlVersion": 2,
+                    "sceneId": null,
+                    "virtualSpeedMps": 0,
+                    "channels": [],
+                    "maxIntensity01": 0.5,
+                    "effectSeq": 8,
+                    "active": [],
+                    "lastReport": {
+                      "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                      "effectSeq": 1,
+                      "channel": "AIRFLOW",
+                      "status": "APPLIED_CONFIRMED",
+                      "observedValue": 5,
+                      "receivedAt": 1793518009340
+                    },
+                    "lastStopReason": "USER_STOP",
+                    "updatedAt": 1793518009444
+                  },
+                  "data": {
+                    "protocol": "zride-effects-v1",
+                    "roomId": "3356da3b-1862-4c9c-af6a-5302cc22187b",
+                    "enabled": false,
+                    "effectSessionId": null,
+                    "roomEpoch": 1,
+                    "controlVersion": 2,
+                    "sceneId": null,
+                    "virtualSpeedMps": 0,
+                    "channels": [],
+                    "maxIntensity01": 0.5,
+                    "effectSeq": 8,
+                    "active": [],
+                    "lastReport": {
+                      "effectId": "3728dcfc-b159-445e-8049-38ca2c84154e",
+                      "effectSeq": 1,
+                      "channel": "AIRFLOW",
+                      "status": "APPLIED_CONFIRMED",
+                      "observedValue": 5,
+                      "receivedAt": 1793518009340
+                    },
+                    "lastStopReason": "USER_STOP",
+                    "updatedAt": 1793518009444
+                  },
+                  "replayed": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Bearer credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_REQUIRED",
+              "AUTH_EXPIRED"
+            ]
+          },
+          "403": {
+            "description": "Role or membership not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "MEMBER_PENDING",
+              "NOT_MEMBER",
+              "ROLE_FORBIDDEN"
+            ]
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_NOT_FOUND",
+              "ROOM_NOT_FOUND"
+            ]
+          },
+          "429": {
+            "description": "Rate or receipt capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_LIMIT",
+              "EFFECT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "500": {
+            "description": "Unexpected server failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable; no new success acknowledgement or reward broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          },
+          "400": {
+            "description": "Malformed or out-of-range effect input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "COMMAND_ID_REQUIRED",
+              "INVALID_EFFECT_CHANNELS",
+              "INVALID_EFFECT_CUE",
+              "INVALID_EFFECT_DURATION",
+              "INVALID_EFFECT_INTENSITY",
+              "INVALID_EFFECT_REPORT",
+              "INVALID_EFFECT_REQUEST",
+              "INVALID_EFFECT_SCENE",
+              "INVALID_VIRTUAL_SPEED",
+              "ROOM_REQUIRED"
+            ]
+          },
+          "409": {
+            "description": "Current vehicle/effect session or game gate does not permit this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EFFECT_CHANNEL_UNAVAILABLE",
+              "EFFECT_CONNECTION_REQUIRED",
+              "EFFECT_EXPIRED",
+              "EFFECT_LOCAL_OPT_IN_REQUIRED",
+              "EFFECT_REPORT_CONFLICT",
+              "EFFECT_REPORT_REGRESSION",
+              "EFFECT_SCENE_MISMATCH",
+              "EFFECT_SESSION_REQUIRED",
+              "EFFECT_SESSION_STALE",
+              "EFFECT_SUPERSEDED",
+              "GATE_CLOSED",
+              "IDEMPOTENCY_CONFLICT",
+              "NOT_PLAYING"
+            ]
+          }
+        },
+        "x-implementation-status": "implemented-prototype",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectStopRequest"
+              },
+              "example": {
+                "commandId": "example-stopVehicleEffects"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2244,7 +3507,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 4
+            "const": 5
           }
         },
         "required": [
@@ -2921,6 +4184,9 @@
           },
           "serverTime": {
             "$ref": "#/components/schemas/EpochMillis"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/EffectSummary"
           }
         },
         "required": [
@@ -3411,7 +4677,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 4
+            "const": 5
           }
         },
         "required": [
@@ -3501,6 +4767,679 @@
           "serverTime",
           "rooms"
         ]
+      },
+      "EffectChannel": {
+        "type": "string",
+        "enum": [
+          "AIRFLOW",
+          "AMBIENT",
+          "AUDIO"
+        ]
+      },
+      "EffectReportStatus": {
+        "type": "string",
+        "enum": [
+          "RECEIVED",
+          "DISPATCHED",
+          "APPLIED_CONFIRMED",
+          "UNSUPPORTED",
+          "REJECTED_GATE",
+          "USER_OVERRIDDEN",
+          "FAILED",
+          "STOPPED"
+        ]
+      },
+      "EffectSessionRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "locallyEnabled": {
+            "type": "boolean"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EffectChannel"
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "maxIntensity01": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "vehicleConnectionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expectedControlVersion": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "commandId",
+          "enabled"
+        ],
+        "additionalProperties": false,
+        "description": "CAR_HOST only. enabled=true additionally requires explicit locallyEnabled=true and nonempty supported channels from the current vehicle client. Enabling requires an authenticated current host socket, fresh P/UX/foreground gate and PLAYING. enabled=false is permitted to stop without the battle gate. Enabling must bind vehicleConnectionId from the current CAR_HOST auth.ok and expectedControlVersion from the latest GET effects.controlVersion. This rejects a delayed first delivery after a newer stop or opt-in. Known same-scope idempotent retry is checked before control-version comparison.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "enabled": {
+                  "const": true
+                }
+              },
+              "required": [
+                "enabled"
+              ]
+            },
+            "then": {
+              "properties": {
+                "locallyEnabled": {
+                  "const": true
+                }
+              },
+              "required": [
+                "locallyEnabled",
+                "channels",
+                "maxIntensity01",
+                "vehicleConnectionId",
+                "expectedControlVersion"
+              ]
+            }
+          }
+        ]
+      },
+      "EffectSceneRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sceneId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "virtualSpeedMps": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "effectSessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "commandId",
+          "sceneId",
+          "virtualSpeedMps",
+          "effectSessionId"
+        ],
+        "additionalProperties": false,
+        "description": "Virtual game speed, never real road speed. AIRFLOW intensity=min(virtualSpeedMps/30,1)*session.maxIntensity01. Scene updates do not command a physical fan stage."
+      },
+      "EffectCueRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sceneId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "cue": {
+            "type": "string",
+            "enum": [
+              "DANGER",
+              "HIT",
+              "ESCAPE"
+            ]
+          },
+          "intensity01": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "maximum": 5000,
+            "minimum": 100,
+            "default": 3000
+          },
+          "effectSessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "commandId",
+          "sceneId",
+          "cue",
+          "intensity01",
+          "effectSessionId"
+        ],
+        "additionalProperties": false
+      },
+      "EffectStopRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "commandId"
+        ],
+        "additionalProperties": false
+      },
+      "EffectSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "const": "zride-effects-v1"
+          },
+          "roomId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "effectSessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roomEpoch": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "sceneId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_.:-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "virtualSpeedMps": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EffectChannel"
+            },
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "maxIntensity01": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "effectSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActiveVehicleEffect"
+            },
+            "maxItems": 3
+          },
+          "lastReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VehicleEffectReportSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastStopReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "controlVersion": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "protocol",
+          "roomId",
+          "enabled",
+          "effectSessionId",
+          "roomEpoch",
+          "sceneId",
+          "virtualSpeedMps",
+          "channels",
+          "maxIntensity01",
+          "effectSeq",
+          "active",
+          "lastReport",
+          "lastStopReason",
+          "updatedAt",
+          "controlVersion"
+        ],
+        "description": "Ephemeral state only. Never execute active entries as hardware instructions. Only fresh vehicle.effect.intent on the current CAR_HOST socket can authorize local mapping. Pause, gate loss, socket replacement/disconnect and server restart invalidate the session; individual TTL expiration stops that channel, not the opt-in session."
+      },
+      "EffectResponse": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "$ref": "#/components/schemas/EffectSummary"
+          }
+        },
+        "required": [
+          "effects"
+        ],
+        "additionalProperties": false
+      },
+      "EffectMutationResponse": {
+        "type": "object",
+        "properties": {
+          "effects": {
+            "$ref": "#/components/schemas/EffectSummary"
+          },
+          "data": {
+            "type": "object"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "effects",
+          "data"
+        ],
+        "additionalProperties": false,
+        "description": "effects is the current projection. data may contain historical logical result/intents on idempotent retry and must never be used as an actuator execution channel. replayed=true emits no new WS effects."
+      },
+      "VehicleEffectReport": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "vehicle.effect.report"
+          },
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectSessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "$ref": "#/components/schemas/EffectReportStatus"
+          },
+          "observedValue": {
+            "type": [
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "commandId",
+          "effectSessionId",
+          "effectId",
+          "effectSeq",
+          "status"
+        ],
+        "additionalProperties": false,
+        "description": "Only the actual current CAR_HOST game WebSocket can report execution status. APPLIED_CONFIRMED means client-reported get/callback confirmation, not server hardware attestation. Expired/stopped/old-session reports are rejected.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "APPLIED_CONFIRMED"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "observedValue": {
+                  "type": [
+                    "number",
+                    "boolean"
+                  ]
+                }
+              },
+              "required": [
+                "observedValue"
+              ]
+            }
+          }
+        ]
+      },
+      "ActiveVehicleEffect": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "effectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sceneId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/EffectChannel"
+          },
+          "cue": {
+            "type": "string",
+            "enum": [
+              "DRIVE_WIND",
+              "DANGER",
+              "HIT",
+              "ESCAPE"
+            ]
+          },
+          "intensity01": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ISSUED",
+              "RECEIVED",
+              "DISPATCHED",
+              "APPLIED_CONFIRMED",
+              "UNSUPPORTED",
+              "REJECTED_GATE",
+              "USER_OVERRIDDEN",
+              "FAILED",
+              "STOPPED"
+            ]
+          },
+          "observedValue": {
+            "type": [
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "effectId",
+          "effectSeq",
+          "sceneId",
+          "channel",
+          "cue",
+          "intensity01",
+          "issuedAt",
+          "expiresAt",
+          "status",
+          "observedValue"
+        ]
+      },
+      "VehicleEffectReportSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "effectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "channel": {
+            "$ref": "#/components/schemas/EffectChannel"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EffectReportStatus"
+          },
+          "observedValue": {
+            "type": [
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "receivedAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "effectId",
+          "effectSeq",
+          "channel",
+          "status",
+          "observedValue",
+          "receivedAt"
+        ]
+      },
+      "VehicleEffectIntent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "vehicle.effect.intent"
+          },
+          "schemaVersion": {
+            "const": 1
+          },
+          "roomId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "effectSessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectSeq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sceneId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/EffectChannel"
+          },
+          "cue": {
+            "type": "string",
+            "enum": [
+              "DRIVE_WIND",
+              "DANGER",
+              "HIT",
+              "ESCAPE"
+            ]
+          },
+          "intensity01": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "transitionMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "type",
+          "schemaVersion",
+          "roomId",
+          "roomEpoch",
+          "effectSessionId",
+          "effectId",
+          "effectSeq",
+          "sceneId",
+          "channel",
+          "cue",
+          "intensity01",
+          "transitionMs",
+          "issuedAt",
+          "expiresAt"
+        ],
+        "description": "Current native host WebSocket only. Semantic channel/cue/intensity, never raw vehicle property writes. Server delivery is not evidence of SDK execution. Native clients must enforce local UX/P/foreground, supported capability and user settings."
+      },
+      "VehicleEffectStop": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "vehicle.effect.stop"
+          },
+          "schemaVersion": {
+            "const": 1
+          },
+          "roomId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "roomEpoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "effectSessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "effectSeq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EffectChannel"
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "type",
+          "schemaVersion",
+          "roomId",
+          "roomEpoch",
+          "effectSessionId",
+          "effectSeq",
+          "channels",
+          "reason",
+          "issuedAt"
+        ]
       }
     }
   },
@@ -3522,7 +5461,8 @@
     "charger feed and charger API",
     "bbox/cell/nonce world API",
     "hardware GPS or passenger identity attestation",
-    "climate/seatbelt/audio-zone server control"
+    "native client execution of 4D HVAC/light settings and physical application/restore verification",
+    "seatbelt gameplay and seat-specific audio actuator control"
   ],
   "x-persistence": {
     "formatVersion": 1,
@@ -3532,7 +5472,8 @@
     "transaction": "Commit reward and receipt together before success response/broadcast",
     "restore": "Socket null; vehicle UNKNOWN, foreground false and lease invalid; PLAYING becomes PAUSED with new epoch; fresh report and explicit host start required",
     "rawPhoneCoordinatesStored": false,
-    "singleInstanceOnly": true
+    "singleInstanceOnly": true,
+    "vehicleEffects": "Effect sessions, physical intents, execution reports and effect replay receipts are ephemeral and never restored. Durable game state does not authorize actuator replay."
   },
   "x-observer-websocket": {
     "path": "/observer/ws",
@@ -3550,5 +5491,22 @@
     "readOnly": true,
     "viewMode": "SERVER_STATE_NOT_SCREEN_CAPTURE",
     "docs": "docs/observer.md"
+  },
+  "x-vehicle-effects-websocket": {
+    "path": "/ws",
+    "receiveOnlyBy": "current authenticated CAR_HOST socket",
+    "events": {
+      "vehicle.effect.intent": {
+        "$ref": "#/components/schemas/VehicleEffectIntent"
+      },
+      "vehicle.effect.stop": {
+        "$ref": "#/components/schemas/VehicleEffectStop"
+      }
+    },
+    "nativeReport": {
+      "$ref": "#/components/schemas/VehicleEffectReport"
+    },
+    "executionRule": "Never execute HTTP data.intents, GET state, room/observer snapshots or retried receipts. Only a fresh matching nonexpired WS intent may be mapped locally to supported SDK calls.",
+    "physicalVerification": "APPLIED_CONFIRMED is client-reported get/callback observation, not hardware attestation."
   }
 }

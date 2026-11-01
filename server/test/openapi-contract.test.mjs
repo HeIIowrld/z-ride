@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { EFFECT_CHANNELS, EFFECT_REPORT_STATUSES, EFFECT_DEFAULT_TTL_MS, EFFECT_MAX_TTL_MS } from '../effects.mjs';
 
 const spec = JSON.parse(readFileSync(new URL('../openapi.json', import.meta.url), 'utf8'));
 const protocol = JSON.parse(readFileSync(new URL('../protocol.json', import.meta.url), 'utf8'));
@@ -10,7 +11,7 @@ test('OpenAPI covers exactly the implemented REST route inventory', () => {
   assert.equal(spec.openapi, '3.1.0');
   const actual = Object.entries(spec.paths).flatMap(([path,item]) => Object.keys(item).filter(m => methods.has(m)).map(m => `${m.toUpperCase()} ${path}`)).sort();
   assert.deepEqual(actual, protocol.http.map(r => `${r.method} ${r.path}`).sort());
-  assert.equal(actual.length, 10);
+  assert.equal(actual.length, 15);
   assert.equal(spec.paths['/ws'], undefined, 'WS is a separate appendix, not an HTTP operation');
   assert.equal(spec.paths['/observer/ws'], undefined, 'Observer WS is also a separate appendix');
   const ids = Object.values(spec.paths).flatMap(p => Object.entries(p).filter(([m]) => methods.has(m)).map(([,op]) => op.operationId));
@@ -54,4 +55,29 @@ test('OpenAPI distinguishes read-only operator authorization and durable-storage
   assert.equal(protocol.observer.readOnly, true);
   assert.equal(protocol.observer.viewMode, 'SERVER_STATE_NOT_SCREEN_CAPTURE');
   assert.equal(spec['x-observer-websocket'].path, protocol.observer.webSocketPath);
+});
+
+test('4D contract separates logical API state from native-only physical effect execution', () => {
+  const base = '/api/rooms/{roomId}/effects';
+  assert.equal(spec.paths[base].get.operationId, 'getVehicleEffects');
+  for (const action of ['session', 'scene', 'cue', 'stop']) {
+    const operation = spec.paths[base + '/' + action].post;
+    assert.ok(operation.requestBody.required);
+    assert.ok(operation.responses['409']);
+  }
+  assert.equal(spec.paths[base + '/report'], undefined, 'Native execution reports belong to the authenticated current game WebSocket');
+  assert.deepEqual(spec.components.schemas.EffectChannel.enum, protocol.vehicleEffects.channels);
+  assert.deepEqual(spec.components.schemas.EffectReportStatus.enum, protocol.vehicleEffects.reportStatuses);
+  assert.deepEqual(spec.components.schemas.EffectChannel.enum, EFFECT_CHANNELS);
+  assert.deepEqual(spec.components.schemas.EffectReportStatus.enum, EFFECT_REPORT_STATUSES);
+  assert.equal(spec.components.schemas.EffectCueRequest.properties.durationMs.default, EFFECT_DEFAULT_TTL_MS);
+  assert.equal(spec.components.schemas.EffectCueRequest.properties.durationMs.maximum, EFFECT_MAX_TTL_MS);
+  assert.equal(spec.components.schemas.EffectSceneRequest.properties.virtualSpeedMps.maximum, 100);
+  assert.ok(spec.components.schemas.EffectSceneRequest.required.includes('effectSessionId'));
+  assert.ok(spec.components.schemas.EffectCueRequest.required.includes('effectSessionId'));
+  assert.ok(spec.components.schemas.EffectSummary.required.includes('controlVersion'));
+  assert.ok(spec.components.schemas.EffectSessionRequest.allOf[0].then.required.includes('vehicleConnectionId'));
+  assert.ok(spec.components.schemas.EffectSessionRequest.allOf[0].then.required.includes('expectedControlVersion'));
+  assert.equal(spec.components.schemas.Health.properties.contractRevision.const, 5);
+  assert.equal(protocol.vehicleEffects.executionReport.type, 'vehicle.effect.report');
 });
