@@ -51,6 +51,8 @@
 
 역할은 DRIVER/SCOUT/TECH/COVER이고 기본 매핑은 운전자/앞 동승석/뒤 왼쪽/뒤 오른쪽이다. 호스트만 DRIVER가 될 수 있다. 현재 TERMINALS는 특정 직업 스킬이 아닌 서로 다른 승인 폰 두 명의 기여 조건이며, 직업별 특수 스킬은 아직 구현하지 않았다.
 
+이 heist 프리셋의 고정 방어 표적을 모두 처리하려면 뒤 왼쪽(REAR_LEFT)과 뒤 오른쪽(REAR_RIGHT) 폰이 필요하다. 시작·재개 시 아직 살아 있는 표적의 각도를 승인된 연결 폰의 비어 있지 않은 좌석이 모두 담당할 수 있어야 하며, 충족하지 못하면 HEIST_CREW_REQUIRED(409)로 거부한다. 임무 역할을 바꿔도 좌석 사격각은 바뀌지 않는다. 이는 현재 방어 미니게임의 편성 조건이며, 기본 generic-coop-v1의 시작 조건은 그대로다.
+
 ```json
 {"commandId":"mission-config-001","roomEpoch":1,"expectedGameRevision":0,"scenarioId":"heist-demo-v1"}
 ```

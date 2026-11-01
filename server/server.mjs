@@ -558,6 +558,16 @@ export function createDemoServer(options = {}) {
       if (room.game.completed) throw fail('MISSION_COMPLETE', 'Configure a new mission before starting again', 409);
       const activePhone = [...room.members.values()].some(m => m.role !== 'CAR_HOST' && m.approved && m.socket && seatEvidence(room, m.seat) !== 'EMPTY');
       if (!activePhone) throw fail('OPERATOR_REQUIRED', 'At least one approved phone in a non-empty seat required', 409);
+      if (room.game.scenarioId === 'heist-demo-v1') {
+        const crew = [...room.members.values()].filter(m => m.role !== 'CAR_HOST' && m.approved
+          && m.socket?.readyState === WebSocket.OPEN && seatEvidence(room, m.seat) !== 'EMPTY');
+        const uncovered = room.zombies.some(zombie => zombie.hp > 0 && !crew.some(m => {
+          const sector = SECTORS[m.seat];
+          return sector && (zombie.angleDeg >= sector[0] && zombie.angleDeg <= sector[1]
+            || Math.abs(zombie.angleDeg) === 180 && ['REAR_LEFT', 'REAR_RIGHT'].includes(m.seat));
+        }));
+        if (uncovered) throw fail('HEIST_CREW_REQUIRED', 'Connected approved crew must cover all defense target angles; this preset needs REAR_LEFT and REAR_RIGHT', 409);
+      }
       if (room.state === 'CLEARED') { room.zombies = newZombies(); room.stats.waveCleared = false; }
       room.state = 'PLAYING'; room.pauseReason = null; room.roomEpoch++; change(room); return { started: true };
     }

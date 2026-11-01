@@ -12,12 +12,13 @@
   "scope": "isolated actual HTTP/WS; server mission/cabin state, no physical SDK",
   "integrationTests": {
     "file": "test/server-state.test.mjs",
-    "passed": 7,
+    "passed": 8,
     "failed": 0
   },
   "integrationScope": [
     "actor projection/authorization",
     "heist objectives and stage guards",
+    "completable connected crew and defense angle coverage",
     "driver lease/session/sequence",
     "cabin freshness/UNKNOWN/connection reset",
     "durable progress/idempotency and ephemeral authority reset",

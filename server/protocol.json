@@ -690,7 +690,7 @@
     "motion": "Server tick caps elapsed step at 250 ms by default; max virtual speed 30 m/s. Revision tracks logical mutations, motionSeq tracks motion snapshots. No wall-clock/offline catch-up.",
     "missionRunId": "Persisted UUID changes on configure; sceneId is missionRunId:stageId. Configure keeps logical revision monotonic.",
     "idempotency": "Logical configure/advance/interact receipts persist separately from physical effects and driver input. Receipt data must not contain driverSessionId or transient driver controls.",
-    "battleStageGuard": "heist fire/support.pulse are allowed only in DEFEND; otherwise GAME_ACTION_UNAVAILABLE. Killing the wave preserves PLAYING until mission COMPLETE; round.start after COMPLETE returns MISSION_COMPLETE until configure."
+    "battleStageGuard": "heist fire/support.pulse are allowed only in DEFEND; otherwise GAME_ACTION_UNAVAILABLE. Killing the wave preserves PLAYING until mission COMPLETE; round.start after COMPLETE returns MISSION_COMPLETE until configure. Heist start/resume also requires approved connected non-EMPTY phone seats covering all remaining defense target angles; otherwise HEIST_CREW_REQUIRED (409). The initial preset needs REAR_LEFT and REAR_RIGHT; mission role names do not change seat firing sectors."
   },
   "cabin": {
     "protocol": "zride-cabin-v1",

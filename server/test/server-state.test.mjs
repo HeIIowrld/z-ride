@@ -151,6 +151,36 @@ test('heist objectives and distinct phone contributions advance only through ser
   assert.equal((await f.game('advance')).status, 409, 'client cannot claim extraction distance');
 });
 
+test('heist start requires connected non-empty seats that cover every remaining defense target', async t => {
+  const f = await fixture(t);
+  assert.equal((await f.game('configure', { scenarioId: 'heist-demo-v1' })).status, 200);
+  await f.report();
+  async function assign(phone, seat) {
+    assert.equal((await f.api(f.base + '/approve', { memberId: phone.memberId, seat, allowManualUnknown: true }, f.host.token)).status, 200);
+  }
+  async function expectMissingCrew() {
+    const current = await f.state();
+    const result = await f.car.send({ type: 'command', roomEpoch: current.roomEpoch, action: 'round.start' });
+    assert.equal(result.ok, false); assert.equal(result.error.code, 'HEIST_CREW_REQUIRED');
+    assert.equal((await f.state()).state, 'READY');
+  }
+  await assign(f.phones[0], 'FRONT_PASSENGER');
+  await expectMissingCrew(); // FRONT + REAR_RIGHT cannot cover -100 degrees.
+  await assign(f.phones[0], 'REAR_LEFT');
+  await assign(f.phones[1], 'FRONT_PASSENGER');
+  await expectMissingCrew(); // REAR_LEFT + FRONT cannot cover 140 degrees.
+  await assign(f.phones[1], 'REAR_RIGHT');
+  f.phones[1].client.ws.close();
+  await until(async () => !(await f.state()).members.find(member => member.memberId === f.phones[1].memberId).connected, 'rear-right phone disconnected');
+  await expectMissingCrew();
+  f.phones[1].client = await f.connect(f.phones[1].token, f.created.roomId);
+  assert.equal((await f.car.send({ type: 'vehicle.report', ux: 'ALLOWED', gear: 'P', foreground: true,
+    seats: [{ seat: 'REAR_LEFT', occupancy: 'OCCUPIED' }, { seat: 'REAR_RIGHT', occupancy: 'EMPTY' }], source: 'SIMULATED' })).ok, true);
+  await expectMissingCrew();
+  await f.start();
+  assert.equal((await f.state()).state, 'PLAYING', 'both approved rear phones can start when present and connected');
+});
+
 test('driver inputs are session ordered, server simulated and cleared by pause and restart', async t => {
   let saved, clock = 1000000;
   const store = { load: () => saved ? structuredClone(saved) : null, save: value => { saved = structuredClone(value); }, close() {} };
