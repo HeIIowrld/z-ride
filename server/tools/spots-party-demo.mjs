@@ -37,6 +37,10 @@ try{
       await api(b+'/approve',{memberId:joined.memberId,allowManualUnknown:true},host.token);p.phones.push(await connect(joined.token,roomId));
     }
     await api(b+'/party',{commandId:randomUUID(),visible:true,name:'TEST PARTY '+i,spotId},host.token);
+    const current=(await api(b,undefined,host.token,'GET')).room;
+    await api(b+'/game/configure',{commandId:randomUUID(),roomEpoch:current.roomEpoch,expectedGameRevision:current.game.revision,scenarioId:'zombie-defense-v1'},host.token);
+    const shared=await api('/api/spots/'+spotId+'/shared',undefined,host.token,'GET');
+    const event=await api(b+'/party/events/join',{commandId:randomUUID(),spotId,expectedInstanceId:shared.instance?.instanceId??null},host.token);p.instanceId=event.instance.instanceId;
     const route=await api(b+'/route',{commandId:randomUUID(),expectedRouteRevision:0,source:'DEMO_ROUTE',geometry:[{latitude:37.56,longitude:126.978},{latitude:37.57,longitude:126.978}]},host.token);
     const candidates=await api(b+'/route/spots',{routeRevision:route.routeRevision,corridorM:300},host.token);
     assert.ok(candidates.places.some(p=>p.placeId===spotId));
@@ -46,8 +50,10 @@ try{
   for(const p of parties){
     const started=await p.car.send({type:'command',action:'round.start',roomEpoch:p.car.room.roomEpoch});
     for(const [index,angleDeg] of [[0,-100],[1,60],[1,140]])for(let n=0;n<5;n++)await p.phones[index].send({type:'command',action:'fire',angleDeg,roomEpoch:started.roomEpoch});
+    const current=(await api(p.b,undefined,p.host.token,'GET')).room;
+    await api(p.b+'/game/advance',{commandId:randomUUID(),roomEpoch:current.roomEpoch,expectedGameRevision:current.game.revision},p.host.token);
     const world=await api('/api/spots/'+spotId+'/shared',undefined,p.host.token,'GET');
-    const body={commandId:randomUUID(),spotId,expectedInstanceRevision:world.instance?.revision??0};
+    const body={commandId:randomUUID(),spotId,instanceId:p.instanceId,expectedInstanceRevision:world.instance?.revision??0};
     const contribution=await api(p.b+'/party/contribute',body,p.host.token);assert.equal(contribution.rewardGranted,false);
     assert.equal((await api(p.b+'/party/contribute',body,p.host.token)).replayed,true);
   }

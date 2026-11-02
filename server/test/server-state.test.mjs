@@ -92,7 +92,7 @@ test('scenario catalog and composite state enforce membership while hiding drive
   assert.equal((await f.api('/api/scenarios', undefined, undefined, 'GET')).status, 401);
   const catalog = await f.api('/api/scenarios', undefined, f.phones[0].token, 'GET');
   assert.equal(catalog.status, 200);
-  assert.deepEqual(catalog.body.scenarios.map(item => item.scenarioId), ['generic-coop-v1', 'heist-demo-v1']);
+  assert.deepEqual(catalog.body.scenarios.map(item => item.scenarioId), ['generic-coop-v1', 'heist-demo-v1', 'zombie-defense-v1', 'supply-run-v1', 'signal-puzzle-v1']);
   const outsider = (await f.api('/api/session', { role: 'PHONE', nickname: 'Pending state phone' })).body;
   assert.equal((await f.api(f.base + '/state', undefined, outsider.token, 'GET')).status, 403);
   const invite = (await f.api('/api/rooms', {}, f.host.token)).body;

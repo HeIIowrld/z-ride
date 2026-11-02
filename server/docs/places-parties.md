@@ -1,5 +1,7 @@
 # 장소·경로·파티 연동 — revision 7
 
+revision 9 변경: 공동 기여는 instanceId와 사전 참가한 유한 미션의 서버 결과가 필요하다. 완료/만료 후 새 회차를 열고 보상은 별도 수령 원장으로 처리한다. 아래 revision 7 기록보다 [새 계약](events-results-rewards.md)이 우선한다.
+
 2026-11-02 (Asia/Seoul). 서버·폰 참조 클라이언트의 실행 계약이다. 차량 앱의 QR 이미지 렌더링·NaviHelper 어댑터·최종 지도 UI는 앱 팀이 이 API에 연결한다.
 
 ## 설치와 원본

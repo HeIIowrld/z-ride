@@ -41,5 +41,5 @@ export function deploymentOptions(env=process.env) {
   let phonePublicUrl=env.ZRIDE_PHONE_PUBLIC_URL??'';
   if(phonePublicUrl){const url=new URL(phonePublicUrl);if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.search||url.hash)throw new Error('Invalid phone public URL');phonePublicUrl=url.href;}
   const pickupRespawnMs=Number(env.ZRIDE_PICKUP_RESPAWN_MS??300000);
-  return {allowedOrigins:list('ZRIDE_ALLOWED_ORIGINS').map(checkedOrigin),observerAllowedOrigins:list('ZRIDE_OBSERVER_ALLOWED_ORIGINS').map(checkedOrigin),trustedProxyAddresses:list('ZRIDE_TRUSTED_PROXY_ADDRESSES'),browserApiOrigin:apiOrigin,phonePublicUrl,pickupRespawnMs};
+  return {allowedOrigins:list('ZRIDE_ALLOWED_ORIGINS').map(checkedOrigin),observerAllowedOrigins:list('ZRIDE_OBSERVER_ALLOWED_ORIGINS').map(checkedOrigin),trustedProxyAddresses:list('ZRIDE_TRUSTED_PROXY_ADDRESSES'),browserApiOrigin:apiOrigin,phonePublicUrl,pickupRespawnMs,eventPolicy:{durationMs:Number(env.ZRIDE_EVENT_DURATION_MS??1800000),respawnMs:Number(env.ZRIDE_EVENT_RESPAWN_MS??300000),target:Number(env.ZRIDE_EVENT_TARGET_PARTIES??3),missionReward:Number(env.ZRIDE_MISSION_REWARD_SUPPLIES??1),sharedReward:Number(env.ZRIDE_SHARED_REWARD_SUPPLIES??2)}};
 }

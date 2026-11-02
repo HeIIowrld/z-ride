@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { distanceMeters } from './world.mjs';
+import { createEventLedger } from './event-ledger.mjs';
 
 const fail = (code, message, status = 400) => Object.assign(new Error(message), { code, status });
 const finite = Number.isFinite;
@@ -22,17 +23,18 @@ export function distanceToRoute(point, geometry) {
   }
   return best;
 }
-export function createPlacesService({ catalogPath, catalog, clock = Date.now, routeTtlMs = 1800000 } = {}) {
+export function createPlacesService({ catalogPath, catalog, clock = Date.now, routeTtlMs = 1800000, eventPolicy = {} } = {}) {
   const data = catalog ?? (catalogPath ? JSON.parse(readFileSync(catalogPath, 'utf8')) : { version: 'not-imported', places: [] });
   if (typeof data.version !== 'string' || !Array.isArray(data.places)) throw new Error('Invalid place catalog');
   const places = new Map(data.places.map(p => { coordinate(p); if (!p.placeId || !['ATTRACTION','PARKING','CHARGER','FUEL_STATION'].includes(p.category)) throw new Error('Invalid catalog entry'); return [p.placeId, p]; }));
   if (places.size !== data.places.length) throw new Error('Duplicate catalog ID');
   const routes = new Map(), inviteIds = new Map();
+  const events=createEventLedger({clock,...eventPolicy});
   let state = { revision: 0, reviews: {}, parties: {}, instances: {}, receipts: {} };
   const command = body => { if (typeof body.commandId !== 'string' || !body.commandId.length || body.commandId.length > 128) throw fail('COMMAND_ID_REQUIRED', 'commandId required'); };
   function status() { return { version: data.version, count: places.size, worldRevision: state.revision, source: data.source ?? null, routeTtlMs, hardwareAttested: false }; }
-  function restore(saved) { if (saved) state = clone(saved); }
-  function durable() { return clone(state); }
+  function restore(saved) { if (saved) state = clone(saved); events.restore(saved?.eventLedger,saved?.instances); delete state.eventLedger; }
+  function durable() { return {...clone(state),eventLedger:events.durable()}; }
   function review(body) {
     command(body); const p = places.get(body.placeId); if (!p) throw fail('PLACE_NOT_FOUND', 'Known catalog place required', 404);
     if (body.expectedRevision !== state.revision) throw fail('WORLD_REVISION_CONFLICT', 'Refresh world revision', 409);
@@ -106,26 +108,24 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
     const parties = [];
     for (const room of rooms) { const s = state.parties[room.roomId]; if (!s?.visible || s.spotId !== spotId || room.closedAt || !room.vehicle.hostConnected || clock()-room.vehicle.receivedAt > 6000) continue;
       parties.push({ partyId: room.roomId, name: s.name, members: [...room.members.values()].filter(m=>m.approved).length, phase: room.state }); }
-    return { worldRevision: state.revision, spot: project(p), parties: parties.slice(0,100), instance: state.instances[spotId] ?? null, serverTime: clock() };
+    return { worldRevision: state.revision, spot: project(p), parties: parties.slice(0,100), instance: events.current(spotId), eventPolicy:events.policy(), eventRevision:events.revision(), serverTime: clock() };
+  }
+  function checkedEventSpot(spotId) {
+    const p=places.get(spotId);if(!p||!eligible(project(p)))throw fail('SPOT_NOT_ELIGIBLE','Verified enabled spot required',409);
+  }
+  function joinEvent(room, body) {
+    checkedEventSpot(body.spotId);
+    if(!state.parties[room.roomId]?.visible||state.parties[room.roomId]?.spotId!==body.spotId)throw fail('CONTRIBUTION_NOT_READY','Select and publish this spot first',409);
+    return events.join(room,body);
   }
   function contribute(room, body, gateAllowed) {
-    command(body); const p = places.get(body.spotId); if (!p || !eligible(project(p))) throw fail('SPOT_NOT_ELIGIBLE','Verified enabled spot required',409);
-    const key = room.roomId + ':' + body.commandId, fingerprint = createHash('sha256').update(JSON.stringify({spotId:body.spotId,commandId:body.commandId,expectedInstanceRevision:body.expectedInstanceRevision})).digest('hex');
-    if (state.receipts[key]) { const old = state.receipts[key]; if (old.fingerprint !== fingerprint) throw fail('IDEMPOTENCY_CONFLICT','Command changed',409); return {...clone(old.response), replayed:true}; }
-    if (Object.keys(state.receipts).length >= 10000) throw fail('COMMAND_LIMIT','World receipt capacity reached',429);
-    if (!gateAllowed || room.state !== 'CLEARED' || !room.game.completed && !room.stats.waveCleared || !state.parties[room.roomId]?.visible || state.parties[room.roomId]?.spotId !== body.spotId) throw fail('CONTRIBUTION_NOT_READY','Public selected spot, fresh parked gate and server-cleared round required',409);
-    const runKey = room.roomId + ':' + room.game.missionRunId + (room.game.completed ? '' : ':' + room.roomEpoch);
-    state.completedRuns ??= {};
-    if (state.completedRuns[runKey]) throw fail('ROUND_ALREADY_CONTRIBUTED','A completed round contributes to only one spot',409);
-    const old = state.instances[body.spotId]; const instance = old ?? { instanceId: randomUUID(), spotId:body.spotId, revision:0, target:3, contributions:[], completed:false };
-    if (body.expectedInstanceRevision !== instance.revision) throw fail('INSTANCE_REVISION_CONFLICT','Refresh instance',409);
-    if (instance.completed || instance.contributions.some(c=>c.partyId===room.roomId)) throw fail('ALREADY_CONTRIBUTED','One contribution per party per instance',409);
-    const next = clone(instance); next.contributions.push({partyId:room.roomId,at:clock()}); next.revision++; next.completed = next.contributions.length >= next.target;
-    state.instances[body.spotId] = next; state.revision++;
-    state.completedRuns[runKey] = body.spotId;
-    const response = { instance:clone(next), worldRevision:state.revision, replayed:false, rewardGranted:false };
-    state.receipts[key] = {fingerprint,response:clone(response)}; return response;
+    checkedEventSpot(body.spotId);
+    if(!state.parties[room.roomId]?.visible||state.parties[room.roomId]?.spotId!==body.spotId)throw fail('CONTRIBUTION_NOT_READY','Public selected spot required',409);
+    // Preserve historical successful v7/v8 receipts, but never grant new legacy contributions.
+    const old=state.receipts[room.roomId+':'+body.commandId];
+    if(old){const fingerprint=createHash('sha256').update(JSON.stringify({spotId:body.spotId,commandId:body.commandId,expectedInstanceRevision:body.expectedInstanceRevision})).digest('hex');if(old.fingerprint!==fingerprint||body.instanceId!==undefined)throw fail('IDEMPOTENCY_CONFLICT','Command changed',409);return {...clone(old.response),replayed:true};}
+    return events.contribute(room,body,gateAllowed);
   }
   function closeParty(roomId) { delete state.parties[roomId]; routes.delete(roomId); state.revision++; }
-  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, setParty, shared, contribute, closeParty, inviteIds };
+  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent };
 }

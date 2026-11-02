@@ -24,10 +24,10 @@ test('two-party API demo commits shared progress to real SQLite without routes o
     assert.ok(result.stdout.includes('"contributions":2'));assert.ok(result.stdout.includes('"qrGuests":4'));
     await app.close();
     const store=createStateStore(dbPath);const saved=store.load();store.close();
-    assert.equal(saved.places.instances.DEMO_PARKING_SPOT.contributions.length,2);
+    assert.equal(saved.places.eventLedger.instances[saved.places.eventLedger.current.DEMO_PARKING_SPOT].contributions.length,2);
     assert.equal(saved.places.reviews.DEMO_PARKING_SPOT.accessStatus,'VERIFIED');
-    assert.equal(Object.keys(saved.places.receipts).length,2);
-    assert.equal(Object.keys(saved.places.completedRuns).length,2);
+    assert.equal(Object.keys(saved.places.eventLedger.receipts).length,4);
+    assert.equal(Object.keys(saved.places.eventLedger.results).length,2);
     assert.equal(JSON.stringify(saved).includes('geometry'),false);
     assert.equal(JSON.stringify(saved).includes('inviteToken'),false);
     assert.ok(saved.rooms.every(room=>room.closedAt));
@@ -47,14 +47,16 @@ test('catalog is fail-closed and route corridor uses reviewed entrances, revisio
 });
 test('shared contribution is once per party, idempotent, persistent, gate checked and grants no invented rewards',()=>{
   const s=createPlacesService({catalog});s.review(review);
-  const room={roomId:'a',state:'CLEARED',game:{completed:false},stats:{waveCleared:true}};
+  const room={roomId:'a',state:'READY',game:{scenarioId:'signal-puzzle-v1',stageIndex:0,stageId:'DECODE',interactions:[],objectiveState:{objectiveId:'SIGNAL_DECODE'},completed:false,missionRunId:'m1'},stats:{waveCleared:false},members:new Map()};
   s.setParty('a',{commandId:'pub',visible:true,name:'A',spotId:'p1'});
-  const body={commandId:'contribute',spotId:'p1',expectedInstanceRevision:0};
+  const joined=s.joinEvent(room,{commandId:'join-event',spotId:'p1',expectedInstanceId:null});
+  room.game.completed=true;room.game.stageId='COMPLETE';room.state='CLEARED';s.events.observe(room);
+  const body={commandId:'contribute',spotId:'p1',instanceId:joined.instance.instanceId,expectedInstanceRevision:0};
   assert.throws(()=>s.contribute(room,body,false),{code:'CONTRIBUTION_NOT_READY'});
   const result=s.contribute(room,body,true);assert.equal(result.instance.contributions.length,1);assert.equal(result.rewardGranted,false);
   assert.equal(s.contribute(room,body,false).replayed,true);
   assert.throws(()=>s.contribute(room,{...body,expectedInstanceRevision:1},true),{code:'IDEMPOTENCY_CONFLICT'});
-  assert.throws(()=>s.contribute(room,{...body,commandId:'second',expectedInstanceRevision:1},true),{code:'ROUND_ALREADY_CONTRIBUTED'});
+  assert.throws(()=>s.contribute(room,{...body,commandId:'second',expectedInstanceRevision:1},true),{code:'ALREADY_CONTRIBUTED'});
   const restored=createPlacesService({catalog});restored.restore(s.durable());assert.equal(restored.contribute(room,body,false).replayed,true);
   assert.equal(restored.shared('p1',[]).instance.contributions.length,1);
 });

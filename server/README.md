@@ -1,5 +1,7 @@
 # Z-RIDE 최소 방 서버
 
+revision 9: [범용 미션·이벤트 회차·결과·보상·재생성](docs/events-results-rewards.md).
+
 revision 8: [파티 공동 수집·5분 리스폰](docs/collection-respawn.md) · [도메인 연결 인계](docs/domain-handoff.md) · [부하 검증](docs/load-validation-20261102.md).
 
 revision 7: 원본 장소 import·검수/접근성·경로 corridor·QR 게스트·탈퇴/제거/해산·스팟별 파티 공개/공동 기여를 추가했다. REST 36개. [장소·파티 계약](docs/places-parties.md). Google/Pleos 로그인은 비활성 연동 포트로 남긴다.
