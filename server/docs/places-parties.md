@@ -81,6 +81,8 @@ GET `/api/auth/providers`는 게스트 초대 사용 가능, Google/Pleos 로그
 
 Google 연동 후 구현할 항목: HTTPS origin·Google Cloud client ID, 로그인 nonce/CSRF 발급·검사, 공식 라이브러리의 ID token 서명·iss·aud·exp 검증, sub 기반 계정 키, 기존 게스트의 명시적 계정 연결과 중복 병합 정책, 로그아웃·계정 복구. 현재 구조만 준비했으며 Google 로그인으로 게임 기록이 저장된다고 표시하지 않는다.
 
-공개 문서 검색에서 일반 사용자용 Pleos OAuth 로그인 endpoint/client registration을 확인하지 못했다. 차량 SDK 권한·게임 세션 token·Google 로그인과 별개로 취급하며, 공식 지원 확인 전 Pleos 사용자 로그인을 가정하지 않는다.
+Pleos에는 **Vehicle Data API의 OAuth 2.0 차량 소유자 인증·데이터 제공 동의**가 있다. 사업자 API에는 제조사 로그인·redirectUrl/state 및 API 신청 승인이 필요하며, 공식 소개 문서는 현재 제공 지역을 유럽으로 안내한다. 이것을 모든 동승자의 일반 게임 소셜 로그인으로 가정하지 않는다. 한국 AVD 데모에는 이 API를 연결하지 않고 비활성 차량 소유자 인증 확장 지점으로 표시한다.
 
 [Google 검증 가이드](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token) · [Google HTTPS 정책](https://developers.google.com/identity/protocols/oauth2/policies) · [Pleos NaviHelper 변경사항](https://document.pleos.ai/docs/pleos-only/release-note/sdk-261015)
+
+[Pleos Vehicle Data API·지원 지역](https://document.pleos.ai/en/api-reference/vehicle-data-api/intro) · [차량 소유자 로그인](https://document.pleos.ai/en/api-reference/vehicle-data-api/vehicle-data-api/for-business-users/login-api) · [사업자 인증](https://document.pleos.ai/en/api-reference/vehicle-data-api/getting-started/for-business-users/authorization)

@@ -70,13 +70,20 @@ function connect() {
     if (credentials) retryTimer = setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++) + Math.random() * 300);
   };
 }
-let inviteToken = new URLSearchParams(location.hash.slice(1)).get('invite');
-if (inviteToken) {
+let inviteToken = null;
+function readInviteFragment() {
+  const incoming = new URLSearchParams(location.hash.slice(1)).get('invite');
+  if (!incoming) return;
+  inviteToken = incoming;
   history.replaceState(null,'',location.pathname);
   $('join-code').required = false; $('join-code').closest('label').hidden = true;
   $('access-key').closest('label').hidden = true;
   $('invite-notice').hidden = false;
+  $('join-description').textContent = '차량 QR로 연결됩니다. 닉네임과 좌석을 선택해 참가 요청을 보내 주세요.';
+  if (credentials) result('새 QR을 받았음. 현재 파티에서 탈퇴한 뒤 새 파티에 참가해 주세요.');
 }
+readInviteFragment();
+window.addEventListener('hashchange', readInviteFragment);
 function showLogin(message = '') { $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
 $('join-form').addEventListener('submit', async event => {
   event.preventDefault(); if (joining) return; joining = true; reset();

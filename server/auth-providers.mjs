@@ -5,7 +5,7 @@ export function createAuthProviders({ googleClientId = '', publicOrigin = '', ve
     describe() { return {
       guest: { enabled:true, method:'CAR_INVITE' },
       google: { enabled:false, configured, reason: configured ? 'ACCOUNT_LINKING_ADAPTER_REQUIRED' : 'HTTPS_AND_CLIENT_ID_REQUIRED' },
-      pleos: { enabled:false, reason:'PUBLIC_LOGIN_OAUTH_NOT_VERIFIED' },
+      pleos: { enabled:false, purpose:'VEHICLE_DATA_OWNER_AUTHORIZATION', generalGameLogin:false, reason:'REGION_SUPPORT_AND_API_APPROVAL_REQUIRED' },
     }; },
     async verifyGoogle({ credential, expectedNonce }) {
       if (!configured || !verifyGoogleIdToken) throw Object.assign(new Error('Google account linking is not configured'),{code:'AUTH_PROVIDER_DISABLED',status:503});

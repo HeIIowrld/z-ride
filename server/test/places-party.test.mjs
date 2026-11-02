@@ -60,6 +60,7 @@ test('shared contribution is once per party, idempotent, persistent, gate checke
 });
 test('provider port never enables incomplete OAuth and rejects missing or mismatched nonce',async()=>{
   const p=createAuthProviders();assert.equal(p.describe().google.enabled,false);await assert.rejects(p.verifyGoogle({}),{code:'AUTH_PROVIDER_DISABLED'});
+  assert.equal(p.describe().pleos.purpose,'VEHICLE_DATA_OWNER_AUTHORIZATION');assert.equal(p.describe().pleos.generalGameLogin,false);
   const configured=createAuthProviders({googleClientId:'fixture',publicOrigin:'https://example.test',verifyGoogleIdToken:async()=>({sub:'123',nonce:'n'})});
   assert.equal(configured.describe().google.enabled,false);await assert.rejects(configured.verifyGoogle({credential:'fixture',expectedNonce:'other'}),{code:'AUTH_PROVIDER_REJECTED'});
   assert.deepEqual(await configured.verifyGoogle({credential:'fixture',expectedNonce:'n'}),{provider:'google',subject:'123'});
