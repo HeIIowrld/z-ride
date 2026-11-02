@@ -11,7 +11,7 @@
       "response": {
         "ok": "boolean",
         "protocol": "zride-demo-v1",
-        "contractRevision": 6
+        "contractRevision": 7
       }
     },
     {
@@ -248,6 +248,111 @@
         "data": "logical command outcome",
         "replayed": "boolean"
       }
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/providers",
+      "auth": "public",
+      "requestSchema": null,
+      "responseSchema": "AuthProviders"
+    },
+    {
+      "method": "POST",
+      "path": "/api/invites/redeem",
+      "auth": "public",
+      "requestSchema": "InviteRedeem",
+      "responseSchema": "InviteJoined"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/places/review",
+      "auth": "review",
+      "requestSchema": "PlaceReviewRequest",
+      "responseSchema": "PlaceReviewResult"
+    },
+    {
+      "method": "GET",
+      "path": "/api/places/catalog",
+      "auth": "member",
+      "requestSchema": null,
+      "responseSchema": "CatalogStatus"
+    },
+    {
+      "method": "POST",
+      "path": "/api/places/nearby",
+      "auth": "member",
+      "requestSchema": "PlaceQuery",
+      "responseSchema": "PlaceList"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spots/{spotId}/shared",
+      "auth": "member",
+      "requestSchema": null,
+      "responseSchema": "WorldShared"
+    },
+    {
+      "method": "GET",
+      "path": "/api/rooms/{roomId}/route",
+      "auth": "member",
+      "requestSchema": null,
+      "responseSchema": "RouteState"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/route",
+      "auth": "host",
+      "requestSchema": "RouteRequest",
+      "responseSchema": "RouteState"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/route/spots",
+      "auth": "member",
+      "requestSchema": "RouteSpotQuery",
+      "responseSchema": "PlaceList"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party",
+      "auth": "host",
+      "requestSchema": "PartySettings",
+      "responseSchema": "PartyMutation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party/invite",
+      "auth": "host",
+      "requestSchema": null,
+      "responseSchema": "PartyInvite"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party/leave",
+      "auth": "memberIncludingPending",
+      "requestSchema": null,
+      "responseSchema": "PartyMutation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party/remove",
+      "auth": "host",
+      "requestSchema": "PartyMemberRemove",
+      "responseSchema": "PartyMutation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party/disband",
+      "auth": "host",
+      "requestSchema": null,
+      "responseSchema": "PartyMutation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party/contribute",
+      "auth": "host",
+      "requestSchema": "SpotContribution",
+      "responseSchema": "SpotContributionResult"
     }
   ],
   "authFirstMessage": {
@@ -294,7 +399,9 @@
     "snapshot",
     "result",
     "vehicle.effect.intent",
-    "vehicle.effect.stop"
+    "vehicle.effect.stop",
+    "world.snapshot",
+    "world.unavailable"
   ],
   "resultExample": {
     "type": "result",
@@ -332,7 +439,8 @@
     "trust",
     "serverTime",
     "zombies",
-    "collection"
+    "collection",
+    "party"
   ],
   "vehicleFields": [
     "ux",
@@ -435,7 +543,7 @@
   ],
   "wave": "All three targets dead => CLEARED and new epoch; explicit host round.start resets HP",
   "pendingProjection": "Only own pending member; vehicle states redacted UNKNOWN, other members and zombies hidden, stats zero",
-  "contractRevision": 4,
+  "contractRevision": 7,
   "collectionCommandExample": {
     "type": "command",
     "commandId": "unique-id",
@@ -626,7 +734,7 @@
     }
   },
   "serverState": {
-    "revision": 6,
+    "revision": 7,
     "docs": "docs/server-state.md",
     "scenarioIds": [
       "generic-coop-v1",
@@ -732,5 +840,15 @@
     "derived": "Gate and freshness-qualified fanInput01, purificationInputEligible, approved-seat crew ready and beltProtection. AIRFLOW 4D output disables purification input eligibility. These derived fields do not grant inventory resources.",
     "persistence": "No cabin observations or derived authority stored in SQLite; restart/reconnect clears to UNKNOWN",
     "trust": "CLIENT_REPORTED_NOT_ATTESTED, hardwareAttested=false"
+  },
+  "placesParties": {
+    "revision": 7,
+    "catalog": "ZRIDE_PLACES_PATH; OSM manifest integrity verified, all real places initially UNKNOWN/disabled",
+    "route": "128 points,20km max segment,500km max length,30min TTL; route geometry is never persisted or public",
+    "invite": "HOST URL fragment capability,120s,3 uses,rotated/revoked on new invite/disband/restart; only pending PHONE sessions",
+    "lifecycle": "pending leave, approved leave, host remove, host disband; no automatic host migration; transient disconnect keeps party",
+    "shared": "world.subscribe / world.unsubscribe use commandId+spotId; world.snapshot is spot-scoped public summary, not room snapshot; no location proof or rewards",
+    "persistence": "reviews,party visibility,shared progress and contribution receipts saved; QR capabilities/routes/subscriptions reset",
+    "oauth": "auth-providers.mjs adapter port; Google and Pleos login disabled, no external credentials accepted"
   }
 }

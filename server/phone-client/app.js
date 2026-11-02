@@ -65,19 +65,31 @@ function connect() {
     if (current !== generation) return;
     memberId = null;
     if (pending) { clearTimeout(pending.timer); pending = null; result('연결이 끊김. 처리 결과는 재연결 후 보급품·좀비 HP로 확인해 주세요.'); }
-    if ([4401, 4403, 4409].includes(event.code)) { reset(); showLogin(event.code === 4409 ? '다른 화면으로 연결이 옮겨짐. 한 참가자는 한 화면에서 접속해 주세요.' : '세션을 확인할 수 없음. 다시 참가해 주세요.'); return; }
+    if ([4401, 4403, 4409, 4410].includes(event.code)) { reset(); showLogin(event.code === 4410 ? '파티에서 나왔거나 차량이 해산했음. 새 QR로 다시 참가해 주세요.' : event.code === 4409 ? '다른 화면으로 연결이 옮겨짐. 한 참가자는 한 화면에서 접속해 주세요.' : '세션을 확인할 수 없음. 다시 참가해 주세요.'); return; }
     status('연결 끊김 · 자동 재연결 대기', 'error'); renderControls();
     if (credentials) retryTimer = setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++) + Math.random() * 300);
   };
+}
+let inviteToken = new URLSearchParams(location.hash.slice(1)).get('invite');
+if (inviteToken) {
+  history.replaceState(null,'',location.pathname);
+  $('join-code').required = false; $('join-code').closest('label').hidden = true;
+  $('access-key').closest('label').hidden = true;
+  $('invite-notice').hidden = false;
 }
 function showLogin(message = '') { $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
 $('join-form').addEventListener('submit', async event => {
   event.preventDefault(); if (joining) return; joining = true; reset();
   $('join-button').disabled = true; $('form-error').textContent = ''; status('참가 요청 중…');
   try {
-    const session = await post('/api/session', { role: 'PHONE', nickname: $('nickname').value.trim(), accessKey: $('access-key').value });
+    let session, joined;
+    if (inviteToken) {
+      joined = await post('/api/invites/redeem', {inviteToken,nickname:$('nickname').value.trim(),seat:$('seat').value,passengerConfirmed:$('passenger-confirm').checked}); session = joined;
+    } else {
+      session = await post('/api/session', { role: 'PHONE', nickname: $('nickname').value.trim(), accessKey: $('access-key').value });
+      joined = await post('/api/join', { joinCode: $('join-code').value.trim().toUpperCase(), seat: $('seat').value }, session.token);
+    }
     $('access-key').value = '';
-    const joined = await post('/api/join', { joinCode: $('join-code').value.trim().toUpperCase(), seat: $('seat').value }, session.token);
     credentials = { token: session.token, roomId: joined.roomId }; room = joined.room; receivedAt = Date.now();
     $('join-code').value = ''; $('login-panel').hidden = true; $('game').hidden = false;
     $('angle').value = { REAR_LEFT: -100, REAR_RIGHT: 140, FRONT_PASSENGER: 60 }[$('seat').value];
@@ -85,7 +97,13 @@ $('join-form').addEventListener('submit', async event => {
   } catch (error) { reset(); showLogin(describe(error)); }
   finally { joining = false; $('join-button').disabled = false; }
 });
-$('leave-button').addEventListener('click', () => { reset(); showLogin(); result(''); });
+$('leave-button').addEventListener('click', async () => {
+  if (!credentials) return;
+  $('leave-button').disabled = true;
+  try { await post('/api/rooms/'+credentials.roomId+'/party/leave',{},credentials.token);reset();showLogin('파티에서 탈퇴했음. 다시 참가하려면 차량의 새 QR을 사용해 주세요.');result(''); }
+  catch(error) { result(describe(error)); }
+  finally { $('leave-button').disabled=false; }
+});
 $('angle').addEventListener('input', () => { renderControls(); drawRadar(); });
 $('fire-button').addEventListener('click', () => command('fire', { angleDeg: Number($('angle').value) }));
 function command(action, fields = {}) {

@@ -1,5 +1,7 @@
 # Z-RIDE 최소 방 서버
 
+revision 7: 원본 장소 import·검수/접근성·경로 corridor·QR 게스트·탈퇴/제거/해산·스팟별 파티 공개/공동 기여를 추가했다. REST 36개. [장소·파티 계약](docs/places-parties.md). Google/Pleos 로그인은 비활성 연동 포트로 남긴다.
+
 revision 6: 서버가 시나리오·임무 단계·역할·목표 기여·가상 이동과 공조·벨트·에너지 관측 상태를 관리한다. 조회 2개와 게임 POST 4개를 추가해 전체 REST는 21개다. 앱 팀은 입력·센서 관측을 보내고 서버 snapshot을 화면에 반영한다. [서버 상태 계약·시연 방법](docs/server-state.md)
 
 4D 효과는 방별 `/effects` 조회와 `session / scene / cue / stop` POST, 현재 CAR_HOST WebSocket의 `vehicle.effect.report`로 처리한다. heist 임무의 장면·속도는 서버 게임 상태에서 연결한다. 실제 SDK 실행은 차량 앱이 로컬 조건을 확인해 수행하며, 현재 참조 Android 앱에는 이 native 실행기가 없다. [4D 차량 효과 API](docs/vehicle-effects.md)

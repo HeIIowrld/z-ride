@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.3.0-revision6",
+    "version": "0.4.0-revision7",
     "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders."
   },
   "servers": [
@@ -114,7 +114,10 @@
                   "contractRevision": 6
                 }
               }
-            }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
           }
         },
         "x-implementation-status": "implemented-prototype",
@@ -6174,6 +6177,1571 @@
           }
         }
       }
+    },
+    "/api/auth/providers": {
+      "get": {
+        "operationId": "authProviders",
+        "summary": "authProviders",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthProviders"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/invites/redeem": {
+      "post": {
+        "operationId": "redeemCarInvite",
+        "summary": "redeemCarInvite",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteJoined"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRedeem"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/admin/places/review": {
+      "post": {
+        "operationId": "reviewPlace",
+        "summary": "reviewPlace",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceReviewResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceReviewRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "placeReviewerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/places/catalog": {
+      "get": {
+        "operationId": "placeCatalog",
+        "summary": "placeCatalog",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        }
+      }
+    },
+    "/api/places/nearby": {
+      "post": {
+        "operationId": "nearbyPlaces",
+        "summary": "nearbyPlaces",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceQuery"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spots/{spotId}/shared": {
+      "get": {
+        "operationId": "sharedSpot",
+        "summary": "sharedSpot",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldShared"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "spotId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/route": {
+      "get": {
+        "operationId": "routeState",
+        "summary": "routeState",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "setRoute",
+        "summary": "setRoute",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/route/spots": {
+      "post": {
+        "operationId": "routeSpots",
+        "summary": "routeSpots",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteSpotQuery"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party": {
+      "post": {
+        "operationId": "setPartyVisibility",
+        "summary": "setPartyVisibility",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartyMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartySettings"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party/invite": {
+      "post": {
+        "operationId": "carInvite",
+        "summary": "carInvite",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartyInvite"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party/leave": {
+      "post": {
+        "operationId": "leaveParty",
+        "summary": "leaveParty",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartyMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party/remove": {
+      "post": {
+        "operationId": "removePhone",
+        "summary": "removePhone",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartyMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartyMemberRemove"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party/disband": {
+      "post": {
+        "operationId": "disbandParty",
+        "summary": "disbandParty",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartyMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party/contribute": {
+      "post": {
+        "operationId": "contributeSpot",
+        "summary": "contributeSpot",
+        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotContributionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpotContribution"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -6187,6 +7755,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Separate read-only deployment key ZRIDE_OBSERVER_TOKEN, not a game session token. Disabled by default; never put it in URL, browser storage or logs."
+      },
+      "placeReviewerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Independent reviewer credential; observer key is read-only and cannot review."
       }
     },
     "schemas": {
@@ -6261,7 +7834,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 6
+            "const": 7
           }
         },
         "required": [
@@ -6947,6 +8520,9 @@
           },
           "cabin": {
             "$ref": "#/components/schemas/CabinSnapshot"
+          },
+          "party": {
+            "$ref": "#/components/schemas/PartyRouteSummary"
           }
         },
         "required": [
@@ -7437,7 +9013,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 6
+            "const": 7
           }
         },
         "required": [
@@ -9714,6 +11290,680 @@
           "lastTransition",
           "updatedAt"
         ]
+      },
+      "PlaceCoordinate": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "additionalProperties": false
+      },
+      "PlaceZone": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              },
+              "radiusM": {
+                "type": "number",
+                "minimum": 10,
+                "maximum": 200
+              }
+            },
+            "required": [
+              "latitude",
+              "longitude",
+              "radiusM"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "PlaceReviewRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "placeId": {
+            "type": "string"
+          },
+          "accessStatus": {
+            "enum": [
+              "VERIFIED",
+              "REJECTED",
+              "UNKNOWN"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "entrance": {
+            "$ref": "#/components/schemas/PlaceCoordinate"
+          },
+          "playZone": {
+            "$ref": "#/components/schemas/PlaceZone"
+          },
+          "parkingAllowed": {
+            "type": "boolean"
+          },
+          "dwellAllowed": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "commandId",
+          "expectedRevision",
+          "placeId",
+          "accessStatus",
+          "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "RouteRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expectedRouteRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "source": {
+            "enum": [
+              "PLEOS_ROUTE",
+              "EXTERNAL_ROUTING",
+              "DEMO_ROUTE",
+              "NONE"
+            ]
+          },
+          "geometry": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/components/schemas/PlaceCoordinate"
+            }
+          }
+        },
+        "required": [
+          "commandId",
+          "expectedRouteRevision",
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "RouteState": {
+        "type": "object",
+        "properties": {
+          "routeRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "lengthM": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "routeRevision",
+          "active",
+          "source",
+          "lengthM",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "PlaceQuery": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "radiusM": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "eligibleOnly": {
+            "type": "boolean"
+          },
+          "category": {
+            "enum": [
+              "ATTRACTION",
+              "CHARGER",
+              "PARKING",
+              "FUEL_STATION"
+            ]
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "additionalProperties": false
+      },
+      "RouteSpotQuery": {
+        "type": "object",
+        "properties": {
+          "routeRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "corridorM": {
+            "type": "number",
+            "minimum": 10,
+            "maximum": 2000
+          }
+        },
+        "required": [
+          "routeRevision"
+        ],
+        "additionalProperties": false
+      },
+      "PartySettings": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "spotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "commandId",
+          "visible",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "InviteRedeem": {
+        "type": "object",
+        "properties": {
+          "inviteToken": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "nickname": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "seat": {
+            "enum": [
+              "FRONT_PASSENGER",
+              "REAR_LEFT",
+              "REAR_RIGHT"
+            ]
+          },
+          "passengerConfirmed": {
+            "const": true
+          }
+        },
+        "required": [
+          "inviteToken",
+          "nickname",
+          "seat",
+          "passengerConfirmed"
+        ],
+        "additionalProperties": false
+      },
+      "PartyMemberRemove": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "memberId"
+        ],
+        "additionalProperties": false
+      },
+      "SpotContribution": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "expectedInstanceRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "commandId",
+          "spotId",
+          "expectedInstanceRevision"
+        ],
+        "additionalProperties": false
+      },
+      "PartyRouteSummary": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "DISBANDED"
+            ]
+          },
+          "route": {
+            "$ref": "#/components/schemas/RouteState"
+          }
+        },
+        "required": [
+          "partyId",
+          "status",
+          "route"
+        ],
+        "additionalProperties": false
+      },
+      "PlaceRecord": {
+        "type": "object",
+        "properties": {
+          "placeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "accessStatus": {
+            "enum": [
+              "VERIFIED",
+              "REJECTED",
+              "UNKNOWN"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "entrance": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlaceCoordinate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isDemo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "placeId",
+          "name",
+          "category",
+          "accessStatus",
+          "enabled"
+        ],
+        "additionalProperties": true
+      },
+      "CatalogStatus": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "worldRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hardwareAttested": {
+            "const": false
+          }
+        },
+        "required": [
+          "version",
+          "count",
+          "worldRevision",
+          "hardwareAttested"
+        ],
+        "additionalProperties": true
+      },
+      "PlaceList": {
+        "type": "object",
+        "properties": {
+          "places": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PlaceRecord"
+            }
+          },
+          "worldRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "places",
+          "worldRevision",
+          "truncated"
+        ],
+        "additionalProperties": true
+      },
+      "PartyInvite": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string"
+          },
+          "joinUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "number"
+          },
+          "maxUses": {
+            "const": 3
+          },
+          "requiresHostApproval": {
+            "const": true
+          },
+          "qrPayloadType": {
+            "const": "URL"
+          }
+        },
+        "required": [
+          "partyId",
+          "joinUrl",
+          "expiresAt",
+          "maxUses",
+          "requiresHostApproval",
+          "qrPayloadType"
+        ],
+        "additionalProperties": false
+      },
+      "InviteJoined": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "number"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "pending": {
+            "const": true
+          },
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          }
+        },
+        "required": [
+          "token",
+          "sessionId",
+          "expiresAt",
+          "roomId",
+          "memberId",
+          "pending",
+          "room"
+        ],
+        "additionalProperties": false
+      },
+      "WorldShared": {
+        "type": "object",
+        "properties": {
+          "worldRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "spot": {
+            "$ref": "#/components/schemas/PlaceRecord"
+          },
+          "parties": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "partyId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "members": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "phase": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partyId",
+                "name",
+                "members",
+                "phase"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "instance": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "serverTime": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "worldRevision",
+          "spot",
+          "parties",
+          "instance",
+          "serverTime"
+        ],
+        "additionalProperties": false
+      },
+      "PartyMutation": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "worldRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "partyId"
+        ],
+        "additionalProperties": false
+      },
+      "PlaceReviewResult": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "place": {
+            "$ref": "#/components/schemas/PlaceRecord"
+          }
+        },
+        "required": [
+          "revision",
+          "place"
+        ],
+        "additionalProperties": false
+      },
+      "SpotContributionResult": {
+        "type": "object",
+        "properties": {
+          "instance": {
+            "type": "object"
+          },
+          "worldRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "rewardGranted": {
+            "const": false
+          }
+        },
+        "required": [
+          "instance",
+          "worldRevision",
+          "replayed",
+          "rewardGranted"
+        ],
+        "additionalProperties": false
+      },
+      "AuthProviders": {
+        "type": "object",
+        "properties": {
+          "guest": {
+            "type": "object"
+          },
+          "google": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          },
+          "pleos": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        },
+        "required": [
+          "guest",
+          "google",
+          "pleos"
+        ],
+        "additionalProperties": false
       }
     }
   },

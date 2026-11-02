@@ -64,7 +64,7 @@ with tarfile.open(archive, 'r:gz') as source:
         expanded += member.size
         if expanded > 16 * 1024 * 1024:
             raise SystemExit('Expanded runtime archive exceeds 16 MiB')
-    required = {'package.json', 'package-lock.json', 'server.mjs', 'world.mjs', 'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'observer.mjs', 'observer/index.html', 'observer/app.js', 'observer/style.css', 'phone-client.mjs', 'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css'}
+    required = {'package.json', 'package-lock.json', 'server.mjs', 'world.mjs', 'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'places.mjs', 'party-api.mjs', 'auth-providers.mjs', 'observer.mjs', 'observer/index.html', 'observer/app.js', 'observer/style.css', 'phone-client.mjs', 'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css'}
     if not required.issubset(seen):
         raise SystemExit('Missing required runtime files')
     for member in members:

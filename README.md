@@ -19,13 +19,14 @@ npm start
 
 | 작업 기준 | 문서 |
 | --- | --- |
-| REST 21개·타입·요청/응답·오류 | [OpenAPI 3.1](server/openapi.json) |
+| REST 36개·타입·요청/응답·오류 | [OpenAPI 3.1](server/openapi.json) |
 | WS 메시지·승인·역할·재접속 | [앱 팀 연동 계약](server/docs/client-handoff.md), [protocol.json](server/protocol.json) |
 | 지도 데이터·위치·수집 판정 | [world API 결정 기록](server/docs/ADR-003-phone-world.md) |
 | Docker·접속 주소·운영 한계 | [인프라 인계서](server/docs/infra-runbook.md) |
 | 연결 유지·EOF 조사 | [연결 감사](server/docs/connection-audit.md) |
 | 4D 가상 속도·장면 효과·차량 실행 보고 | [차량 효과 API](server/docs/vehicle-effects.md) |
 | 협동 임무·목표·입력·차량 관측 상태 | [서버 상태 계약](server/docs/server-state.md) |
+| 원본 장소·접근성·경로 조회·QR·파티 lifecycle·거점 공유 | [장소·파티 계약](server/docs/places-parties.md) |
 
 GitHub Actions는 서버·계약 테스트, Docker/Compose의 정상 재시작·강제 종료·볼륨 복구를 검증한다. 공개 저장소의 PR은 GitHub-hosted runner에서만 실행한다. Proxmox LXC는 별도 pull timer로 같은 리포의 main CI 성공 SHA만 가져와 서비스를 갱신한다. DB는 배포 디렉터리와 분리된 SQLite 파일에 두며 방·참가 승인·재고·중복 지급 원장이 재시작 뒤에도 유지된다. [영속성 설계](server/docs/persistence.md), [실제 배포 절차](server/docs/deployment.md)를 따른다.
 

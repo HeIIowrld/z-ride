@@ -1,4 +1,6 @@
-# 앱 팀 전달용 서버 연결 계약 — revision 6
+# 앱 팀 전달용 서버 연결 계약 — revision 7
+
+revision 7은 원본 장소 조회·검수·경로 주변 필터·스팟별 공개 파티/공동 기여와 QR 게스트·탈퇴·제거·해산을 추가한다. 전체 REST는 36개다. [장소·파티 계약](places-parties.md)의 권한·원본 import·QR URL·라이프사이클·비활성 OAuth 포트를 우선 확인한다. Google/Pleos 로그인 자체는 아직 활성화하지 않는다.
 
 revision 6은 기존 4D 계약에 시나리오·통합 상태 조회 2개, 게임 설정·운전 입력·단계 전환·폰 목표 기여 POST 4개와 실내 신호 WS 보고를 더한다. 현재 전체 REST는 21개다. [서버 상태 계약](server-state.md)에서 임무·권한·영속화·신호 품질을 확인한다. 효과 API·payload·만료·재접속·물리 실행의 경계는 [차량 효과 계약](vehicle-effects.md)을 따른다. 기존 참조 Android 앱의 SDK setter는 이번 서버 변경에 포함되지 않는다.
 

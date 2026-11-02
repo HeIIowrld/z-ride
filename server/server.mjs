@@ -10,6 +10,8 @@ import { createPhoneClientService } from './phone-client.mjs';
 import { createEffectsService } from './effects.mjs';
 import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
+import { createPlacesService } from './places.mjs';
+import { createPartyApi } from './party-api.mjs';
 import { resolve } from 'node:path';
 
 export const SECTORS = Object.freeze(Object.assign(Object.create(null), {
@@ -51,6 +53,9 @@ export function createDemoServer(options = {}) {
   const effects = createEffectsService({ clock: options.effectsClock ?? Date.now });
   const gameState = createGameStateService({ clock: options.gameClock ?? Date.now });
   const cabin = createCabinService({ clock: options.cabinClock ?? Date.now });
+  const places = createPlacesService({ catalogPath: options.placesPath, catalog: options.placesCatalog });
+  let publicOrigin = options.publicOrigin ?? '';
+  if (publicOrigin) { const url = new URL(publicOrigin); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('publicOrigin must be a plain HTTP(S) origin'); publicOrigin = url.origin; }
   const autoEffects = new Map();
   const sessions = new Map();
   const rooms = new Map();
@@ -66,7 +71,7 @@ export function createDemoServer(options = {}) {
 
   function durableState() {
     return {
-      formatVersion: STATE_FORMAT_VERSION,
+      formatVersion: STATE_FORMAT_VERSION, places: places.durable(),
       sessions: [...sessions.entries()].map(([key, s]) => [key, {
         sessionId: s.sessionId, role: s.role, nickname: s.nickname, expiresAt: s.expiresAt, roomId: s.roomId,
       }]),
@@ -75,7 +80,8 @@ export function createDemoServer(options = {}) {
         state: room.state, pauseReason: room.pauseReason, joinCode: room.joinCode,
         joinExpiresAt: room.joinExpiresAt, joinUsed: room.joinUsed,
         emptyLocks: [...room.emptyLocks], stats: room.stats, zombies: room.zombies,
-        collection: room.collection, game: gameState.durable(room.game),
+        collection: room.collection, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
+        departedMembers: [...(room.departedMembers ?? new Map()).values()].map(m => ({ ...m, socket: undefined, receipts: [...m.receipts], collectedPickups: [...(m.collectedPickups??[])], worldClaims: [...(m.worldClaims??[])], worldReceipts: [...(m.worldReceipts??[])], gameReceipts: [...(m.gameReceipts??[])] })),
         members: [...room.members.values()].map(m => ({
           memberId: m.memberId, sessionId: m.sessionId, nickname: m.nickname, role: m.role,
           seat: m.seat, approved: m.approved, receipts: [...m.receipts],
@@ -88,10 +94,12 @@ export function createDemoServer(options = {}) {
   }
   function restoreState(saved) {
     if (!saved || saved.formatVersion !== STATE_FORMAT_VERSION || !Array.isArray(saved.sessions) || !Array.isArray(saved.rooms)) throw new Error('Invalid persisted server state');
+    places.restore(saved.places);
     for (const [key, session] of saved.sessions) sessions.set(key, session);
     for (const savedRoom of saved.rooms) {
       const room = {
         ...savedRoom, game: gameState.restore(savedRoom.game), emptyLocks: new Set(savedRoom.emptyLocks),
+        departedMembers: new Map((savedRoom.departedMembers??[]).map(m=>[m.sessionId,{...m,socket:null,receipts:new Map(m.receipts),collectedPickups:new Set(m.collectedPickups),worldClaims:new Map(m.worldClaims),worldReceipts:new Map(m.worldReceipts),gameReceipts:new Map(m.gameReceipts)}])),
         members: new Map(savedRoom.members.map(m => [m.sessionId, {
           ...m, socket: null, receipts: new Map(m.receipts), collectedPickups: new Set(m.collectedPickups),
           worldClaims: new Map(m.worldClaims), worldReceipts: new Map(m.worldReceipts),
@@ -161,6 +169,7 @@ export function createDemoServer(options = {}) {
     return session;
   }
   function memberFor(room, session, approved = true) {
+    if (room.closedAt) throw fail('PARTY_CLOSED', 'Party was disbanded', 409);
     const member = room.members.get(session.sessionId);
     if (!member) throw fail('NOT_MEMBER', 'Not a member of this room', 403);
     if (approved && !member.approved) throw fail('MEMBER_PENDING', 'Waiting for vehicle approval', 403);
@@ -282,6 +291,7 @@ export function createDemoServer(options = {}) {
       effects: effects.snapshot(room.roomId),
       game: gameState.snapshot(room.game, gameContext(room, viewer)),
       cabin: cabin.snapshot(cabinContext(room, viewer)),
+      party: { partyId: room.roomId, status: room.closedAt ? 'DISBANDED' : 'ACTIVE', route: places.routeInfo(room.roomId) },
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
       serverTime: Date.now(),
@@ -302,6 +312,18 @@ export function createDemoServer(options = {}) {
       if (member.socket) send(member.socket, { type: 'snapshot', room: snapshot(room, member) });
     }
     observers.broadcast(room);
+    notifyWorld();
+  }
+  function notifyWorld() {
+    if (transaction) { transaction.effects.push(notifyWorld); return; }
+    if (storageFailed) return;
+    for (const ws of sockets) if (ws.worldSpotId && ws.worldSession?.expiresAt > Date.now()) {
+      const room = rooms.get(ws.worldSession.roomId), member = room?.members.get(ws.worldSession.sessionId);
+      if (!member?.approved || room.closedAt || member.socket !== ws) continue;
+      try { const data=places.shared(ws.worldSpotId, rooms.values()), signature=hash({...data,serverTime:0});
+        if (signature!==ws.worldSignature) { ws.worldSignature=signature;send(ws, {type:'world.snapshot', ...data}); }
+      } catch { ws.worldSpotId = null; send(ws,{type:'world.unavailable'}); }
+    }
   }
   function change(room) {
     room.stateVersion++;
@@ -350,16 +372,21 @@ export function createDemoServer(options = {}) {
     if (!item || item.until < now) { requestBuckets.set(key, { count: 1, until: now + 10000 }); return; }
     if (++item.count > limit) throw fail('RATE_LIMITED', 'Try again later', 429);
   }
+  const partyApi = createPartyApi({ places, rooms, sessions, joinCodes, publicOrigin,
+    reviewToken: options.placeReviewToken ?? '', roomFor, memberFor, requireHost, passengerSeat,
+    snapshot, change, gate, closeSocket, pause, notify: notifyWorld });
   const server = http.createServer(async (req, res) => {
     try {
       rateLimit('http:' + req.socket.remoteAddress);
       const path = new URL(req.url, 'http://localhost').pathname;
-      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 6 });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 7 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
       if (phoneClient.handleHttp(req, res, path)) return;
       const body = req.method === 'POST' ? await readJson(req) : null;
       return atomic(() => {
+      const publicResponse = partyApi.publicRequest(req,path,body);
+      if (publicResponse) return result(res,publicResponse.status,publicResponse.data);
       if (req.method === 'POST' && path === '/api/session') {
         if (testAccessDigest && !(asText(body.accessKey, 1024) && timingSafeEqual(testAccessDigest, createHash('sha256').update(body.accessKey).digest()))) throw fail('TEST_ACCESS_REQUIRED', 'Valid team test access key required', 401);
         if (sessions.size >= 500) throw fail('SESSION_LIMIT', 'Demo session limit', 503);
@@ -371,6 +398,8 @@ export function createDemoServer(options = {}) {
         return result(res, 201, { sessionId: session.sessionId, token: credential, expiresAt: session.expiresAt, role: session.role });
       }
       const session = authenticate(req);
+      const partyResponse = partyApi.handle(req,path,body,session);
+      if (partyResponse) return result(res,partyResponse.status,partyResponse.data);
       if (path === '/api/scenarios' && req.method === 'GET') return result(res, 200, { scenarios: gameState.scenarios() });
       if (path.startsWith('/api/world/')) {
         if (session.role !== 'PHONE') throw fail('ROLE_FORBIDDEN', 'World collection APIs are passenger-phone only', 403);
@@ -418,7 +447,9 @@ export function createDemoServer(options = {}) {
         if (session.roomId && session.roomId !== room.roomId) throw fail('ALREADY_JOINED', 'Session already has a room', 409);
         if (room.members.size >= 4) throw fail('ROOM_FULL', 'Maximum host plus 3 phones', 409);
         if (room.members.has(session.sessionId)) throw fail('ALREADY_JOINED', 'Already joined', 409);
-        const member = { memberId: randomUUID(), sessionId: session.sessionId, nickname: session.nickname, role: body.seat, seat: body.seat, approved: false, socket: null, receipts: new Map(), collectedPickups: new Set() };
+        const departed = room.departedMembers?.get(session.sessionId);
+        const member = { ...(departed??{}), memberId: departed?.memberId ?? randomUUID(), sessionId: session.sessionId, nickname: session.nickname, role: body.seat, seat: body.seat, approved: false, socket: null, receipts: departed?.receipts ?? new Map(), collectedPickups: departed?.collectedPickups ?? new Set() };
+        room.departedMembers?.delete(session.sessionId);
         room.members.set(session.sessionId, member); session.roomId = room.roomId; room.joinUsed = true;
         change(room);
         return result(res, 201, { roomId: room.roomId, memberId: member.memberId, pending: true, room: snapshot(room, member) });
@@ -649,6 +680,12 @@ export function createDemoServer(options = {}) {
         if (session.expiresAt <= Date.now()) { closeSocket(ws, 4401, 'Session expired'); return; }
         rateLimit('ws:' + session.sessionId, 120);
         if (!asText(message.commandId, 128)) throw fail('COMMAND_ID_REQUIRED', 'Unique commandId required');
+        if (message.type === 'world.subscribe') {
+          memberFor(room,session); const data = places.shared(message.spotId,rooms.values());
+          ws.worldSpotId = message.spotId; ws.worldSession = session;
+          send(ws,{type:'world.snapshot',...data});send(ws,{type:'result',commandId:message.commandId,ok:true,data:{subscribed:true},roomEpoch:room.roomEpoch});return;
+        }
+        if (message.type === 'world.unsubscribe') { ws.worldSpotId=null;send(ws,{type:'result',commandId:message.commandId,ok:true,data:{subscribed:false},roomEpoch:room.roomEpoch});return; }
         if (message.type === 'vehicle.cabin.report') {
           let response;
           try {
@@ -749,8 +786,8 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '' });
+  const app = createDemoServer({ dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.ZRIDE_PUBLIC_ORIGIN });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 6, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 7, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }
