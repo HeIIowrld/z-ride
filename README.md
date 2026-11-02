@@ -1,5 +1,7 @@
 # Z-RIDE — 서버 API·통신·인프라
 
+revision 9: [범용 미션·이벤트 회차·결과·보상·재생성](server/docs/events-results-rewards.md).
+
 revision 8: [파티 공동 수집·5분 리스폰](server/docs/collection-respawn.md) · [도메인 연결 인계](server/docs/domain-handoff.md) · [부하 검증](server/docs/load-validation-20261102.md).
 
 [![Server CI](https://github.com/HeIIowrld/z-ride/actions/workflows/server-ci.yml/badge.svg)](https://github.com/HeIIowrld/z-ride/actions/workflows/server-ci.yml)

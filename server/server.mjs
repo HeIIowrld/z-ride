@@ -55,7 +55,7 @@ export function createDemoServer(options = {}) {
   const effects = createEffectsService({ clock: options.effectsClock ?? Date.now });
   const gameState = createGameStateService({ clock: options.gameClock ?? Date.now });
   const cabin = createCabinService({ clock: options.cabinClock ?? Date.now });
-  const places = createPlacesService({ catalogPath: options.placesPath, catalog: options.placesCatalog });
+  const places = createPlacesService({ catalogPath: options.placesPath, catalog: options.placesCatalog, clock:options.eventClock??Date.now, eventPolicy:options.eventPolicy });
   let publicOrigin = options.publicOrigin ?? '';
   if (publicOrigin) { const url = new URL(publicOrigin); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('publicOrigin must be a plain HTTP(S) origin'); publicOrigin = url.origin; }
   const autoEffects = new Map();
@@ -124,6 +124,7 @@ export function createDemoServer(options = {}) {
       room.stats.supportUntil = 0;
       room.stateVersion++;
       rooms.set(room.roomId, room);
+      places.events.restoreRoom(room);
       if (!room.joinUsed && room.joinExpiresAt > Date.now()) joinCodes.set(room.joinCode, room.roomId);
     }
   }
@@ -302,6 +303,7 @@ export function createDemoServer(options = {}) {
       zombies: room.zombies.map(z => ({ ...z })),
       effects: effects.snapshot(room.roomId),
       game: gameState.snapshot(room.game, gameContext(room, viewer)),
+      missionLedger:places.events.projection(room),
       cabin: cabin.snapshot(cabinContext(room, viewer)),
       party: { partyId: room.roomId, status: room.closedAt ? 'DISBANDED' : 'ACTIVE', route: places.routeInfo(room.roomId) },
       sectors: SECTORS,
@@ -338,6 +340,8 @@ export function createDemoServer(options = {}) {
     }
   }
   function change(room) {
+    const eventChanged=places.events.observe(room);
+    if(eventChanged)for(const member of room.members.values())if(member.approved&&member.socket)send(member.socket,{type:'mission.changed',...places.events.projection(room),refreshResults:true,refreshRewards:true});
     room.stateVersion++;
     gameState.tick(room.game, gameContext(room));
     cabin.tick(cabinContext(room));
@@ -392,13 +396,14 @@ export function createDemoServer(options = {}) {
   const partyApi = createPartyApi({ places, rooms, sessions, joinCodes, publicOrigin,
     phonePublicUrl:options.phonePublicUrl,
     reviewToken: options.placeReviewToken ?? '', roomFor, memberFor, requireHost, passengerSeat,
-    snapshot, change, gate, closeSocket, pause, notify: notifyWorld });
+    snapshot, change, gate, closeSocket, pause, collectionChanged, notify: notifyWorld,
+    eventChanged:instanceId=>{for(const room of rooms.values())if(!room.closedAt&&places.events.projection(room).instanceId===instanceId){try{places.events.assertPlayable(room);}catch{pause(room,'EVENT_NOT_ACTIVE');}change(room);}notifyWorld();} });
   const server = http.createServer(async (req, res) => {
     try {
       rateLimit('http:' + requestPolicy.clientAddress(req));
       const path = new URL(req.url, 'http://localhost').pathname;
       if(requestPolicy.apply(req,res,path))return;
-      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 8 });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 9 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
       if (phoneClient.handleHttp(req, res, path)) return;
@@ -488,7 +493,7 @@ export function createDemoServer(options = {}) {
         if (operation !== 'interact') requireHost(room, session);
         if (!asText(body.commandId, 128)) throw fail('COMMAND_ID_REQUIRED', 'Unique commandId required');
         let outcome, logicalData;
-        if (operation === 'input') outcome = gameState.input(room.game, gameContext(room, member), body);
+        if (operation === 'input') {places.events.assertPlayable(room);outcome = gameState.input(room.game, gameContext(room, member), body);}
         else {
           member.gameReceipts ??= new Map();
           const fingerprint = hash(canonical({ operation, body })); const old = member.gameReceipts.get(body.commandId);
@@ -497,6 +502,7 @@ export function createDemoServer(options = {}) {
             return result(res, 200, { room: snapshot(room, member), data: old.data, replayed: true });
           }
           if (member.gameReceipts.size >= maxReceipts) throw fail('COMMAND_LIMIT', 'Game command receipt capacity reached', 429);
+          if(operation!=='configure')places.events.assertPlayable(room);else places.events.ensureConfigure(body.scenarioId);
           outcome = gameState[operation](room.game, gameContext(room, member), body);
           logicalData = gameState.durable(room.game);
           member.gameReceipts.set(body.commandId, { fingerprint, data: logicalData });
@@ -602,12 +608,14 @@ export function createDemoServer(options = {}) {
     const g = gate(room);
     if (!g.allowed) { pause(room, g.reasons.join(',')); throw fail('GATE_CLOSED', g.reasons.join(','), 409); }
     if (message.action === 'round.start') {
+      places.events.assertPlayable(room);
       if (member.role !== 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Vehicle starts round', 403);
       if (room.state === 'PLAYING') throw fail('ALREADY_PLAYING', 'Round already playing', 409);
       if (room.game.completed) throw fail('MISSION_COMPLETE', 'Configure a new mission before starting again', 409);
       const activePhone = [...room.members.values()].some(m => m.role !== 'CAR_HOST' && m.approved && m.socket && seatEvidence(room, m.seat) !== 'EMPTY');
       if (!activePhone) throw fail('OPERATOR_REQUIRED', 'At least one approved phone in a non-empty seat required', 409);
-      if (room.game.scenarioId === 'heist-demo-v1') {
+      if(['supply-run-v1','signal-puzzle-v1'].includes(room.game.scenarioId)&&[...room.members.values()].filter(m=>m.role!=='CAR_HOST'&&m.approved&&m.socket?.readyState===WebSocket.OPEN&&seatEvidence(room,m.seat)!=='EMPTY').length<2)throw fail('MISSION_CREW_REQUIRED','Two connected approved phones required for this cooperative mission',409);
+      if (['heist-demo-v1','zombie-defense-v1'].includes(room.game.scenarioId)) {
         const crew = [...room.members.values()].filter(m => m.role !== 'CAR_HOST' && m.approved
           && m.socket?.readyState === WebSocket.OPEN && seatEvidence(room, m.seat) !== 'EMPTY');
         const uncovered = room.zombies.some(zombie => zombie.hp > 0 && !crew.some(m => {
@@ -621,8 +629,9 @@ export function createDemoServer(options = {}) {
       room.state = 'PLAYING'; room.pauseReason = null; room.roomEpoch++; change(room); return { started: true };
     }
     if (room.state !== 'PLAYING') throw fail('NOT_PLAYING', 'Explicit vehicle start/resume required', 409);
+    places.events.assertPlayable(room);
     if (message.action === 'support.pulse') {
-      if (room.game.scenarioId === 'heist-demo-v1' && room.game.stageId !== 'DEFEND') throw fail('GAME_ACTION_UNAVAILABLE', 'Combat support belongs to the defense mini-game', 409);
+      if (!['generic-coop-v1'].includes(room.game.scenarioId) && room.game.stageId !== 'DEFEND') throw fail('GAME_ACTION_UNAVAILABLE', 'Combat support belongs to the defense mini-game', 409);
       if (member.role !== 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Vehicle support only', 403);
       if (room.stats.supportUntil > Date.now()) throw fail('SUPPORT_COOLDOWN', 'Support is already active', 409);
       if (room.collection.inventory.supplies < 1) throw fail('SUPPLY_REQUIRED', 'Collect one demo supply before vehicle support', 409);
@@ -634,7 +643,7 @@ export function createDemoServer(options = {}) {
       return { supportUntil: room.stats.supportUntil, supportDamage: room.stats.supportDamage, suppliesConsumed: consumed, inventory: { ...room.collection.inventory } };
     }
     if (message.action === 'fire') {
-      if (room.game.scenarioId === 'heist-demo-v1' && room.game.stageId !== 'DEFEND') throw fail('GAME_ACTION_UNAVAILABLE', 'Shooting belongs to the defense mini-game', 409);
+      if (!['generic-coop-v1'].includes(room.game.scenarioId) && room.game.stageId !== 'DEFEND') throw fail('GAME_ACTION_UNAVAILABLE', 'Shooting belongs to the defense mini-game', 409);
       const sector = SECTORS[member.seat];
       if (!sector) throw fail('ROLE_FORBIDDEN', 'Driver is commander, not shooter', 403);
       if (seatEvidence(room, member.seat) === 'EMPTY') throw fail('SEAT_EMPTY', 'Assigned seat is reported empty', 409);
@@ -775,6 +784,7 @@ export function createDemoServer(options = {}) {
     }
     for (const room of rooms.values()) for (const member of room.members.values()) world.pruneQuality(member);
     if(!storageFailed)for(const room of rooms.values())if(!room.closedAt&&world.tick(room)){try{atomic(()=>collectionChanged(room));}catch{}}
+    if(!storageFailed&&places.events.due()){try{atomic(()=>{if(places.events.tick()){for(const room of rooms.values())if(!room.closedAt){try{places.events.assertPlayable(room);}catch{pause(room,'EVENT_NOT_ACTIVE');}change(room);}notifyWorld();}});}catch{}}
     for (const [key, value] of requestBuckets) if (value.until < Date.now()) requestBuckets.delete(key);
   }, 250);
   gateTimer.unref();
@@ -807,6 +817,6 @@ function isDirectEntrypoint() {
 if (isDirectEntrypoint()) {
   const app = createDemoServer({ ...deploymentOptions(), dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.ZRIDE_PUBLIC_ORIGIN });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 8, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 9, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }

@@ -32,9 +32,12 @@ export function createPartyApi(ctx) {
     if (path==='/api/places/nearby' && req.method==='POST') { ctx.memberFor(ctx.roomFor(session.roomId),session);return {status:200,data:ctx.places.nearby(body)}; }
     const shared=path.match(/^\/api\/spots\/([^/]+)\/shared$/);
     if (shared && req.method==='GET') { ctx.memberFor(ctx.roomFor(session.roomId),session);return {status:200,data:ctx.places.shared(shared[1],ctx.rooms.values())}; }
-    const match=path.match(/^\/api\/rooms\/([^/]+)\/(route(?:\/spots)?|party(?:\/(?:invite|leave|remove|disband|contribute))?)$/);
+    const match=path.match(/^\/api\/rooms\/([^/]+)\/(route(?:\/spots)?|party(?:\/(?:invite|leave|remove|disband|contribute|events\/join))?|results|rewards(?:\/claim)?)$/);
     if (!match) return null;
     const room=ctx.roomFor(match[1]), action=match[2], member=ctx.memberFor(room,session,action!=='party/leave');
+    const query=new URL(req.url,'http://localhost').searchParams,paging={offset:Number(query.get('offset')??0),limit:Number(query.get('limit')??50)};
+    if(req.method==='GET'&&action==='results')return {status:200,data:ctx.places.events.results(room,paging)};
+    if(req.method==='GET'&&action==='rewards')return {status:200,data:ctx.places.events.rewards(room,paging)};
     if (req.method==='GET' && action==='route') return {status:200,data:ctx.places.routeInfo(room.roomId)};
     if (req.method!=='POST') throw fail('METHOD_NOT_ALLOWED','Use documented method',405);
     if (action==='route/spots') return {status:200,data:ctx.places.routeSpots(room.roomId,body)};
@@ -56,7 +59,9 @@ export function createPartyApi(ctx) {
     }
     if (action==='route') { const data=ctx.places.setRoute(room.roomId,body);return {status:200,data}; }
     if (action==='party') { const data=ctx.places.setParty(room.roomId,body);ctx.change(room);return {status:200,data}; }
-    if (action==='party/contribute') { const data=ctx.places.contribute(room,body,ctx.gate(room).allowed);ctx.notify();return {status:200,data}; }
+    if(action==='party/events/join'){const data=ctx.places.joinEvent(room,body);ctx.change(room);ctx.notify();return {status:200,data};}
+    if(action==='rewards/claim'){const data=ctx.places.events.claim(room,body);if(!data.replayed)ctx.collectionChanged(room);return {status:200,data};}
+    if (action==='party/contribute') { const data=ctx.places.contribute(room,body,ctx.gate(room).allowed);if(!data.replayed)ctx.eventChanged(data.instance.instanceId);return {status:200,data}; }
     if (action==='party/invite') {
       if (!ctx.publicOrigin) throw fail('PUBLIC_ORIGIN_REQUIRED','Configure the trusted public origin',503);
       for (const [id,old] of invites) if (old.roomId===room.roomId || old.expiresAt<=Date.now()) invites.delete(id);

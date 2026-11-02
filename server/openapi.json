@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.5.0-revision8",
+    "version": "0.6.0-revision9",
     "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders."
   },
   "servers": [
@@ -7636,7 +7636,7 @@
       "post": {
         "operationId": "contributeSpot",
         "summary": "contributeSpot",
-        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "description": "Revision 9 requires instanceId and a successful server result for the mission joined to that instance. Old successful v7/v8 receipts replay without new contributions.",
         "responses": {
           "200": {
             "description": "Success",
@@ -7696,7 +7696,15 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
-            }
+            },
+            "x-error-codes": [
+              "EVENT_INSTANCE_CONFLICT",
+              "EVENT_NOT_ACTIVE",
+              "CONTRIBUTION_NOT_READY",
+              "ALREADY_CONTRIBUTED",
+              "INSTANCE_REVISION_CONFLICT",
+              "IDEMPOTENCY_CONFLICT"
+            ]
           },
           "429": {
             "description": "Structured API error",
@@ -7728,6 +7736,528 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SpotContribution"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/party/events/join": {
+      "post": {
+        "operationId": "joinEvent",
+        "summary": "joinEvent",
+        "description": "Revision 9. host. See docs/events-results-rewards.md. Snapshot/result state is authoritative; rewards are party-shared demo supplies.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventJoinResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_INSTANCE_CONFLICT",
+              "EVENT_NOT_ACTIVE",
+              "EVENT_MISSION_REQUIRED",
+              "MISSION_ALREADY_BOUND",
+              "ALREADY_CONTRIBUTED",
+              "REWARD_ALREADY_CLAIMED",
+              "IDEMPOTENCY_CONFLICT",
+              "CONTRIBUTION_NOT_READY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventJoinRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/results": {
+      "get": {
+        "operationId": "listMissionResults",
+        "summary": "listMissionResults",
+        "description": "Revision 9. approved member. See docs/events-results-rewards.md. Snapshot/result state is authoritative; rewards are party-shared demo supplies.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionResultPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_INSTANCE_CONFLICT",
+              "EVENT_NOT_ACTIVE",
+              "EVENT_MISSION_REQUIRED",
+              "MISSION_ALREADY_BOUND",
+              "ALREADY_CONTRIBUTED",
+              "REWARD_ALREADY_CLAIMED",
+              "IDEMPOTENCY_CONFLICT",
+              "CONTRIBUTION_NOT_READY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/rewards": {
+      "get": {
+        "operationId": "listPartyRewards",
+        "summary": "listPartyRewards",
+        "description": "Revision 9. approved member. See docs/events-results-rewards.md. Snapshot/result state is authoritative; rewards are party-shared demo supplies.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_INSTANCE_CONFLICT",
+              "EVENT_NOT_ACTIVE",
+              "EVENT_MISSION_REQUIRED",
+              "MISSION_ALREADY_BOUND",
+              "ALREADY_CONTRIBUTED",
+              "REWARD_ALREADY_CLAIMED",
+              "IDEMPOTENCY_CONFLICT",
+              "CONTRIBUTION_NOT_READY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      }
+    },
+    "/api/rooms/{roomId}/rewards/claim": {
+      "post": {
+        "operationId": "claimPartyReward",
+        "summary": "claimPartyReward",
+        "description": "Revision 9. host. See docs/events-results-rewards.md. Snapshot/result state is authoritative; rewards are party-shared demo supplies.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardClaimResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_INSTANCE_CONFLICT",
+              "EVENT_NOT_ACTIVE",
+              "EVENT_MISSION_REQUIRED",
+              "MISSION_ALREADY_BOUND",
+              "ALREADY_CONTRIBUTED",
+              "REWARD_ALREADY_CLAIMED",
+              "IDEMPOTENCY_CONFLICT",
+              "CONTRIBUTION_NOT_READY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "EVENT_CAPACITY",
+              "RATE_LIMITED"
+            ]
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewardClaimRequest"
               }
             }
           }
@@ -7835,7 +8365,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 8
+            "const": 9
           }
         },
         "required": [
@@ -8541,6 +9071,9 @@
           },
           "party": {
             "$ref": "#/components/schemas/PartyRouteSummary"
+          },
+          "missionLedger": {
+            "$ref": "#/components/schemas/MissionLedgerProjection"
           }
         },
         "required": [
@@ -9074,7 +9607,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 8
+            "const": 9
           }
         },
         "required": [
@@ -9868,7 +10401,10 @@
             "type": "string",
             "enum": [
               "generic-coop-v1",
-              "heist-demo-v1"
+              "heist-demo-v1",
+              "zombie-defense-v1",
+              "supply-run-v1",
+              "signal-puzzle-v1"
             ]
           },
           "roleAssignments": {
@@ -10014,7 +10550,10 @@
           "scenarioId": {
             "enum": [
               "generic-coop-v1",
-              "heist-demo-v1"
+              "heist-demo-v1",
+              "zombie-defense-v1",
+              "supply-run-v1",
+              "signal-puzzle-v1"
             ]
           },
           "revision": {
@@ -10351,7 +10890,10 @@
           "scenarioId": {
             "enum": [
               "generic-coop-v1",
-              "heist-demo-v1"
+              "heist-demo-v1",
+              "zombie-defense-v1",
+              "supply-run-v1",
+              "signal-puzzle-v1"
             ]
           },
           "title": {
@@ -11119,7 +11661,10 @@
               "INFILTRATE",
               "DEFEND",
               "EXTRACT",
-              "COMPLETE"
+              "COMPLETE",
+              "DELIVER",
+              "DECODE",
+              "SYNC"
             ]
           },
           "title": {
@@ -11240,7 +11785,10 @@
           "scenarioId": {
             "enum": [
               "generic-coop-v1",
-              "heist-demo-v1"
+              "heist-demo-v1",
+              "zombie-defense-v1",
+              "supply-run-v1",
+              "signal-puzzle-v1"
             ]
           },
           "revision": {
@@ -11659,12 +12207,16 @@
           "expectedInstanceRevision": {
             "type": "integer",
             "minimum": 0
+          },
+          "instanceId": {
+            "type": "string"
           }
         },
         "required": [
           "commandId",
           "spotId",
-          "expectedInstanceRevision"
+          "expectedInstanceRevision",
+          "instanceId"
         ],
         "additionalProperties": false
       },
@@ -11902,13 +12454,24 @@
             }
           },
           "instance": {
-            "type": [
-              "object",
-              "null"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventInstance"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "serverTime": {
             "type": "number"
+          },
+          "eventPolicy": {
+            "$ref": "#/components/schemas/EventPolicy"
+          },
+          "eventRevision": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -11977,6 +12540,10 @@
           "instance": {
             "type": "object"
           },
+          "eventRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
           "worldRevision": {
             "type": "integer",
             "minimum": 0
@@ -11986,11 +12553,16 @@
           },
           "rewardGranted": {
             "const": false
+          },
+          "rewardStatus": {
+            "enum": [
+              "CLAIMABLE",
+              "WAITING_FOR_EVENT_CLEAR"
+            ]
           }
         },
         "required": [
           "instance",
-          "worldRevision",
           "replayed",
           "rewardGranted"
         ],
@@ -12023,6 +12595,587 @@
           "guest",
           "google",
           "pleos"
+        ],
+        "additionalProperties": false
+      },
+      "EventPolicy": {
+        "type": "object",
+        "properties": {
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "respawnMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missionReward": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sharedReward": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rewardResource": {
+            "const": "supplies"
+          },
+          "rewardKind": {
+            "const": "DEMO_GAME_RESOURCE_NOT_MONEY"
+          }
+        },
+        "required": [
+          "durationMs",
+          "respawnMs",
+          "target",
+          "missionReward",
+          "sharedReward",
+          "rewardResource",
+          "rewardKind"
+        ],
+        "additionalProperties": false
+      },
+      "EventContribution": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "partyId",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "EventInstance": {
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string"
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "eventType": {
+            "enum": [
+              "COMMUNITY_MISSIONS",
+              "LEGACY_COMMUNITY"
+            ]
+          },
+          "contentVersion": {
+            "type": "string"
+          },
+          "cycle": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "phase": {
+            "enum": [
+              "ACTIVE",
+              "COOLDOWN"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              null,
+              "SUCCEEDED",
+              "EXPIRED"
+            ]
+          },
+          "startedAt": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "type": "number"
+          },
+          "endedAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "respawnAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "target": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "contributions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventContribution"
+            }
+          },
+          "rewardPolicy": {
+            "type": "object",
+            "properties": {
+              "missionSupplies": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sharedSupplies": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "missionSupplies",
+              "sharedSupplies"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "instanceId",
+          "spotId",
+          "eventType",
+          "contentVersion",
+          "cycle",
+          "revision",
+          "phase",
+          "outcome",
+          "startedAt",
+          "expiresAt",
+          "endedAt",
+          "respawnAt",
+          "completed",
+          "target",
+          "contributions",
+          "rewardPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "EventJoinRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "spotId": {
+            "type": "string"
+          },
+          "expectedInstanceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null only if shared.instance is null. Otherwise copy the current instanceId."
+          }
+        },
+        "required": [
+          "commandId",
+          "spotId",
+          "expectedInstanceId"
+        ],
+        "additionalProperties": false
+      },
+      "EventJoinResponse": {
+        "type": "object",
+        "properties": {
+          "instance": {
+            "$ref": "#/components/schemas/EventInstance"
+          },
+          "missionRunId": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "instance",
+          "missionRunId",
+          "replayed"
+        ],
+        "additionalProperties": false
+      },
+      "MissionLedgerProjection": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missionRunId": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resultId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              null,
+              "SUCCEEDED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "missionRunId",
+          "instanceId",
+          "resultId",
+          "outcome"
+        ],
+        "additionalProperties": false
+      },
+      "MissionResult": {
+        "type": "object",
+        "properties": {
+          "resultId": {
+            "type": "string"
+          },
+          "runKey": {
+            "type": "string"
+          },
+          "partyId": {
+            "type": "string"
+          },
+          "missionRunId": {
+            "type": "string"
+          },
+          "scenarioId": {
+            "enum": [
+              "heist-demo-v1",
+              "zombie-defense-v1",
+              "supply-run-v1",
+              "signal-puzzle-v1"
+            ]
+          },
+          "instanceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "SUCCEEDED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          },
+          "startedAt": {
+            "type": "number"
+          },
+          "endedAt": {
+            "type": "number"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "memberId": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "seat": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "memberId",
+                "role",
+                "seat"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "stageHistory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stageId": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "stageId",
+                "at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "contributions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "memberId": {
+                  "type": "string"
+                },
+                "stageId": {
+                  "type": "string"
+                },
+                "objectiveId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "memberId",
+                "stageId",
+                "objectiveId",
+                "at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "kills": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "waveCleared": {
+                "type": "boolean"
+              },
+              "virtualDistanceM": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "kills",
+              "waveCleared",
+              "virtualDistanceM"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "resultId",
+          "runKey",
+          "partyId",
+          "missionRunId",
+          "scenarioId",
+          "instanceId",
+          "outcome",
+          "startedAt",
+          "endedAt",
+          "participants",
+          "stageHistory",
+          "contributions",
+          "summary"
+        ],
+        "additionalProperties": false
+      },
+      "RewardAward": {
+        "type": "object",
+        "properties": {
+          "awardId": {
+            "type": "string"
+          },
+          "partyId": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "MISSION_CLEAR",
+              "SHARED_EVENT_CLEAR"
+            ]
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resource": {
+            "const": "supplies"
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "CLAIMED"
+            ]
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "claimedAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "awardId",
+          "partyId",
+          "kind",
+          "instanceId",
+          "resource",
+          "amount",
+          "status",
+          "createdAt",
+          "claimedAt"
+        ],
+        "additionalProperties": false
+      },
+      "MissionResultPage": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/MissionResult"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "policy": {
+            "$ref": "#/components/schemas/EventPolicy"
+          },
+          "eventRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "results",
+          "offset",
+          "nextOffset",
+          "policy",
+          "eventRevision"
+        ],
+        "additionalProperties": false
+      },
+      "RewardPage": {
+        "type": "object",
+        "properties": {
+          "awards": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/RewardAward"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "eventRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "awards",
+          "offset",
+          "nextOffset",
+          "eventRevision"
+        ],
+        "additionalProperties": false
+      },
+      "RewardClaimRequest": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "awardId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "commandId",
+          "awardId"
+        ],
+        "additionalProperties": false
+      },
+      "RewardClaimResponse": {
+        "type": "object",
+        "properties": {
+          "award": {
+            "$ref": "#/components/schemas/RewardAward"
+          },
+          "inventory": {
+            "$ref": "#/components/schemas/Inventory"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "rewardGranted": {
+            "const": true
+          }
+        },
+        "required": [
+          "award",
+          "inventory",
+          "replayed",
+          "rewardGranted"
         ],
         "additionalProperties": false
       }
@@ -12117,5 +13270,14 @@
       "refreshNearby": true
     },
     "rule": "Approved party members invalidate nearby caches on event/snapshot.collection.revision. Fetch nearby again. No raw GPS or spawn coordinates in event. Respawn emits one invalidation after the stored server deadline. Default cooldown 300000 ms."
+  },
+  "x-mission-websocket": {
+    "type": "mission.changed",
+    "projectionSchema": {
+      "$ref": "#/components/schemas/MissionLedgerProjection"
+    },
+    "refreshResults": true,
+    "refreshRewards": true,
+    "delivery": "Post-commit invalidation hint. Deduplicate by revision/resultId; reconnect reads snapshot and REST. Physical effects are never replayed."
   }
 }
