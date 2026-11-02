@@ -137,7 +137,7 @@ final class PhoneWorldMap {
         nearbyPending=true;lastNearbyRequest=SystemClock.elapsedRealtime();
         client.get().postApi("/api/world/nearby",query,new RoomClient.ApiCallback(){
             public void onResponse(JSONObject data){main.post(()->{if(closed||revisionAtRequest!=lastCollectionRevision||!roomAtRequest.equals(lastCollectionRoom))return;nearbyPending=false;visibleSpawns=data.optJSONArray("spawns");if(visibleSpawns==null)visibleSpawns=new JSONArray();nearbySchedule=data.optString("scheduleId");for(int i=0;i<visibleSpawns.length();i++){JSONObject spawn=visibleSpawns.optJSONObject(i);if(spawn!=null){knownSpawns.put(spawn.optString("spawnId"),spawn);spawnSchedules.put(spawn.optString("spawnId"),nearbySchedule);}}if(selectedSpawnId==null&&visibleSpawns.length()>0)selectedSpawnId=visibleSpawns.optJSONObject(0).optString("spawnId");record("nearbySpawnCount",visibleSpawns.length());record("nearbySchedule",nearbySchedule);record("nearby",data);write("world-nearby.json",data);snapshotPending.set(true);updateMapSources();updateLabels();});}
-            public void onError(String error){main.post(()->{nearbyPending=false;record("nearbyError",error);updateLabels();});}
+            public void onError(String error){main.post(()->{if(closed||revisionAtRequest!=lastCollectionRevision||!roomAtRequest.equals(lastCollectionRoom))return;nearbyPending=false;record("nearbyError",error);updateLabels();});}
         });
     }
     void claim(String spawnId){
