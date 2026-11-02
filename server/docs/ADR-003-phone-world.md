@@ -2,6 +2,8 @@
 
 2026-11-01. 상태: 코드·서버 단위 통합시험 완료, 실행 중 서비스 재시작·Android 지도 통합시험은 별도 기록. 기존 revision 2의 좌표 없는 DEMO_PICKUP 버튼·전투·차량 신호 동작은 유지한다.
 
+2026-11-02 revision 8 변경: 아래 초기 멤버별 지급 정책은 [파티 수집·리스폰 계약](collection-respawn.md)으로 대체한다. 현재는 파티당 주기별 1회, 기본 5분 리스폰이며 캐시 무효화·재시작 복원·주기 ID 검사를 적용한다.
+
 ## 결정
 
 지도 타일은 폰 MapLibre가 OpenFreeMap에서 직접 받는다. 게임 서버는 타일·지도 이미지·위치 검색 서비스를 중계하지 않고 **게임 포인트 목록·획득 조건·중복 방지·공동 보급 재고**만 처리한다. 지도 서비스 키나 환경공단 키를 이 API에 새로 요구하지 않는다.
@@ -26,7 +28,7 @@
 
 세 좌표는 서울 시청 주변에 배치한 **테스트 게임 지점**이다. 실제 충전소·안전한 주차면·방문 허가 장소라고 검증한 자료가 아니다. 각 항목은 `pointKind=TEST_GAME_POINT_NOT_CHARGER`를 제공한다. 출시용 거점은 공식 시설 ID 연결과 접근·정차 가능성 검수가 추가로 필요하다.
 
-스폰은 `worldVersion=seoul-demo-v1`, UTC 날짜 scheduleId, Unix milliseconds opensAt/expiresAt을 제공한다. claim은 목록의 scheduleId·version을 필수로 돌려보낸다. 현재 UTC 일정이 바뀌면 지난 스폰 선택은 거부한다. 같은 멤버·spawn·UTC 일정에는 한 번만 보상을 준다.
+스폰은 `worldVersion=seoul-demo-v2-party-loot`, UTC 날짜 scheduleId, Unix milliseconds opensAt/expiresAt을 제공한다. claim은 목록의 scheduleId·version을 필수로 돌려보낸다. 현재 UTC 일정이 바뀌면 지난 스폰 선택은 거부한다. 현재는 같은 파티·spawn·리스폰 주기에 한 번 지급한다.
 
 ## 위치 판정의 의미
 
@@ -45,7 +47,7 @@
 - 원시 폰 좌표·이동 경로를 보관하거나 다른 폰/차량 snapshot에 넣지 않는다.
 - claim 영수증은 요청 본문의 해시·서버 결과·일정별 지급 여부를 SQLite checkpoint에 함께 저장한다. API 응답의 거리·스폰 ID는 요청자에게만 제공한다.
 - 공동 snapshot에는 보급 수량과 `pickupId=WORLD_CLAIM`의 요약만 보낸다. 다른 폰이 어느 실제 좌표 스폰을 획득했는지 상세 목록은 공개하지 않는다.
-- nearby의 `claimed`는 해당 요청자의 멤버 기준이다. 다른 동승자의 claim 목록을 공유하지 않는다.
+- nearby는 해당 파티의 획득 상태를 적용한다. 쿨다운 중 항목은 기본 목록에서 제외하고 includeClaimed=true이면 claimed/respawnAt을 제공한다.
 - location 보고는 현재 claim의 선행 인증이 아니다. claim마다 새 위치 본문을 다시 검사한다.
 - 새 commandId로 같은 스폰을 반복하면 ALREADY_CLAIMED다. 같은 ID·같은 본문 재전송은 저장된 영수증을 돌려주고 보상을 반복하지 않는다. 같은 ID·다른 본문은 충돌이다.
 - claim 응답의 inventory는 **그 claim이 최초 확정된 시점의 영수증 값**이다. 나중에 보급을 추가 획득한 뒤 오래된 영수증을 재전송해도 이 값은 바뀌지 않는다. 현재 공동 재고는 기존 WS snapshot/room 조회가 권위이고 HTTP 영수증으로 최신 상태를 덮어쓰지 않는다.

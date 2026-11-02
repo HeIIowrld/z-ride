@@ -116,7 +116,7 @@ try {
   }
   if (!stopping) {
     await command(host, 'round.start');
-    for (const phone of phones) await command(phone, 'mobile.collect', { pickupId: 'DEMO_PICKUP_A', passengerConfirmed: true });
+    for (const [index, phone] of phones.entries()) await command(phone, 'mobile.collect', { pickupId: 'DEMO_PICKUP_' + String.fromCharCode(65 + index), passengerConfirmed: true });
     await command(host, 'support.pulse');
     for (const [index, phone] of phones.entries()) await command(phone, 'fire', { angleDeg: [60, -100, 140][index] });
     log('demo.ready', { roomId, participants: 4, state: host.room.state,

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.4.0-revision7",
+    "version": "0.5.0-revision8",
     "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders."
   },
   "servers": [
@@ -1471,7 +1471,7 @@
                   "$ref": "#/components/schemas/NearbyResponse"
                 },
                 "example": {
-                  "worldVersion": "seoul-demo-v1",
+                  "worldVersion": "seoul-demo-v2-party-loot",
                   "scheduleId": "2026-11-01",
                   "serverTime": 1793527200000,
                   "spawns": [
@@ -1486,7 +1486,7 @@
                       "opensAt": 1793491200000,
                       "expiresAt": 1793577600000,
                       "scheduleId": "2026-11-01",
-                      "version": "seoul-demo-v1",
+                      "version": "seoul-demo-v2-party-loot",
                       "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
                       "claimed": false
                     },
@@ -1501,7 +1501,7 @@
                       "opensAt": 1793491200000,
                       "expiresAt": 1793577600000,
                       "scheduleId": "2026-11-01",
-                      "version": "seoul-demo-v1",
+                      "version": "seoul-demo-v2-party-loot",
                       "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
                       "claimed": false
                     },
@@ -1516,7 +1516,7 @@
                       "opensAt": 1793491200000,
                       "expiresAt": 1793577600000,
                       "scheduleId": "2026-11-01",
-                      "version": "seoul-demo-v1",
+                      "version": "seoul-demo-v2-party-loot",
                       "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
                       "claimed": false
                     }
@@ -1878,7 +1878,7 @@
                   "claimed": true,
                   "spawnId": "SEOUL_CITYHALL_TEST_A",
                   "scheduleId": "2026-11-01",
-                  "version": "seoul-demo-v1",
+                  "version": "seoul-demo-v2-party-loot",
                   "amount": 1,
                   "inventory": {
                     "supplies": 1
@@ -1966,7 +1966,7 @@
                 "example": {
                   "error": {
                     "code": "ALREADY_CLAIMED",
-                    "message": "This passenger already claimed this spawn in this UTC schedule"
+                    "message": "This party spawn is waiting to respawn"
                   }
                 }
               }
@@ -1978,7 +1978,8 @@
               "ALREADY_CLAIMED",
               "LOCATION_INACCURATE",
               "LOCATION_STALE",
-              "OUTSIDE_SPAWN"
+              "OUTSIDE_SPAWN",
+              "SPAWN_CYCLE_CONFLICT"
             ]
           },
           "413": {
@@ -2047,7 +2048,7 @@
                 "commandId": "claim-example-001",
                 "spawnId": "SEOUL_CITYHALL_TEST_A",
                 "scheduleId": "2026-11-01",
-                "version": "seoul-demo-v1",
+                "version": "seoul-demo-v2-party-loot",
                 "passengerConfirmed": true,
                 "location": {
                   "latitude": 37.5665,
@@ -7834,7 +7835,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 7
+            "const": 8
           }
         },
         "required": [
@@ -8353,7 +8354,8 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Party-wide collected demo fixture IDs; all party members must hide/disable them."
           },
           "lastCollect": {
             "anyOf": [
@@ -8371,6 +8373,22 @@
               "DRIVER_CANNOT_COLLECT",
               "APPROVED_ROLE_AND_PASSENGER_SELF_DECLARATION_ONLY"
             ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "claimScope": {
+            "const": "PARTY"
+          },
+          "respawnCooldownMs": {
+            "type": "integer"
+          },
+          "pickupRespawnAt": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
           }
         },
         "required": [
@@ -8644,6 +8662,11 @@
               }
             ],
             "default": 500
+          },
+          "includeClaimed": {
+            "type": "boolean",
+            "default": false,
+            "description": "History/debug only. Default omits party pickups during cooldown."
           }
         },
         "required": [
@@ -8740,13 +8763,17 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "version": {
-            "const": "seoul-demo-v1"
+            "const": "seoul-demo-v2-party-loot"
           },
           "passengerConfirmed": {
             "const": true
           },
           "location": {
             "$ref": "#/components/schemas/PhoneLocation"
+          },
+          "spawnCycleId": {
+            "type": "string",
+            "description": "Copy from latest nearby. Rejects a delayed request from an earlier respawn cycle."
           }
         },
         "required": [
@@ -8755,7 +8782,8 @@
           "scheduleId",
           "version",
           "passengerConfirmed",
-          "location"
+          "location",
+          "spawnCycleId"
         ],
         "description": "Use the values from nearby. Retries must preserve commandId and the entire JSON value, including measuredAgeMs. Refreshing a fix requires a new commandId. Unknown extra keys are tolerated but participate in the idempotency fingerprint."
       },
@@ -8826,13 +8854,23 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "version": {
-            "const": "seoul-demo-v1"
+            "const": "seoul-demo-v2-party-loot"
           },
           "pointKind": {
             "const": "TEST_GAME_POINT_NOT_CHARGER"
           },
           "claimed": {
             "type": "boolean"
+          },
+          "spawnCycleId": {
+            "type": "string"
+          },
+          "respawnAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Server Unix ms deadline, null before first claim."
           }
         },
         "required": [
@@ -8855,7 +8893,7 @@
         "type": "object",
         "properties": {
           "worldVersion": {
-            "const": "seoul-demo-v1"
+            "const": "seoul-demo-v2-party-loot"
           },
           "scheduleId": {
             "type": "string"
@@ -8881,6 +8919,28 @@
           },
           "hardwareAttested": {
             "const": false
+          },
+          "collectionRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "claimScope": {
+            "const": "PARTY"
+          },
+          "respawnPolicy": {
+            "type": "object",
+            "properties": {
+              "cooldownMs": {
+                "type": "integer"
+              },
+              "clock": {
+                "const": "SERVER"
+              }
+            },
+            "required": [
+              "cooldownMs",
+              "clock"
+            ]
           }
         },
         "required": [
@@ -8946,7 +9006,8 @@
             "type": "string"
           },
           "version": {
-            "const": "seoul-demo-v1"
+            "type": "string",
+            "description": "World version at the original receipt, including replay of a pre-upgrade successful command."
           },
           "amount": {
             "const": 1
@@ -9013,7 +9074,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 7
+            "const": 8
           }
         },
         "required": [
@@ -12041,5 +12102,20 @@
     "role": "current CAR_HOST connection only",
     "meaning": "Client-reported SDK/quality observation; no hardware attestation; never creates arbitrary physical setter calls",
     "state": "ephemeral; same sampleSeq never refreshes observation freshness"
+  },
+  "x-deployment": {
+    "cors": "Exact configured HTTP(S) origins; GET/POST JSON/Bearer preflights only; no credentialed cookies. OPTIONS is transport metadata, not a new business route.",
+    "forwarding": "Explicit trusted direct peer IPs only; walk X-Forwarded-For right to left.",
+    "phoneConfig": "/play/config.js or tools/export-phone.mjs supplies public API origin; QR uses ZRIDE_PHONE_PUBLIC_URL.",
+    "limits": "100 game WebSockets and 500 sessions per process. HTTP IP: 120/10s; world: 30/10s/session; WS: 120/10s/session. Capacities are configured ceilings, not performance guarantees."
+  },
+  "x-collection-websocket": {
+    "type": "collection.changed",
+    "fields": {
+      "roomId": "party ID",
+      "revision": "monotonic per-party collection revision",
+      "refreshNearby": true
+    },
+    "rule": "Approved party members invalidate nearby caches on event/snapshot.collection.revision. Fetch nearby again. No raw GPS or spawn coordinates in event. Respawn emits one invalidation after the stored server deadline. Default cooldown 300000 ms."
   }
 }

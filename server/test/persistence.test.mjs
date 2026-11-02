@@ -35,7 +35,7 @@ async function setup(request) {
   assert.equal((await request(`/api/rooms/${room.roomId}/approve`, { memberId: member.memberId }, host.token)).status, 200);
   const nearby = (await request('/api/world/nearby', { latitude: 37.5665, longitude: 126.978, radiusM: 500 }, phone.token)).body;
   const spawn = nearby.spawns[0];
-  const claim = { commandId: randomUUID(), spawnId: spawn.spawnId, scheduleId: nearby.scheduleId, version: spawn.version,
+  const claim = { commandId: randomUUID(), spawnId: spawn.spawnId, scheduleId: nearby.scheduleId, version: spawn.version, spawnCycleId: spawn.spawnCycleId,
     passengerConfirmed: true, location: { latitude: spawn.latitude, longitude: spawn.longitude, accuracyM: 5,
       measuredAgeMs: 0, source: 'EMULATOR_GPS', isMock: false } };
   return { host, phone, room, member, claim };

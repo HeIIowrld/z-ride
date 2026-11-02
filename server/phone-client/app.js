@@ -1,9 +1,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const apiOrigin=window.ZRIDE_CONFIG?.apiOrigin||location.origin;
 const seats = { FRONT_PASSENGER: '앞 동승석 · 전방 사수', REAR_LEFT: '뒤 왼쪽 · 좌측 방어', REAR_RIGHT: '뒤 오른쪽 · 우측 방어', DRIVER: '운전자 · 지원 담당' };
 const states = { LOBBY: '시작 대기', READY: '시작 준비', PLAYING: '전투 진행', PAUSED: '전투 중지', CLEARED: '거점 공략 완료', PENDING: '승인 대기' };
 const gateNames = { CAR_DISCONNECTED: '차량 연결 끊김', APP_INACTIVE: '차량 앱 비활성', LEASE_EXPIRED: '차량 보고 만료', UX_RESTRICTED: '주행 중 전투 제한', UX_UNKNOWN: '차량 UX 확인 중', GEAR_NOT_P: '주차 후 전투 가능', GEAR_UNKNOWN: '차량 기어 확인 중', MEMBER_PENDING: '차량 승인 대기' };
-const errors = { TEST_ACCESS_REQUIRED: '테스트 접근키를 확인해 주세요. 관찰키와는 다른 키임.', MEMBER_PENDING: '차량에서 참가자를 먼저 승인해 주세요.', AUTH_EXPIRED: '세션이 만료됨. 새 참가 코드로 다시 참가해 주세요.', INVALID_JOIN_CODE: '참가 코드가 잘못됐거나 만료됨. 차량에서 새 코드를 받아 주세요.', JOIN_CODE_EXPIRED: '참가 코드가 만료됨. 차량에서 새 코드를 받아 주세요.', GATE_CLOSED: '차량 전투 조건이 닫힘. 주차 후 차량에서 다시 시작해 주세요.', NOT_PLAYING: '차량에서 공동 전투를 시작해야 사격할 수 있음.', ALREADY_COLLECTED: '이미 수집한 상자임.', SEAT_EMPTY: '차량에서 이 자리가 비어 있다고 보고됨.', STALE_EPOCH: '전투 상태가 바뀜. 최신 화면에서 다시 시도해 주세요.', SEAT_TAKEN: '이미 사용 중인 자리임. 다른 자리를 선택해 주세요.' };
+const errors = { TEST_ACCESS_REQUIRED: '테스트 접근키를 확인해 주세요. 관찰키와는 다른 키임.', MEMBER_PENDING: '차량에서 참가자를 먼저 승인해 주세요.', AUTH_EXPIRED: '세션이 만료됨. 새 참가 코드로 다시 참가해 주세요.', INVALID_JOIN_CODE: '참가 코드가 잘못됐거나 만료됨. 차량에서 새 코드를 받아 주세요.', JOIN_CODE_EXPIRED: '참가 코드가 만료됨. 차량에서 새 코드를 받아 주세요.', GATE_CLOSED: '차량 전투 조건이 닫힘. 주차 후 차량에서 다시 시작해 주세요.', NOT_PLAYING: '차량에서 공동 전투를 시작해야 사격할 수 있음.', ALREADY_COLLECTED: '파티에서 획득한 상자임. 리스폰 후 다시 수집 가능.', SEAT_EMPTY: '차량에서 이 자리가 비어 있다고 보고됨.', STALE_EPOCH: '전투 상태가 바뀜. 최신 화면에서 다시 시도해 주세요.', SEAT_TAKEN: '이미 사용 중인 자리임. 다른 자리를 선택해 주세요.' };
 let credentials = null, room = null, socket = null, memberId = null, generation = 0, retry = 0, retryTimer = null, pending = null, receivedAt = 0, joining = false;
 let counter = 0;
 const id = () => 'web-' + Date.now().toString(36) + '-' + (++counter).toString(36) + '-' + Math.random().toString(36).slice(2, 12);
@@ -21,7 +22,7 @@ function reset(clear = true) {
 async function post(path, body, token) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(path, { method: 'POST', cache: 'no-store', signal: controller.signal,
+    const response = await fetch(new URL(path,apiOrigin), { method: 'POST', cache: 'no-store', signal: controller.signal,
       headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
     const value = await response.json();
     if (!response.ok) throw new Error(value.error?.code || 'HTTP_' + response.status);
@@ -38,7 +39,7 @@ function connect() {
   if (!credentials) return;
   const current = ++generation; clearTimeout(retryTimer); memberId = null;
   status(retry ? '재연결 중…' : '방 연결 중…');
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  socket = new WebSocket(apiOrigin.replace(/^http/,'ws') + '/ws');
   socket.onopen = () => { if (current === generation && credentials) socket.send(JSON.stringify({ type: 'auth', token: credentials.token, roomId: credentials.roomId })); };
   socket.onmessage = event => {
     if (current !== generation) return;

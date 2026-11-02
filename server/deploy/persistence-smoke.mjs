@@ -47,7 +47,7 @@ if (mode === 'seed') {
   assert.ok(spawn);
   const claimBody = {
     commandId: randomUUID(), spawnId: spawn.spawnId, scheduleId: world.scheduleId,
-    version: spawn.version, passengerConfirmed: true,
+    version: spawn.version, spawnCycleId: spawn.spawnCycleId, passengerConfirmed: true,
     location: { latitude: spawn.latitude, longitude: spawn.longitude, accuracyM: 5, measuredAgeMs: 1, source: 'EMULATOR_GPS', isMock: false },
   };
   const reward = await request('/api/world/claim', claimBody, phone.token);

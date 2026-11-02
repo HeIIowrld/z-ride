@@ -1,0 +1,31 @@
+{
+  "profile": "idle",
+  "requestedUsers": 100,
+  "connectedUsers": 100,
+  "rejectedConnections": 0,
+  "durationSec": 25.02,
+  "attempted": 0,
+  "successfulCommands": 0,
+  "skipped": 0,
+  "errors": {},
+  "unexpectedCloses": 0,
+  "httpAttempted": 0,
+  "httpSuccess": 0,
+  "latencyP50Ms": null,
+  "latencyP95Ms": null,
+  "latencyP99Ms": null,
+  "snapshotP95Ms": null,
+  "receivedMiB": 0,
+  "server": {
+    "case": "baseline-idle100",
+    "elapsedSec": 25.016490644000005,
+    "requests": 0,
+    "httpFailures": 0,
+    "cpuPercent": 0.6753665108520005,
+    "rssMiB": 164.6796875,
+    "eventLoopUtilization": 0.005050896982533596,
+    "lagP95Ms": 20.152319,
+    "lagMaxMs": 22.134783,
+    "dbBytes": 4316808
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "profile": "active",
+  "requestedUsers": 64,
+  "connectedUsers": 64,
+  "rejectedConnections": 0,
+  "durationSec": 25.36,
+  "attempted": 2312,
+  "successfulCommands": 2312,
+  "skipped": 222,
+  "errors": {},
+  "unexpectedCloses": 0,
+  "httpAttempted": 0,
+  "httpSuccess": 0,
+  "latencyP50Ms": 148.56,
+  "latencyP95Ms": 610.04,
+  "latencyP99Ms": 862.21,
+  "snapshotP95Ms": 579.52,
+  "receivedMiB": 87.41,
+  "server": {
+    "case": "baseline-active64",
+    "elapsedSec": 25.362429078999998,
+    "requests": 0,
+    "httpFailures": 0,
+    "cpuPercent": 29.995928135681392,
+    "rssMiB": 181.08203125,
+    "eventLoopUtilization": 0.7604197593434852,
+    "lagP95Ms": 341.573631,
+    "lagMaxMs": 738.721791,
+    "dbBytes": 6073472
+  }
+}
