@@ -1,0 +1,100 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createPlacesService } from '../places.mjs';
+import { createDemoServer } from '../server.mjs';
+import { createAuthProviders } from '../auth-providers.mjs';
+import { WebSocket } from 'ws';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createStateStore } from '../state-store.mjs';
+const catalog={version:'fixture-v1',places:[{placeId:'p1',name:'Fixture parking',category:'PARKING',latitude:37.5665,longitude:126.978,sourceId:'node/1'},{placeId:'p2',name:'Unknown parking',category:'PARKING',latitude:37.5666,longitude:126.978}]};
+const point={latitude:37.5665,longitude:126.978};
+const review={commandId:'review',placeId:'p1',expectedRevision:0,accessStatus:'VERIFIED',enabled:true,entrance:point,playZone:{...point,radiusM:40},parkingAllowed:true,dwellAllowed:true,evidence:'Synthetic test review only'};
+test('two-party API demo commits shared progress to real SQLite without routes or QR capabilities',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'zride-shared-')),dbPath=join(directory,'state.sqlite');
+  const demoCatalog={version:'fixture-demo',places:[{placeId:'DEMO_PARKING_SPOT',name:'Synthetic',category:'PARKING',...point,isDemo:true}]};
+  const app=createDemoServer({dbPath,placesCatalog:demoCatalog,placeReviewToken:'fixture-review',publicOrigin:'https://example.test'});
+  try {
+    const address=await app.listen(0);
+    const result=await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../tools/spots-party-demo.mjs',import.meta.url)),`http://127.0.0.1:${address.port}`],{env:{...process.env,ZRIDE_PLACE_REVIEW_TOKEN:'fixture-review',ZRIDE_TEST_ACCESS_KEY:''},timeout:20000});
+    assert.ok(result.stdout.includes('"contributions":2'));assert.ok(result.stdout.includes('"qrGuests":4'));
+    await app.close();
+    const store=createStateStore(dbPath);const saved=store.load();store.close();
+    assert.equal(saved.places.instances.DEMO_PARKING_SPOT.contributions.length,2);
+    assert.equal(saved.places.reviews.DEMO_PARKING_SPOT.accessStatus,'VERIFIED');
+    assert.equal(Object.keys(saved.places.receipts).length,2);
+    assert.equal(Object.keys(saved.places.completedRuns).length,2);
+    assert.equal(JSON.stringify(saved).includes('geometry'),false);
+    assert.equal(JSON.stringify(saved).includes('inviteToken'),false);
+    assert.ok(saved.rooms.every(room=>room.closedAt));
+    const restored=createDemoServer({dbPath,placesCatalog:demoCatalog});await restored.close();
+  } finally { await app.close(); const target=resolve(directory);assert.equal(dirname(target),resolve(tmpdir()));assert.ok(basename(target).startsWith('zride-shared-'));await rm(target,{recursive:true,force:true}); }
+});
+test('catalog is fail-closed and route corridor uses reviewed entrances, revisions and TTL',()=>{
+  let now=1000;const s=createPlacesService({catalog,clock:()=>now,routeTtlMs:2000});
+  assert.equal(s.nearby(point).places.length,0);assert.equal(s.nearby({...point,eligibleOnly:false}).places.length,2);
+  assert.throws(()=>s.review({...review,parkingAllowed:false}),{code:'INVALID_REVIEW'});s.review(review);
+  const r=s.setRoute('a',{commandId:'route',expectedRouteRevision:0,source:'DEMO_ROUTE',geometry:[{latitude:37.56,longitude:126.978},{latitude:37.57,longitude:126.978}]});
+  assert.equal(r.routeRevision,1);const candidates=s.routeSpots('a',{routeRevision:1});assert.equal(candidates.places.length,1);assert.equal(candidates.places[0].routeDistanceM,0);assert.equal(candidates.places[0].detourTimeSec,null);
+  assert.throws(()=>s.routeSpots('a',{routeRevision:0}),{code:'ROUTE_REVISION_CONFLICT'});
+  assert.throws(()=>s.routeSpots('b',{routeRevision:1}),{code:'ROUTE_REQUIRED'});
+  const saved=s.durable();assert.ok(!JSON.stringify(saved).includes('geometry'));now+=3000;assert.throws(()=>s.routeSpots('a',{routeRevision:1}),{code:'ROUTE_REQUIRED'});
+  const restored=createPlacesService({catalog});restored.restore(saved);assert.equal(restored.nearby(point).places.length,1);assert.equal(restored.routeInfo('a').active,false);
+});
+test('shared contribution is once per party, idempotent, persistent, gate checked and grants no invented rewards',()=>{
+  const s=createPlacesService({catalog});s.review(review);
+  const room={roomId:'a',state:'CLEARED',game:{completed:false},stats:{waveCleared:true}};
+  s.setParty('a',{commandId:'pub',visible:true,name:'A',spotId:'p1'});
+  const body={commandId:'contribute',spotId:'p1',expectedInstanceRevision:0};
+  assert.throws(()=>s.contribute(room,body,false),{code:'CONTRIBUTION_NOT_READY'});
+  const result=s.contribute(room,body,true);assert.equal(result.instance.contributions.length,1);assert.equal(result.rewardGranted,false);
+  assert.equal(s.contribute(room,body,false).replayed,true);
+  assert.throws(()=>s.contribute(room,{...body,expectedInstanceRevision:1},true),{code:'IDEMPOTENCY_CONFLICT'});
+  assert.throws(()=>s.contribute(room,{...body,commandId:'second',expectedInstanceRevision:1},true),{code:'ROUND_ALREADY_CONTRIBUTED'});
+  const restored=createPlacesService({catalog});restored.restore(s.durable());assert.equal(restored.contribute(room,body,false).replayed,true);
+  assert.equal(restored.shared('p1',[]).instance.contributions.length,1);
+});
+test('provider port never enables incomplete OAuth and rejects missing or mismatched nonce',async()=>{
+  const p=createAuthProviders();assert.equal(p.describe().google.enabled,false);await assert.rejects(p.verifyGoogle({}),{code:'AUTH_PROVIDER_DISABLED'});
+  const configured=createAuthProviders({googleClientId:'fixture',publicOrigin:'https://example.test',verifyGoogleIdToken:async()=>({sub:'123',nonce:'n'})});
+  assert.equal(configured.describe().google.enabled,false);await assert.rejects(configured.verifyGoogle({credential:'fixture',expectedNonce:'other'}),{code:'AUTH_PROVIDER_REJECTED'});
+  assert.deepEqual(await configured.verifyGoogle({credential:'fixture',expectedNonce:'n'}),{provider:'google',subject:'123'});
+});
+test('QR guests, approval, pending withdrawal, removal, party isolation and disband revoke access',async t=>{
+  const app=createDemoServer({placesCatalog:catalog,publicOrigin:'https://example.test',testAccessKey:'host-key',placeReviewToken:'review-key'});const address=await app.listen(0);const sockets=[];
+  t.after(async()=>{for(const ws of sockets)ws.terminate();await app.close();});
+  const request=async(path,body,token,method='POST')=>{
+    const response=await fetch(`http://127.0.0.1:${address.port}`+path,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});return {status:response.status,body:await response.json()};
+  };
+  const host=(await request('/api/session',{role:'CAR_HOST',nickname:'Host',accessKey:'host-key'})).body;
+  const second=(await request('/api/session',{role:'CAR_HOST',nickname:'Other',accessKey:'host-key'})).body;
+  const room=(await request('/api/rooms',{},host.token)).body, other=(await request('/api/rooms',{},second.token)).body;
+  const base='/api/rooms/'+room.roomId;
+  assert.equal((await request('/api/admin/places/review',review,host.token)).status,401);
+  assert.equal((await request('/api/admin/places/review',review,'review-key')).status,200);
+  const invite=(await request(base+'/party/invite',{},host.token)).body;
+  assert.ok(invite.joinUrl.startsWith('https://example.test/play#invite='));const inviteToken=invite.joinUrl.split('=')[1];
+  const phone=(await request('/api/invites/redeem',{inviteToken,nickname:'Guest',seat:'REAR_LEFT',passengerConfirmed:true})).body;
+  assert.ok(phone.token);assert.equal(phone.pending,true);
+  assert.equal((await request(base+'/route',undefined,phone.token,'GET')).status,403);
+  assert.equal((await request('/api/rooms/'+other.roomId+'/party/disband',{},phone.token)).status,403);
+  assert.equal((await request(base+'/party/disband',{},host.token)).status,200);
+  assert.equal((await request('/api/invites/redeem',{inviteToken,nickname:'Late',seat:'REAR_RIGHT',passengerConfirmed:true})).status,409);
+  assert.equal((await request(base,undefined,phone.token,'GET')).status,409);
+  // A disbanded host may create a fresh room; the previous party ID never revives.
+  const fresh=(await request('/api/rooms',{},host.token)).body;assert.notEqual(fresh.roomId,room.roomId);
+  const b='/api/rooms/'+fresh.roomId;const i=(await request(b+'/party/invite',{},host.token)).body.joinUrl.split('=')[1];
+  const guest=(await request('/api/invites/redeem',{inviteToken:i,nickname:'Pending',seat:'REAR_LEFT',passengerConfirmed:true})).body;
+  assert.equal((await request(b+'/party/leave',{},guest.token)).status,200);
+  const g2=(await request('/api/invites/redeem',{inviteToken:i,nickname:'Other',seat:'REAR_LEFT',passengerConfirmed:true})).body;
+  assert.equal((await request(b+'/approve',{memberId:g2.memberId,allowManualUnknown:true},host.token)).status,200);
+  const ws=new WebSocket(`ws://127.0.0.1:${address.port}/ws`);sockets.push(ws);await new Promise(resolve=>ws.once('open',resolve));ws.send(JSON.stringify({type:'auth',token:g2.token,roomId:fresh.roomId}));
+  await new Promise(resolve=>ws.once('message',resolve));
+  assert.equal((await request(b+'/party/remove',{memberId:g2.memberId},host.token)).status,200);
+  assert.equal((await request(b,undefined,g2.token,'GET')).status,403);
+  assert.equal((await request(b+'/party/leave',{},host.token)).status,409);
+});
