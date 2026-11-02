@@ -56,7 +56,7 @@
       <div class="arena-top">
         <button id="arena-close" type="button" class="arena-chip">← 나가기</button>
         <span id="arena-seat" class="arena-chip quiet"></span>
-        <button id="arena-calibrate" type="button" class="arena-chip">정면 맞추기</button>
+        <button id="arena-calibrate" type="button" class="arena-chip">폰 돌리기 모드</button>
       </div>
       <div class="arena-stats">
         <div><small>조준</small><b id="arena-angle">0°</b></div>
@@ -66,8 +66,9 @@
       </div>
       <p id="arena-note" class="arena-note" role="status" aria-live="polite"></p>
       <div id="arena-lock" class="arena-lock"><p id="arena-lock-text">차량에서 전투 시작을 기다리는 중</p></div>
+      <span id="arena-mode" class="arena-mode">왼쪽 스틱으로 조준 · 화면 톡 = 사격</span>
       <div class="arena-bottom">
-        <span id="arena-mode" class="arena-mode">화면을 끌어 조준</span>
+        <div id="arena-stick" class="arena-stick" role="slider" aria-label="조준 조이스틱" aria-valuemin="-180" aria-valuemax="180"><span id="arena-knob" class="arena-knob"></span></div>
         <button id="arena-fire" type="button" class="arena-fire" aria-label="사격">사격</button>
       </div>
     </section>

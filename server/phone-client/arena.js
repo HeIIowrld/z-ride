@@ -10,7 +10,7 @@
   const diff = (a, b) => norm(a - b);
 
   const A = {
-    open: false, aim: 0, target: 0, mode: 'drag', headingOffset: null, rawHeading: null,
+    open: false, aim: 0, target: 0, mode: 'stick', stick: 0, headingOffset: null, rawHeading: null,
     drag: null, flash: 0, recoil: 0, shake: 0, popups: [], lastShotTime: 0, lastSupplies: null,
     zombieFx: new Map(), audio: null, raf: 0,
   };
@@ -64,11 +64,11 @@
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         if (await DeviceOrientationEvent.requestPermission() !== 'granted') throw new Error('denied');
       }
-    } catch { note('기울기 센서를 쓸 수 없어 화면을 끌어서 조준해요.'); return; }
+    } catch { note('방향 센서를 쓸 수 없어 조이스틱으로 조준해요.'); return; }
     window.addEventListener('deviceorientationabsolute', onOrientation);
     window.addEventListener('deviceorientation', onOrientation);
     setTimeout(() => {
-      if (A.rawHeading == null) { note('이 브라우저는 방향 센서를 주지 않아요. 화면을 끌어서 조준하세요.'); return; }
+      if (A.rawHeading == null) { note('이 브라우저는 방향 센서를 주지 않아요. 조이스틱으로 조준하세요.'); return; }
       // 지금 폰이 가리키는 방향 = 차량 정면(0°)
       A.headingOffset = A.rawHeading; A.mode = 'gyro'; A.target = 0;
       note('정면을 맞췄어요. 폰을 돌려 좀비를 찾으세요!');
@@ -76,19 +76,45 @@
   });
 
   const stage = () => el('arena-canvas');
-  function pointerDown(e) { A.drag = { x: e.clientX, aim: A.target, moved: 0, t: performance.now() }; }
-  function pointerMove(e) {
-    if (!A.drag) return;
-    const dx = e.clientX - A.drag.x; A.drag.moved = Math.max(A.drag.moved, Math.abs(dx));
-    if (A.mode === 'drag' && A.drag.moved > 8) A.target = norm(A.drag.aim - dx * FOV / stage().clientWidth);
+  // 화면을 짧게 톡 = 사격 (조준은 조이스틱/폰 돌리기)
+  let tap = null;
+  stage().addEventListener('pointerdown', e => { tap = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  stage().addEventListener('pointerup', e => {
+    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 12 && performance.now() - tap.t < 450) fire();
+    tap = null;
+  });
+
+  // ── 조이스틱: 미는 만큼 빠르게 회전, 좀비 근처에선 느려짐(조준 보조) ──
+  const MAX_TURN = 120; // 도/초
+  const base = el('arena-stick'), knob = el('arena-knob');
+  let stickId = null;
+  function stickMove(e) {
+    const r = base.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const len = Math.hypot(dx, dy);
+    if (len > R) { dx *= R / len; dy *= R / len; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    const x = dx / R;
+    A.stick = Math.abs(x) < .12 ? 0 : Math.sign(x) * ((Math.abs(x) - .12) / .88) ** 1.6;
   }
-  function pointerUp() {
-    const d = A.drag; A.drag = null;
-    if (d && d.moved <= 8 && performance.now() - d.t < 450) fire(); // 짧게 톡 = 사격
+  base.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    stickId = e.pointerId; base.setPointerCapture(e.pointerId); base.classList.add('active');
+    if (A.mode === 'gyro') { A.mode = 'stick'; note('조이스틱 조준으로 바꿨어요.'); }
+    stickMove(e);
+  });
+  base.addEventListener('pointermove', e => { if (e.pointerId === stickId) stickMove(e); });
+  const stickEnd = e => { if (e.pointerId !== stickId) return; stickId = null; A.stick = 0; knob.style.transform = ''; base.classList.remove('active'); };
+  base.addEventListener('pointerup', stickEnd);
+  base.addEventListener('pointercancel', stickEnd);
+  function turnSpeed() {
+    if (!A.stick) return 0;
+    const near = (room?.zombies || []).filter(z => z.hp > 0 && inSector(z.angleDeg))
+      .map(z => Math.abs(diff(z.angleDeg, A.aim))).sort((a, b) => a - b)[0];
+    const assist = near != null && near < 10 ? .4 : 1;
+    return A.stick * MAX_TURN * assist;
   }
-  stage().addEventListener('pointerdown', pointerDown);
-  window.addEventListener('pointermove', pointerMove);
-  window.addEventListener('pointerup', pointerUp);
+
   el('arena-fire').addEventListener('click', ev => { ev.stopPropagation(); fire(); });
 
   // ── 사격: 판정은 서버 ────────────────────────────────────
@@ -296,7 +322,7 @@
     el('arena-lock-text').textContent = !gateOpen() ? '주행 중 — 주차(P) 후 차량에서 전투를 시작해요' : room?.state === 'CLEARED' ? '거점 공략 완료! 🎉' : '차량에서 전투 시작을 기다리는 중';
     el('arena-fire').classList.toggle('locked', locked);
     el('arena-fire').disabled = !ready;
-    el('arena-mode').textContent = A.mode === 'gyro' ? '폰을 돌려 조준' : '화면을 끌어 조준';
+    el('arena-mode').textContent = A.mode === 'gyro' ? '폰을 돌려 조준 중' : '왼쪽 스틱으로 조준 · 화면 톡 = 사격';
     el('arena-seat').textContent = (typeof seats !== 'undefined' && seats[me?.seat]) || '';
   }
 
@@ -304,6 +330,7 @@
   function frame(t) {
     if (!A.open) return;
     const dt = Math.min(.05, (t - last) / 1000); last = t;
+    if (A.mode === 'stick') A.target = norm(A.target + turnSpeed() * dt);
     A.aim = norm(A.aim + diff(A.target, A.aim) * Math.min(1, dt * (A.mode === 'gyro' ? 12 : 18)));
     A.flash = Math.max(0, A.flash - dt * 6); A.recoil = Math.max(0, A.recoil - dt * 7); A.shake = Math.max(0, A.shake - dt);
     for (const p of A.popups) p.life -= dt * 1.2; A.popups = A.popups.filter(p => p.life > 0);
