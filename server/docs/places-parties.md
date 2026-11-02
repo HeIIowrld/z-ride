@@ -73,7 +73,7 @@ QR 교체·해산·서버 재시작 때 과거 QR은 무효다. inviteToken과 �
 - 승인 게임 소켓에서 `{type:"world.subscribe",commandId,spotId}` → `world.snapshot`. 변경 시 spot 단위 최신 snapshot을 보낸다. 한 소켓은 스팟 하나 구독. world.unsubscribe로 해제한다. 전체 방 snapshot·원시 경로/GPS·cabin·역할 nonce·참가 코드는 공유하지 않는다. 재연결 시 재구독하며 최신 worldRevision을 읽는다. 이벤트 재생/전역 채팅/모든 주변 파티 검색은 이번 구현 범위가 아니다.
 - HOST POST `…/party/contribute`: commandId, spotId, expectedInstanceRevision. 공개 선택 스팟·신선한 주차 gate·서버가 판정한 방어 클리어/임무 완료가 필요하다. 한 partyId가 인스턴스당 1회 기여. 세 파티 기여로 완료한다.
 
-동시 기여는 instance revision으로 검사한다. 같은 명령은 같은 결과를 재전송하며 변경 본문은 충돌이다. receipts/기여/검수 상태를 SQLite 커밋한 뒤 ACK/공유 snapshot을 보낸다. **위치 방문 증명·경제 보상 지급은 하지 않는다(rewardGranted=false).** 현 단계의 인스턴스는 스팟당 지속되는 1개이며 시즌 리셋/다중 인스턴스 정책은 추후 추가한다.
+동시 기여는 instance revision으로 검사한다. 같은 명령은 같은 결과를 재전송하며 변경 본문은 충돌이다. 완료된 라운드 하나는 한 스팟에만 기여할 수 있으며 같은 클리어를 스팟 변경으로 반복 제출할 수 없다. receipts/기여/검수 상태를 SQLite 커밋한 뒤 ACK/공유 snapshot을 보낸다. **위치 방문 증명·경제 보상 지급은 하지 않는다(rewardGranted=false).** 현 단계의 인스턴스는 스팟당 지속되는 1개이며 시즌 리셋/다중 인스턴스 정책은 추후 추가한다.
 
 ## 인증 연동 준비
 

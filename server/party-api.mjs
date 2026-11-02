@@ -66,6 +66,7 @@ export function createPartyApi(ctx) {
     }
     if (action==='party/disband') {
       ctx.pause(room,'PARTY_DISBANDED');room.closedAt=Date.now();room.joinUsed=true;room.joinExpiresAt=0;ctx.joinCodes.delete(room.joinCode);
+      room.vehicle.hostConnected=false;room.vehicle.receivedAt=0;room.vehicle.foreground=false;
       ctx.places.closeParty(room.roomId);for(const [key,invite] of invites)if(invite.roomId===room.roomId)invites.delete(key);
       for(const m of room.members.values()) {const s=[...ctx.sessions.values()].find(s=>s.sessionId===m.sessionId);if(s)s.roomId=null;if(m.socket)ctx.closeSocket(m.socket,4410,'Party disbanded');m.socket=null;}
       ctx.change(room);return {status:200,data:{partyId:room.roomId,status:'DISBANDED'}};

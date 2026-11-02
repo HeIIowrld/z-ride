@@ -193,6 +193,7 @@ export function createDemoServer(options = {}) {
   function gate(room) {
     const v = room.vehicle;
     const reasons = [];
+    if (room.closedAt) reasons.push('PARTY_DISBANDED');
     if (!v.hostConnected) reasons.push('CAR_DISCONNECTED');
     if (!v.foreground) reasons.push('APP_INACTIVE');
     if (Date.now() - v.receivedAt > leaseMs) reasons.push('LEASE_EXPIRED');
