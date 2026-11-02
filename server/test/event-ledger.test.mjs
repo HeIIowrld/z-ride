@@ -55,5 +55,5 @@ test('expiry, cancellation, downtime and legacy migration cannot mint completion
   s=createEventLedger(options);s.restore(null,{p:{instanceId:'legacy',spotId:'p',revision:3,target:3,contributions:[{partyId:'a'}],completed:true}});
   assert.equal(s.current('p').outcome,'SUCCEEDED');assert.equal(s.rewards(a).awards.length,0);
   now+=1000;s.tick();assert.notEqual(s.current('p').instanceId,'legacy');assert.equal(s.current('p').cycle,2);
-  const oldRoom=room('legacy-room');oldRoom.game.completed=true;oldRoom.game.stageId='COMPLETE';s.restoreRoom(oldRoom);assert.equal(s.results(oldRoom).results[0].outcome,'SUCCEEDED');assert.equal(s.rewards(oldRoom).awards.length,0);
+  const oldRoom=room('legacy-room');oldRoom.closedAt=now;oldRoom.game.completed=true;oldRoom.game.stageId='COMPLETE';s.restoreRoom(oldRoom);assert.equal(s.results(oldRoom).results[0].outcome,'SUCCEEDED');assert.equal(s.rewards(oldRoom).awards.length,0);
 });

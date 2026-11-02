@@ -69,8 +69,8 @@ export function createEventLedger({clock = Date.now, durationMs = 1800000, respa
     }
     const b=binding(room),instance=b&&state.instances[b.instanceId];
     if(b&&!live(instance)&&!room.game.completed)changed=finish(run,instance?.outcome==='EXPIRED'?'EXPIRED':'CANCELLED',room)||changed;
-    else if(room.closedAt)changed=finish(run,'CANCELLED',room)||changed;
     else if(room.game.completed){const b=binding(room);changed=finish(run,b&&!live(state.instances[b.instanceId])?'EXPIRED':'SUCCEEDED',room)||changed;}
+    else if(room.closedAt)changed=finish(run,'CANCELLED',room)||changed;
     if(changed)state.revision++;return changed;
   }
   function join(room, body) {
