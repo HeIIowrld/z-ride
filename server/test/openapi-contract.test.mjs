@@ -80,7 +80,7 @@ test('4D contract separates logical API state from native-only physical effect e
   assert.ok(spec.components.schemas.EffectSummary.required.includes('controlVersion'));
   assert.ok(spec.components.schemas.EffectSessionRequest.allOf[0].then.required.includes('vehicleConnectionId'));
   assert.ok(spec.components.schemas.EffectSessionRequest.allOf[0].then.required.includes('expectedControlVersion'));
-  assert.equal(spec.components.schemas.Health.properties.contractRevision.const, 7);
+  assert.equal(spec.components.schemas.Health.properties.contractRevision.const, 8);
   assert.equal(protocol.vehicleEffects.executionReport.type, 'vehicle.effect.report');
   assert.ok(spec.paths[base + '/scene'].post.responses['409']['x-error-codes'].includes('GAME_SCENE_MANAGED'));
 });
@@ -108,7 +108,7 @@ test('server-state contract separates durable mission data from driver/cabin/eff
   assert.equal(spec.components.schemas.GameLogicalState.properties.driverSessionId, undefined);
   assert.equal(spec.components.schemas.GameLogicalState.properties.driverControl, undefined);
   assert.equal(spec['x-cabin-websocket'].messageSchema.$ref, '#/components/schemas/CabinReport');
-  assert.equal(protocol.serverState.revision, 7);
+  assert.equal(protocol.serverState.revision, 8);
   assert.equal(protocol.cabin.reportType, 'vehicle.cabin.report');
   assert.equal(spec.paths['/api/rooms'].post.requestBody.required, false);
   assert.ok(spec.paths['/api/rooms'].post.responses['400']['x-error-codes'].includes('INVALID_JSON'));

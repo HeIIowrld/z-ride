@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-export const WORLD_VERSION = 'seoul-demo-v1';
+export const WORLD_VERSION = 'seoul-demo-v2-party-loot';
 export const LOCATION_POLICY = Object.freeze({ collectRadiusM: 80, maxAccuracyM: 50, maxMeasuredAgeMs: 10000, maxQueryRadiusM: 2000 });
 const SOURCES = ['ANDROID_GPS', 'ANDROID_NETWORK', 'ANDROID_FUSED', 'EMULATOR_GPS', 'MOCK'];
 const POINTS = Object.freeze([
@@ -34,7 +34,25 @@ function checkedLocation(input) {
   return { ...point, accuracyM: input.accuracyM, measuredAgeMs: input.measuredAgeMs, locationSource: input.source, isMock: input.isMock, validationTier };
 }
 
-export function createWorldService({ clock = Date.now, maxReceipts = 10000 } = {}) {
+export function createWorldService({ clock = Date.now, maxReceipts = 10000, respawnMs = 300000 } = {}) {
+  if(!Number.isInteger(respawnMs)||respawnMs<1000||respawnMs>3600000)throw new Error('respawnMs must be 1000..3600000');
+  function latestClaim(room,spawnId) {
+    let found;
+    for(const [key,value] of room.partyWorldClaims)if(key.endsWith(':'+spawnId)&&(!found||value.at>found.value.at))found={key,value};
+    if(!found)return null;
+    return {...found,value:{...found.value,claimId:found.value.claimId??hash({key:found.key,at:found.value.at}),respawnAt:found.value.respawnAt??found.value.at+respawnMs}};
+  }
+  function tick(room) {
+    let changed=false;
+    for(const spawn of POINTS){const last=latestClaim(room,spawn.spawnId);if(last&&!last.value.respawnNotified&&last.value.respawnAt<=clock()){room.partyWorldClaims.set(last.key,{...last.value,respawnNotified:true});changed=true;}}
+    for(const [id,value] of room.partyPickupRespawns)if(!value.respawnNotified&&value.respawnAt<=clock()){room.partyPickupClaims.delete(id);room.partyPickupRespawns.set(id,{...value,respawnNotified:true});changed=true;}
+    return changed;
+  }
+  function consumeFixture(room,pickupId) {
+    const old=room.partyPickupRespawns.get(pickupId);
+    if(room.partyPickupClaims.has(pickupId)&&(!old||old.respawnAt>clock()))throw fail('ALREADY_COLLECTED','This party pickup is waiting to respawn',409);
+    room.partyPickupClaims.add(pickupId);room.partyPickupRespawns.set(pickupId,{claimId:randomUUID(),at:clock(),respawnAt:clock()+respawnMs,respawnNotified:false});
+  }
   function schedule() {
     const now = clock(); const date = new Date(now).toISOString().slice(0, 10);
     const opensAt = Date.parse(date + 'T00:00:00.000Z');
@@ -50,12 +68,14 @@ export function createWorldService({ clock = Date.now, maxReceipts = 10000 } = {
     if (!member.worldClaims) member.worldClaims = new Map();
     return member.worldClaims;
   }
-  function nearby(member, input) {
+  function nearby(room, member, input) {
     const center = coordinate(input); const radiusM = input.radiusM ?? 500;
     if (!finite(radiusM) || radiusM < 1 || radiusM > LOCATION_POLICY.maxQueryRadiusM) throw fail('INVALID_RADIUS', 'radiusM must be 1..2000 metres');
     const world = spawns();
     return { worldVersion: WORLD_VERSION, scheduleId: world.scheduleId, serverTime: world.now,
-      spawns: world.items.filter(p => distanceMeters(center, p) <= radiusM).map(p => ({ ...p, claimed: claims(member).has(world.scheduleId + ':' + p.spawnId) })),
+      spawns: world.items.filter(p => distanceMeters(center, p) <= radiusM).map(p => {const last=latestClaim(room,p.spawnId);return {...p,claimed:!!last&&last.value.respawnAt>world.now,respawnAt:last?.value.respawnAt??null,spawnCycleId:last?'respawn:'+last.value.claimId:'initial:'+world.scheduleId};}).filter(p=>input.includeClaimed===true||!p.claimed),
+      collectionRevision: room.collectionRevision, claimScope:'PARTY',
+      respawnPolicy:{cooldownMs:respawnMs,clock:'SERVER'},
       locationPolicy: LOCATION_POLICY, pointKind: 'TEST_GAME_POINT_NOT_CHARGER',
       browsingIsNotLocationProof: true, hardwareAttested: false };
   }
@@ -87,11 +107,15 @@ export function createWorldService({ clock = Date.now, maxReceipts = 10000 } = {
     if (body.version !== WORLD_VERSION) throw fail('WORLD_VERSION_CONFLICT', 'Current spawn version is required', 409);
     if (world.now < spawn.opensAt || world.now >= spawn.expiresAt) throw fail('SPAWN_EXPIRED', 'Spawn is not active', 409);
     const key = world.scheduleId + ':' + spawn.spawnId;
-    if (claims(member).has(key)) throw fail('ALREADY_CLAIMED', 'This passenger already claimed this spawn in this UTC schedule', 409);
+    const last=latestClaim(room,spawn.spawnId);
+    if(last&&last.value.respawnAt>world.now)throw fail('ALREADY_CLAIMED','This party spawn is waiting to respawn',409);
+    const cycle=last?'respawn:'+last.value.claimId:'initial:'+world.scheduleId;
+    if(body.spawnCycleId!==cycle)throw fail('SPAWN_CYCLE_CONFLICT','Refresh nearby for the current respawn cycle',409);
     const location = checkedLocation(body.location);
     const distanceM = distanceMeters(location, spawn);
     if (distanceM > spawn.collectRadiusM) throw fail('OUTSIDE_SPAWN', 'Reported location is outside the 80 metre collection radius', 409);
     claims(member).set(key, { at: world.now, validationTier: location.validationTier });
+    room.partyWorldClaims.set(key,{memberId:member.memberId,at:world.now,claimId:randomUUID(),respawnAt:world.now+respawnMs,respawnNotified:false,validationTier:location.validationTier});
     room.collection.inventory.supplies += spawn.amount;
     // Do not broadcast the spawn ID/coordinates from another phone's claim.
     room.collection.lastCollect = { memberId: member.memberId, pickupId: 'WORLD_CLAIM', amount: spawn.amount,
@@ -107,5 +131,5 @@ export function createWorldService({ clock = Date.now, maxReceipts = 10000 } = {
   function pruneQuality(member) {
     if (member.locationQualitySummary?.expiresAt <= clock()) delete member.locationQualitySummary;
   }
-  return { nearby, observe, claim, pruneQuality };
+  return { nearby, observe, claim, pruneQuality, tick, consumeFixture, now:clock, respawnMs };
 }

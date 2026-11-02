@@ -11,7 +11,7 @@
       "response": {
         "ok": "boolean",
         "protocol": "zride-demo-v1",
-        "contractRevision": 7
+        "contractRevision": 8
       }
     },
     {
@@ -110,7 +110,7 @@
         "commandId": "unique-id",
         "spawnId": "SEOUL_CITYHALL_TEST_A",
         "scheduleId": "2026-11-01",
-        "version": "seoul-demo-v1",
+        "version": "seoul-demo-v2-party-loot",
         "passengerConfirmed": true,
         "location": {
           "latitude": 37.5665,
@@ -401,7 +401,8 @@
     "vehicle.effect.intent",
     "vehicle.effect.stop",
     "world.snapshot",
-    "world.unavailable"
+    "world.unavailable",
+    "collection.changed"
   ],
   "resultExample": {
     "type": "result",
@@ -543,7 +544,7 @@
   ],
   "wave": "All three targets dead => CLEARED and new epoch; explicit host round.start resets HP",
   "pendingProjection": "Only own pending member; vehicle states redacted UNKNOWN, other members and zombies hidden, stats zero",
-  "contractRevision": 7,
+  "contractRevision": 8,
   "collectionCommandExample": {
     "type": "command",
     "commandId": "unique-id",
@@ -589,7 +590,7 @@
     "maxMeasuredAgeMs": 10000,
     "maxQueryRadiusM": 2000,
     "pointKind": "TEST_GAME_POINT_NOT_CHARGER",
-    "worldVersion": "seoul-demo-v1",
+    "worldVersion": "seoul-demo-v2-party-loot",
     "schedule": "UTC day",
     "timestamps": "Unix milliseconds",
     "storage": "Configured SQLite checkpoint persists claims/receipts/inventory; raw phone position and temporary quality summaries are not persisted or broadcast.",
@@ -734,7 +735,7 @@
     }
   },
   "serverState": {
-    "revision": 7,
+    "revision": 8,
     "docs": "docs/server-state.md",
     "scenarioIds": [
       "generic-coop-v1",
@@ -850,5 +851,32 @@
     "shared": "world.subscribe / world.unsubscribe use commandId+spotId; world.snapshot is spot-scoped public summary, not room snapshot; no location proof or rewards",
     "persistence": "reviews,party visibility,shared progress and contribution receipts saved; QR capabilities/routes/subscriptions reset",
     "oauth": "auth-providers.mjs adapter port; Google and Pleos login disabled, no external credentials accepted"
+  },
+  "deployment": {
+    "environment": [
+      "ZRIDE_ALLOWED_ORIGINS",
+      "ZRIDE_OBSERVER_ALLOWED_ORIGINS",
+      "ZRIDE_TRUSTED_PROXY_ADDRESSES",
+      "ZRIDE_BROWSER_API_ORIGIN",
+      "ZRIDE_PHONE_PUBLIC_URL"
+    ],
+    "contract": "docs/domain-handoff.md",
+    "configurationAsset": "/play/config.js",
+    "dnsOwnership": "Separate personal-project session; not modified automatically"
+  },
+  "collectionConsistency": {
+    "inventory": "Party-shared supplies. One acquisition per party+spawn+respawn cycle; separate parties are independent.",
+    "nearby": "Default omits party pickups during cooldown. includeClaimed=true includes claimed history and respawnAt. Other parties keep their own items.",
+    "invalidation": "snapshot.collection.revision and collection.changed refreshNearby=true; clients refresh nearby and discard stale responses. Raw GPS is not broadcast.",
+    "migration": "Legacy active/departed member claims union into the party ledger; existing inventory and successful receipts preserved.",
+    "replay": "Same successful command/body replays without another reward. Concurrent different members: exactly one succeeds, others ALREADY_CLAIMED.",
+    "respawn": {
+      "cooldownMs": 300000,
+      "environment": "ZRIDE_PICKUP_RESPAWN_MS (1000..3600000)",
+      "authority": "SERVER_CLOCK",
+      "persistence": "Stored respawnAt survives restart/reconnect. UTC schedule rollover does not shorten cooldown.",
+      "cycle": "nearby.spawnCycleId must be echoed on claim; stale cycle => SPAWN_CYCLE_CONFLICT. Replay of an old successful command returns its original receipt without a new reward.",
+      "notification": "collection.changed and snapshot.collection.revision invalidate all party caches once at expiry. Demo fixture IDs leave collectedPickupIds at expiry."
+    }
   }
 }

@@ -1,5 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const apiOrigin=window.ZRIDE_CONFIG?.apiOrigin||location.origin;
 const seats = { FRONT_PASSENGER: '앞 동승석 · 전방 사수', REAR_LEFT: '뒤 왼쪽 · 좌측 방어', REAR_RIGHT: '뒤 오른쪽 · 우측 방어', DRIVER: '운전자 · 지원 담당' };
 const states = { LOBBY: '시작 대기', READY: '시작 준비', PLAYING: '전투 진행', PAUSED: '전투 중지', CLEARED: '거점 공략 완료', PENDING: '승인 대기' };
 const gateNames = { CAR_DISCONNECTED: '차량 연결 끊김', APP_INACTIVE: '차량 앱 비활성', LEASE_EXPIRED: '차량 보고 만료', UX_RESTRICTED: '주행 중 전투 제한', UX_UNKNOWN: '차량 UX 확인 중', GEAR_NOT_P: '주차 후 전투 가능', GEAR_UNKNOWN: '차량 기어 확인 중', MEMBER_PENDING: '차량 승인 대기' };
@@ -21,7 +22,7 @@ function reset(clear = true) {
 async function post(path, body, token) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(path, { method: 'POST', cache: 'no-store', signal: controller.signal,
+    const response = await fetch(new URL(path,apiOrigin), { method: 'POST', cache: 'no-store', signal: controller.signal,
       headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
     const value = await response.json();
     if (!response.ok) throw new Error(value.error?.code || 'HTTP_' + response.status);
@@ -38,7 +39,7 @@ function connect() {
   if (!credentials) return;
   const current = ++generation; clearTimeout(retryTimer); memberId = null;
   status(retry ? '재연결 중…' : '방 연결 중…');
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  socket = new WebSocket(apiOrigin.replace(/^http/,'ws') + '/ws');
   socket.onopen = () => { if (current === generation && credentials) socket.send(JSON.stringify({ type: 'auth', token: credentials.token, roomId: credentials.roomId })); };
   socket.onmessage = event => {
     if (current !== generation) return;
