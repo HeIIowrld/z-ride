@@ -4,9 +4,36 @@ import { createPlacesService } from '../places.mjs';
 import { createDemoServer } from '../server.mjs';
 import { createAuthProviders } from '../auth-providers.mjs';
 import { WebSocket } from 'ws';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createStateStore } from '../state-store.mjs';
 const catalog={version:'fixture-v1',places:[{placeId:'p1',name:'Fixture parking',category:'PARKING',latitude:37.5665,longitude:126.978,sourceId:'node/1'},{placeId:'p2',name:'Unknown parking',category:'PARKING',latitude:37.5666,longitude:126.978}]};
 const point={latitude:37.5665,longitude:126.978};
 const review={commandId:'review',placeId:'p1',expectedRevision:0,accessStatus:'VERIFIED',enabled:true,entrance:point,playZone:{...point,radiusM:40},parkingAllowed:true,dwellAllowed:true,evidence:'Synthetic test review only'};
+test('two-party API demo commits shared progress to real SQLite without routes or QR capabilities',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'zride-shared-')),dbPath=join(directory,'state.sqlite');
+  const demoCatalog={version:'fixture-demo',places:[{placeId:'DEMO_PARKING_SPOT',name:'Synthetic',category:'PARKING',...point,isDemo:true}]};
+  const app=createDemoServer({dbPath,placesCatalog:demoCatalog,placeReviewToken:'fixture-review',publicOrigin:'https://example.test'});
+  try {
+    const address=await app.listen(0);
+    const result=await promisify(execFile)(process.execPath,[fileURLToPath(new URL('../tools/spots-party-demo.mjs',import.meta.url)),`http://127.0.0.1:${address.port}`],{env:{...process.env,ZRIDE_PLACE_REVIEW_TOKEN:'fixture-review',ZRIDE_TEST_ACCESS_KEY:''},timeout:20000});
+    assert.ok(result.stdout.includes('"contributions":2'));assert.ok(result.stdout.includes('"qrGuests":4'));
+    await app.close();
+    const store=createStateStore(dbPath);const saved=store.load();store.close();
+    assert.equal(saved.places.instances.DEMO_PARKING_SPOT.contributions.length,2);
+    assert.equal(saved.places.reviews.DEMO_PARKING_SPOT.accessStatus,'VERIFIED');
+    assert.equal(Object.keys(saved.places.receipts).length,2);
+    assert.equal(Object.keys(saved.places.completedRuns).length,2);
+    assert.equal(JSON.stringify(saved).includes('geometry'),false);
+    assert.equal(JSON.stringify(saved).includes('inviteToken'),false);
+    assert.ok(saved.rooms.every(room=>room.closedAt));
+    const restored=createDemoServer({dbPath,placesCatalog:demoCatalog});await restored.close();
+  } finally { await app.close(); const target=resolve(directory);assert.equal(dirname(target),resolve(tmpdir()));assert.ok(basename(target).startsWith('zride-shared-'));await rm(target,{recursive:true,force:true}); }
+});
 test('catalog is fail-closed and route corridor uses reviewed entrances, revisions and TTL',()=>{
   let now=1000;const s=createPlacesService({catalog,clock:()=>now,routeTtlMs:2000});
   assert.equal(s.nearby(point).places.length,0);assert.equal(s.nearby({...point,eligibleOnly:false}).places.length,2);
