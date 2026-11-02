@@ -31,7 +31,7 @@ test('phone world nearby and limited client-location claim validation', async ()
     assert.equal((await request('/api/world/nearby?lat=37.5&lon=127',undefined,phone.token,'GET')).status,405);
     evidence.push('authenticated approved passenger only; named WGS84 coordinates, bounded query and POST-only privacy');
     const spawn=nearby.spawns[0];
-    const makeClaim=(overrides={})=>({commandId:randomUUID(),spawnId:spawn.spawnId,scheduleId:nearby.scheduleId,version:spawn.version,passengerConfirmed:true,
+    const makeClaim=(overrides={})=>({commandId:randomUUID(),spawnId:spawn.spawnId,scheduleId:nearby.scheduleId,version:spawn.version,spawnCycleId:spawn.spawnCycleId,passengerConfirmed:true,
       location:{latitude:spawn.latitude,longitude:spawn.longitude,accuracyM:5,measuredAgeMs:500,source:'EMULATOR_GPS',isMock:false},...overrides});
     for (const [alter,code] of [
       [{accuracyM:51},'LOCATION_INACCURATE'],[{accuracyM:null},'LOCATION_INACCURATE'],
@@ -51,12 +51,12 @@ test('phone world nearby and limited client-location claim validation', async ()
     assert.equal(first.claimed,true);assert.equal(first.inventory.supplies,1);assert.equal(first.locationValidated,true);assert.equal(first.hardwareAttested,false);assert.equal(first.validationTier,'MOCK_DEMO');
     assert.equal(first.isMock,false); evidence.push('emulator source is MOCK_DEMO even when Location.isMock is false; no hardware-attestation claim');
     const replay=await post('/api/world/claim',claim,phone.token);assert.equal(replay.replayed,true);assert.equal(replay.inventory.supplies,1);
-    const reordered={location:claim.location,passengerConfirmed:true,version:claim.version,scheduleId:claim.scheduleId,spawnId:claim.spawnId,commandId:claim.commandId};
+    const reordered={location:claim.location,passengerConfirmed:true,version:claim.version,spawnCycleId:claim.spawnCycleId,scheduleId:claim.scheduleId,spawnId:claim.spawnId,commandId:claim.commandId};
     assert.equal((await post('/api/world/claim',reordered,phone.token)).replayed,true);
     assert.equal((await request('/api/world/claim',{...claim,location:{...claim.location,accuracyM:6}},phone.token)).body.error.code,'IDEMPOTENCY_CONFLICT');
     assert.equal((await request('/api/world/claim',makeClaim(),phone.token)).body.error.code,'ALREADY_CLAIMED');
     evidence.push('same command replay has one reward; equivalent key order works; changed body conflicts and new-ID duplicate spawn is rejected');
-    const after=await post('/api/world/nearby',query,phone.token);assert.equal(after.spawns.find(p=>p.spawnId===spawn.spawnId).claimed,true);
+    const after=await post('/api/world/nearby',{...query,includeClaimed:true},phone.token);assert.equal(after.spawns.find(p=>p.spawnId===spawn.spawnId).claimed,true);
     const hostSnapshot=await request('/api/rooms/'+room.roomId,undefined,host.token,'GET');
     assert.equal(hostSnapshot.body.room.collection.inventory.supplies,1);
     assert.equal(hostSnapshot.body.room.collection.lastCollect.pickupId,'WORLD_CLAIM');
@@ -66,8 +66,8 @@ test('phone world nearby and limited client-location claim validation', async ()
     const other=await post('/api/session',{role:'PHONE',nickname:'Second map passenger'});
     const otherJoin=await post('/api/join',{joinCode:codeRefresh.joinCode,seat:'REAR_LEFT'},other.token);
     await post('/api/rooms/'+room.roomId+'/approve',{memberId:otherJoin.memberId},host.token);
-    const otherNearby=await post('/api/world/nearby',query,other.token);assert.equal(otherNearby.spawns[0].claimed,false);
-    evidence.push('claim projection is per passenger, not shared as another phone claim list');
+    const otherNearby=await post('/api/world/nearby',query,other.token);assert.ok(!otherNearby.spawns.some(p=>p.spawnId===spawn.spawnId));
+    evidence.push('party-wide claim removes the item from every member nearby response; other party inventory remains isolated');
     now+=86400000;
     assert.equal((await request('/api/world/claim',makeClaim({spawnId:nearby.spawns[1].spawnId}),phone.token)).body.error.code,'SPAWN_EXPIRED');
     const next=await post('/api/world/nearby',query,phone.token);assert.equal(next.scheduleId,'2026-11-02');assert.ok(next.spawns.every(p=>!p.claimed));

@@ -62,7 +62,7 @@ export function createPartyApi(ctx) {
       for (const [id,old] of invites) if (old.roomId===room.roomId || old.expiresAt<=Date.now()) invites.delete(id);
       const inviteToken=randomBytes(24).toString('base64url'),expiresAt=Date.now()+120000;
       invites.set(digest(inviteToken).toString('hex'),{roomId:room.roomId,expiresAt,used:0});
-      return {status:201,data:{partyId:room.roomId,joinUrl:ctx.publicOrigin+'/play#invite='+inviteToken,expiresAt,maxUses:3,requiresHostApproval:true,qrPayloadType:'URL'}};
+      return {status:201,data:{partyId:room.roomId,joinUrl:(ctx.phonePublicUrl||ctx.publicOrigin+'/play')+'#invite='+inviteToken,expiresAt,maxUses:3,requiresHostApproval:true,qrPayloadType:'URL'}};
     }
     if (action==='party/disband') {
       ctx.pause(room,'PARTY_DISBANDED');room.closedAt=Date.now();room.joinUsed=true;room.joinExpiresAt=0;ctx.joinCodes.delete(room.joinCode);

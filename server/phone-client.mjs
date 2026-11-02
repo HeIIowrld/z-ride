@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { checkedOrigin } from './request-policy.mjs';
 
 const FILES = new Map([
   ['/play', ['index.html', 'text/html; charset=utf-8']],
@@ -8,10 +9,12 @@ const FILES = new Map([
 ]);
 
 /** Same-origin reference PHONE client. Credentials stay in browser memory. */
-export function createPhoneClientService() {
+export function createPhoneClientService({apiOrigin=''}={}) {
+  if(apiOrigin)apiOrigin=checkedOrigin(apiOrigin);
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, {
     bytes: readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
   }]));
+  assets.set('/play/config.js',{bytes:Buffer.from('window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin})+');\n'),type:'text/javascript; charset=utf-8'});
   return {
     handleHttp(req, res, path) {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
@@ -30,7 +33,7 @@ export function createPhoneClientService() {
       }
       res.writeHead(200, {
         'content-type': file.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'" + socketSources + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
         'referrer-policy': 'no-referrer', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       });
       res.end(req.method === 'HEAD' ? undefined : file.bytes); return true;

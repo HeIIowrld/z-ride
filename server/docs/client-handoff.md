@@ -1,4 +1,6 @@
-# 앱 팀 전달용 서버 연결 계약 — revision 7
+# 앱 팀 전달용 서버 연결 계약 — revision 8
+
+revision 8은 파티당 1회 수집·5분 리스폰·collection.changed 캐시 무효화와 도메인 분리 설정을 추가한다. [수집/리스폰 계약](collection-respawn.md), [도메인 인계](domain-handoff.md)를 확인한다.
 
 revision 7은 원본 장소 조회·검수·경로 주변 필터·스팟별 공개 파티/공동 기여와 QR 게스트·탈퇴·제거·해산을 추가한다. 전체 REST는 36개다. [장소·파티 계약](places-parties.md)의 권한·원본 import·QR URL·라이프사이클·비활성 OAuth 포트를 우선 확인한다. Google/Pleos 로그인 자체는 아직 활성화하지 않는다.
 
@@ -67,14 +69,15 @@ approve의 `seat`는 생략/null이면 기존 요청 좌석을 유지한다. PLA
 {"latitude":37.5665,"longitude":126.978,"radiusM":500}
 ```
 
-위 본문을 nearby로 보내고 응답의 `spawnId`, `scheduleId`, `version`을 그대로 사용한다. 현재 지점 3개는 서울 시청 주변 `TEST_GAME_POINT_NOT_CHARGER`이며 실제 충전소 데이터가 아니다. radiusM은 생략/null이면 500, 숫자는 1~2000m다. `claimed`는 요청한 멤버 본인의 상태다.
+위 본문을 nearby로 보내고 응답의 `spawnId`, `scheduleId`, `version`, `spawnCycleId`을 그대로 사용한다. 현재 지점 3개는 서울 시청 주변 `TEST_GAME_POINT_NOT_CHARGER`이며 실제 충전소 데이터가 아니다. radiusM은 생략/null이면 500, 숫자는 1~2000m다. 기본 목록은 파티가 획득한 항목을 리스폰까지 제외한다. includeClaimed=true로 쿨다운과 respawnAt을 조회한다.
 
 ```json
 {
   "commandId":"claim-001",
   "spawnId":"SEOUL_CITYHALL_TEST_A",
   "scheduleId":"2026-11-01",
-  "version":"seoul-demo-v1",
+  "version":"seoul-demo-v2-party-loot",
+  "spawnCycleId":"현재 nearby 응답의 값",
   "passengerConfirmed":true,
   "location":{
     "latitude":37.5665,"longitude":126.978,
@@ -88,7 +91,7 @@ approve의 `seat`는 생략/null이면 기존 요청 좌석을 유지한다. PLA
 
 `locationValidated:true`는 제출 값의 형식·품질·거리 조건 통과다. `hardwareAttested:false`이며 좌표·시간·동승자 여부가 독립 인증된 것은 아니다. source가 EMULATOR_GPS/MOCK 또는 isMock=true이면 `MOCK_DEMO`; 일반 입력도 `CLIENT_REPORTED` 수준이다.
 
-- 같은 멤버·spawn·UTC 일정의 보상은 한 번이다. 새 ID로 반복하면 `ALREADY_CLAIMED`다.
+- 같은 파티·spawn·리스폰 주기의 보상은 한 번이다. 쿨다운 중에는 `ALREADY_CLAIMED`, 리스폰 후 지난 주기 요청은 `SPAWN_CYCLE_CONFLICT`다. 기본 5분 뒤 다시 획득할 수 있다.
 - 전송 결과를 못 받았을 때 **같은 commandId·같은 JSON 값**으로 재시도한다. measuredAgeMs까지 수정하면 `IDEMPOTENCY_CONFLICT`다. 새 위치를 쓰는 새 시도에는 새 commandId를 쓴다. world는 객체 키 순서를 정규화하지만 값은 그대로여야 한다.
 - 성공 영수증의 `inventory`는 당시 값이다. `replayed:true`일 때도 과거 재고가 유지된다. 최신 재고는 GET room/WS snapshot이 권위이며 영수증으로 덮어쓰지 않는다. HTTP 영수증에 currentInventory/stateVersion 필드는 없다.
 - claim은 snapshot broadcast 후 HTTP 결과가 도착할 수 있다. HTTP와 WS 이벤트 순서를 가정하지 않는다.

@@ -36,7 +36,7 @@ async function seed(request) {
   const nearby = (await request('/api/world/nearby', { latitude: 37.5665, longitude: 126.978, radiusM: 500 }, phone.token)).body;
   const spawn = nearby.spawns[0];
   return { host, phone, room, claim: { commandId: randomUUID(), spawnId: spawn.spawnId,
-    scheduleId: nearby.scheduleId, version: spawn.version, passengerConfirmed: true,
+    scheduleId: nearby.scheduleId, version: spawn.version, spawnCycleId: spawn.spawnCycleId, passengerConfirmed: true,
     location: { latitude: spawn.latitude, longitude: spawn.longitude, accuracyM: 5, measuredAgeMs: 0, source: 'EMULATOR_GPS', isMock: false } } };
 }
 async function observer(port, credential, roomId, authenticate = true) {

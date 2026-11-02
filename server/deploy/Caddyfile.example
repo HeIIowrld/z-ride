@@ -1,0 +1,6 @@
+# Install on the SAME host/container as the API, or change upstream and trusted peer.
+# DNS and port 80/443 must reach this proxy before enabling this configuration.
+# With Cloudflare proxying, use a valid origin certificate / Full (strict).
+api.hjpark.net {
+    reverse_proxy 127.0.0.1:8000
+}

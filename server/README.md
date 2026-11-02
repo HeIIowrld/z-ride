@@ -1,5 +1,7 @@
 # Z-RIDE 최소 방 서버
 
+revision 8: [파티 공동 수집·5분 리스폰](docs/collection-respawn.md) · [도메인 연결 인계](docs/domain-handoff.md) · [부하 검증](docs/load-validation-20261102.md).
+
 revision 7: 원본 장소 import·검수/접근성·경로 corridor·QR 게스트·탈퇴/제거/해산·스팟별 파티 공개/공동 기여를 추가했다. REST 36개. [장소·파티 계약](docs/places-parties.md). Google/Pleos 로그인은 비활성 연동 포트로 남긴다.
 
 revision 6: 서버가 시나리오·임무 단계·역할·목표 기여·가상 이동과 공조·벨트·에너지 관측 상태를 관리한다. 조회 2개와 게임 POST 4개를 추가해 전체 REST는 21개다. 앱 팀은 입력·센서 관측을 보내고 서버 snapshot을 화면에 반영한다. [서버 상태 계약·시연 방법](docs/server-state.md)

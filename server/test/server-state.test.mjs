@@ -120,7 +120,7 @@ test('heist objectives and distinct phone contributions advance only through ser
   for (const phone of f.phones) {
     const current = await f.state(phone.token);
     const collected = await phone.client.send({ type: 'command', roomEpoch: current.roomEpoch,
-      action: 'mobile.collect', pickupId: 'DEMO_PICKUP_A', passengerConfirmed: true });
+      action: 'mobile.collect', pickupId: 'DEMO_PICKUP_' + String.fromCharCode(65 + f.phones.indexOf(phone)), passengerConfirmed: true });
     assert.equal(collected.ok, true);
   }
   const advance = await f.game('advance');
@@ -249,7 +249,7 @@ test('logical mission contributions and receipts survive restart without revivin
   for (const phone of f.phones) {
     const current = await f.state(phone.token);
     assert.equal((await phone.client.send({ type: 'command', roomEpoch: current.roomEpoch, action: 'mobile.collect',
-      pickupId: 'DEMO_PICKUP_A', passengerConfirmed: true })).ok, true);
+      pickupId: 'DEMO_PICKUP_' + String.fromCharCode(65 + f.phones.indexOf(phone)), passengerConfirmed: true })).ok, true);
   }
   assert.equal((await f.game('advance')).body.room.game.stageId, 'INFILTRATE');
   const current = await f.state(f.phones[0].token);
@@ -280,7 +280,7 @@ test('a failed game-state commit publishes no successful stage transition and re
   for (const phone of f.phones) {
     const current = await f.state(phone.token);
     assert.equal((await phone.client.send({ type: 'command', roomEpoch: current.roomEpoch, action: 'mobile.collect',
-      pickupId: 'DEMO_PICKUP_A', passengerConfirmed: true })).ok, true);
+      pickupId: 'DEMO_PICKUP_' + String.fromCharCode(65 + f.phones.indexOf(phone)), passengerConfirmed: true })).ok, true);
   }
   const current = await f.state();
   assert.equal(current.game.objectives[0].complete, true);
