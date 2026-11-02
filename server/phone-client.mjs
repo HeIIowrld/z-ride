@@ -6,6 +6,8 @@ const FILES = new Map([
   ['/play/', ['index.html', 'text/html; charset=utf-8']],
   ['/play/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/play/style.css', ['style.css', 'text/css; charset=utf-8']],
+  ['/play/arena.js', ['arena.js', 'text/javascript; charset=utf-8']],
+  ['/play/arena.css', ['arena.css', 'text/css; charset=utf-8']],
 ]);
 
 /** Same-origin reference PHONE client. Credentials stay in browser memory. */
