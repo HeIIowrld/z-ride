@@ -1,0 +1,195 @@
+{
+  "format": "z-ride-place-catalog-v1",
+  "license": "ODbL-1.0",
+  "attribution": "© OpenStreetMap contributors",
+  "snapshotAt": "2026-10-31T21:23:06Z",
+  "count": 106361,
+  "byCategory": {
+    "attraction": 52429,
+    "charging_station": 1131,
+    "parking": 52801
+  },
+  "byRegion": {
+    "강원특별자치도": 6640,
+    "경기도": 23255,
+    "경상남도": 9702,
+    "경상북도": 8504,
+    "대구광역시": 3055,
+    "대전광역시": 2548,
+    "부산광역시": 3293,
+    "서울특별시": 10780,
+    "세종특별자치시": 1103,
+    "울산광역시": 1757,
+    "인천광역시": 4376,
+    "전남광주통합특별시": 11523,
+    "전북특별자치도": 5773,
+    "제주특별자치도": 2570,
+    "충청남도": 6608,
+    "충청북도": 4874
+  },
+  "metadata": "metadata.json",
+  "schema": "schema.json",
+  "shards": [
+    {
+      "path": "attraction-000.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2168422,
+      "sha256": "c2df040d010082e6604218a0fb18e11d1b724fd466122d81a6ff680c8bacb492"
+    },
+    {
+      "path": "attraction-001.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2110602,
+      "sha256": "4e287863100f833807553b9b807666196e52e102a97d8c1381bd08463bdfa496"
+    },
+    {
+      "path": "attraction-002.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2004905,
+      "sha256": "7af975b1088169cd9ec5db06a2777e7d4245de66a489db10ed0bdc8442ae1c0d"
+    },
+    {
+      "path": "attraction-003.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 1970490,
+      "sha256": "af7215fe200a8e9f49f99cc07b41699dceaf211908750c7133f4d8f7dcf55101"
+    },
+    {
+      "path": "attraction-004.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 1959206,
+      "sha256": "ace2f3e3a2082deb6bd44fc039f57e632ecbfb0eed8f7d4ac63d094f7b7a1447"
+    },
+    {
+      "path": "attraction-005.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2096543,
+      "sha256": "2ced8c35269909335b674d46d66f1c0bfdd0e7f364d0e64e9a68f6b3602906b1"
+    },
+    {
+      "path": "attraction-006.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2209174,
+      "sha256": "dbb5562029d72cc18d813b951d583a41f63a1ebe7da9382f46eadd8cf6f7c358"
+    },
+    {
+      "path": "attraction-007.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2221796,
+      "sha256": "3f5af85695ff64206c7cd90e7121fb3c112cb434a101e05f145d512dee7e8e14"
+    },
+    {
+      "path": "attraction-008.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2219972,
+      "sha256": "a6ac5ffac96547dc59d9eb31aede359c6baa518e545a5abe8ff9a8244a3303e1"
+    },
+    {
+      "path": "attraction-009.json",
+      "category": "attraction",
+      "count": 5000,
+      "bytes": 2238166,
+      "sha256": "af4266918ef5a6ec76d47978532b04ef7ea8dba38986aef79e37dce73640c1a8"
+    },
+    {
+      "path": "attraction-010.json",
+      "category": "attraction",
+      "count": 2429,
+      "bytes": 1076513,
+      "sha256": "08a73387088eaed2099a0b6d1cccdfd5af3f5c92a6098c3e4833511aa2e7b8d0"
+    },
+    {
+      "path": "charging_station-000.json",
+      "category": "charging_station",
+      "count": 1131,
+      "bytes": 566986,
+      "sha256": "c7487841ea97dbecdcb288a210813ed47c45bd6cb9218c9a0511df91df3f51f0"
+    },
+    {
+      "path": "parking-000.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2211006,
+      "sha256": "097894930720615f602889bc9e8edd76a2e7b4b8267971b4ab8be928e25bc788"
+    },
+    {
+      "path": "parking-001.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2241604,
+      "sha256": "78855fb4e0d296708a5ee5773c5e9d2799bebacea0aa51a00f8c43af33b336f5"
+    },
+    {
+      "path": "parking-002.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2240105,
+      "sha256": "b2058cc13b9a7528449e0f2d148475d53ad54fe6edce209ba508d18469603b1c"
+    },
+    {
+      "path": "parking-003.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2228358,
+      "sha256": "e99e0e9837b3a629f031ab65713c38442553a806077361e7a2ce6cd4d04f18ac"
+    },
+    {
+      "path": "parking-004.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2238366,
+      "sha256": "32a032036bb50510552b826734d8d5ab3a5a07a73807972824078597cfdfa865"
+    },
+    {
+      "path": "parking-005.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2282548,
+      "sha256": "24c97de6913f477ec57e99de5b209eee74a1e7100d6475a6de2f30c12f2d8561"
+    },
+    {
+      "path": "parking-006.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2265403,
+      "sha256": "c9f31f6e72b9e9de0ead324c3648bcda98a84d608d4f696e1e2b219df3696ee3"
+    },
+    {
+      "path": "parking-007.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2236224,
+      "sha256": "7fbc524dee769a1b01de706c9d39901fd6ce6ac62d9d08306a79fd9b64475d56"
+    },
+    {
+      "path": "parking-008.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2242597,
+      "sha256": "8e7d59636a162f9a4a54884d28b1903f5913cb45d11fbb087364c51c8ca24fe0"
+    },
+    {
+      "path": "parking-009.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 2243251,
+      "sha256": "64c94aa319c642ccfbb1baf03c3126c412a0207237efac291b7e243d0de532d6"
+    },
+    {
+      "path": "parking-010.json",
+      "category": "parking",
+      "count": 2801,
+      "bytes": 1255062,
+      "sha256": "f95f748365f6fc705ffe4a83e4f1858d32360a26fec4f01fd44af5b57382ee06"
+    }
+  ]
+}
