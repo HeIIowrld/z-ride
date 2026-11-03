@@ -1,25 +1,21 @@
 [
   {
-    "id": "relation/5501517",
-    "name": "경복궁",
+    "id": "node/359906695",
+    "name": "구산 해수욕장",
     "category": "attraction",
-    "latitude": 37.579754,
-    "longitude": 126.976682,
-    "region": "서울특별시",
+    "latitude": 36.752798,
+    "longitude": 129.467958,
+    "region": "경상북도",
     "address": "",
-    "theme": "heritage",
+    "theme": "water",
     "facts": {
-      "fee": "yes",
-      "opening_hours": "Jan-Feb,Nov-Dec 09:00-17:00; Mar-May,Sep-Oct 09:00-18:00; Jun-Aug 09:00-18:30",
-      "operator": "문화재청",
-      "tourism": "attraction",
-      "historic": "castle",
-      "location_basis": "osm_polygon_representative_point",
-      "name_en": "Gyeongbokgung Palace"
+      "natural": "beach",
+      "location_basis": "osm_node",
+      "name_en": "Gusan Beach"
     },
     "unnamed": false,
-    "osmModifiedAt": "2026-08-26T08:35:43+00:00",
-    "sourceUrl": "https://www.openstreetmap.org/relation/5501517",
+    "osmModifiedAt": "2019-01-01T15:12:14+00:00",
+    "sourceUrl": "https://www.openstreetmap.org/node/359906695",
     "reviewStatus": "pending",
     "gameEnabled": false,
     "accessTags": {
@@ -27,12 +23,27 @@
       "matched": true,
       "tags": {}
     },
-    "displayCategory": "heritage",
+    "displayCategory": "waterfront",
     "carAccess": {
       "status": "unknown",
       "reason": "no_motorcar_permission_or_route_evidence",
       "evidence": {},
       "routeVerified": false
+    },
+    "drivingAssessment": {
+      "status": "osm_network_connected",
+      "method": "connected_parking_same_site",
+      "roadWayId": 907718547,
+      "roadNodeId": 8428756147,
+      "arrival": {
+        "latitude": 36.7526139,
+        "longitude": 129.4678282
+      },
+      "parkingId": "way/907718550",
+      "poiToParkingDistanceM": 0.0,
+      "networkRoundTrip": true,
+      "fieldVerified": false,
+      "snapshotAt": "2026-11-02T21:21:26Z"
     }
   }
 ]

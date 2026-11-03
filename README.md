@@ -1,6 +1,6 @@
 # Z-RIDE — 서버 API·통신·인프라
 
-전국 장소 **113,041개 OSM 객체**의 유형별 JSON 목록·출처·이용 예시는 [data/places](data/places/README.md)에 있습니다. 이 카탈로그는 검토 대기 자료이며 기존 게임 스폰에는 자동 적용하지 않습니다.
+차량 도로망 연결 근거로 선별한 **17,923개 OSM 객체**의 JSON 목록과 [차량 접근 선별 기준](data/places/DRIVING_FILTER.md)은 [data/places](data/places/README.md)에 있습니다. 지도상 연결 근거가 있는 부분집합이며, 현장 검증·기존 게임 스폰 적용은 별도입니다.
 
 revision 10: [폰 계정·QR 참가·차량 전환 API와 목업](server/docs/phone-accounts.md). Google 설정 전 비활성, REST 55개.
 

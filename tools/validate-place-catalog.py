@@ -34,8 +34,10 @@ def main():
     from importlib.util import spec_from_file_location, module_from_spec
     spec = spec_from_file_location("catalog_review", Path(__file__).with_name("review-place-catalog.py"))
     review = module_from_spec(spec); spec.loader.exec_module(review)
-    check(manifest["format"] == metadata["export_format"] == "z-ride-place-catalog-v2", "Format mismatch")
+    check(manifest["format"] == metadata["export_format"] == "z-ride-place-catalog-v3", "Format mismatch")
     check(manifest["displayCategories"] == review.CATEGORIES and len(review.CATEGORIES) <= 10, "Display category cap")
+    parking_ids, parking_references = set(), set()
+    methods = collections.Counter()
     unnamed = 0
     for shard in manifest['shards']:
         path = Path(shard['path'])
@@ -75,11 +77,40 @@ def main():
             check(row['displayCategory'] == review.display_category(row), 'Display classification mismatch')
             check(row['carAccess'] == review.car_access(row), 'Access evidence mismatch')
             check(row['carAccess']['routeVerified'] is False, 'Unverified routing marked verified')
+            proof=row['drivingAssessment']
+            check(set(proof)==set(schema['items']['properties']['drivingAssessment']['required']), 'Invalid driving fields')
+            check(proof['status']=='osm_network_connected' and proof['networkRoundTrip'] is True and proof['fieldVerified'] is False, 'Invalid driving evidence status')
+            check(proof['method'] in schema['items']['properties']['drivingAssessment']['properties']['method']['enum'], 'Unknown arrival method')
+            check(proof['snapshotAt']==manifest['drivingFilter']['source']['snapshotAt'], 'Driving source mismatch')
+            for k in ('roadWayId','roadNodeId'):
+                check(type(proof[k]) is int and proof[k]>0, 'Invalid road reference')
+            arrival=proof['arrival']
+            check(set(arrival)=={'latitude','longitude'}, 'Invalid arrival fields')
+            for k,bound in (('latitude',90),('longitude',180)):
+                check(type(arrival[k]) in (float,int) and math.isfinite(arrival[k]) and -bound<=arrival[k]<=bound, 'Invalid arrival coordinate')
+            check(type(proof['poiToParkingDistanceM']) in (float,int) and 0<=proof['poiToParkingDistanceM']<=100, 'Invalid parking distance')
+            check(row['facts'].get('natural') not in {'peak','saddle','cave_entrance','cliff','rock','bare_rock','spring','tree'}, 'Terrain retained')
+            check(row['carAccess']['status']!='restricted_by_tag', 'Restricted facility retained')
+            if row['category']=='parking': parking_ids.add(row['id'])
+            if proof['method']=='connected_parking_same_site':
+                check(isinstance(proof['parkingId'],str), 'Missing same-site parking')
+                parking_references.add(proof['parkingId'])
+            else: check(proof['parkingId'] is None, 'Unexpected parking reference')
+            methods[proof['method']] += 1
             display[row['displayCategory']] += 1
             access[row['carAccess']['status']] += 1
             categories[row['category']] += 1
             regions[row['region']] += 1
             unnamed += row['unnamed']
+    check(parking_references<=parking_ids, 'Missing retained parking reference')
+    audit=load_json((ROOT/'exclusions.json').read_bytes())
+    excluded_ids={r['id'] for r in audit}
+    check(len(excluded_ids)==len(audit) and not excluded_ids&seen, 'Invalid exclusion IDs')
+    filt=manifest['drivingFilter']
+    check(filt==metadata['driving_filter'], 'Driving metadata mismatch')
+    check(methods==filt['methods'], 'Driving evidence method totals mismatch')
+    check(len(audit)==filt['excludedCount'] and len(seen)==filt['retainedCount'] and len(audit)+len(seen)==filt['inputCount'], 'Filtering totals mismatch')
+    check(collections.Counter(r['reason'] for r in audit)==filt['excludedByReason'], 'Exclusion reason mismatch')
     check(len(seen) == manifest['count'] == metadata['count'], 'Total count mismatch')
     check(categories == manifest['byCategory'] == metadata['by_category'], 'Category totals mismatch')
     check(regions == manifest['byRegion'] == metadata['by_region'], 'Region totals mismatch')

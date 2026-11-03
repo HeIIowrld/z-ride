@@ -67,6 +67,8 @@ def write_json(path, data):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--fuel', type=Path, required=True); args = ap.parse_args()
     manifest = json.loads((ROOT/'manifest.json').read_text())
+    if manifest['format'] not in ('z-ride-place-catalog-v1','z-ride-place-catalog-v2'):
+        raise ValueError('Restore the unfiltered catalogue before rebuilding v2; v3 is a filtered subset')
     metadata = json.loads((ROOT/'metadata.json').read_text())
     rows = [r for s in manifest['shards'] if s['category'] != 'fuel_station' for r in json.loads((ROOT/s['path']).read_text())]
     fuel_raw = args.fuel.read_bytes(); payload = json.loads(fuel_raw)
