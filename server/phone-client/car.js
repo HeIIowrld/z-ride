@@ -15,7 +15,7 @@
     GATE_CLOSED: '주차(P) 상태에서만 전투를 시작할 수 있어요.',
     OPERATOR_REQUIRED: '승인되고 접속 중인 동승자가 1명 이상 있어야 해요.',
     ALREADY_PLAYING: '이미 전투 중이에요.', NOT_PLAYING: '전투 중이 아니에요.',
-    SEAT_TAKEN: '그 자리는 이미 다른 대원이 쓰고 있어요.', STALE_EPOCH: '상태가 바뀌었어요. 다시 눌러 주세요.',
+    SEAT_TAKEN: '그 자리는 이미 접속 중인 다른 대원이 쓰고 있어요.', INVITE_EXPIRED: 'QR이 만료됐어요. 새 QR을 받아 주세요.', STALE_EPOCH: '상태가 바뀌었어요. 다시 눌러 주세요.',
   };
   const say = code => ERR[code] || ('처리하지 못했어요 · ' + code);
 
@@ -142,7 +142,8 @@
     const before = prev; room = next; prev = next;
     const phones = m => (m?.members || []).filter(x => x.role !== 'CAR_HOST');
     if (before) {
-      if (phones(next).length > phones(before).length) SFX.join();
+      // QR 하나는 참가 3번까지만 받으므로(재시도 포함) 누가 들어올 때마다 새 QR로 바꿔 둔다
+      if (phones(next).length > phones(before).length) { SFX.join(); if (3 - phones(next).length > 0) newInvite(); }
       if (phones(next).filter(m => m.approved).length > phones(before).filter(m => m.approved).length) SFX.approved();
       if ((next.collection?.inventory?.supplies ?? 0) > (before.collection?.inventory?.supplies ?? 0)) SFX.item();
       if (next.state === 'CLEARED' && before.state !== 'CLEARED') SFX.clear();
@@ -151,12 +152,17 @@
     autoApprove(); render();
   }
   async function approve(member) {
-    try { await api('/api/rooms/' + roomId + '/approve', { memberId: member.memberId, seat: member.seat, allowManualUnknown: true }); msg(`${member.nickname} 님을 ${SEAT_NAME[member.seat]}에 승인했어요.`); }
-    catch (e) { msg(say(e.message)); }
+    try {
+      // 폰이 QR을 다시 찍어 새로 들어오면, 같은 자리에 오프라인으로 남은 옛 대원이 SEAT_TAKEN을 낸다 → 그 자리를 비워 준다
+      const ghost = room?.members.find(m => m.role !== 'CAR_HOST' && m.memberId !== member.memberId && m.approved && !m.connected && m.seat === member.seat);
+      if (ghost) { await api('/api/rooms/' + roomId + '/party/remove', { memberId: ghost.memberId }); newInvite(); }
+      await api('/api/rooms/' + roomId + '/approve', { memberId: member.memberId, seat: member.seat, allowManualUnknown: true }); msg(`${member.nickname} 님을 ${SEAT_NAME[member.seat]}에 승인했어요.`);
+    } catch (e) { msg(say(e.message)); }
   }
   async function removeMember(member) {
     if (!confirm(`${member.nickname} 님을 파티에서 내보낼까요?`)) return;
-    try { await api('/api/rooms/' + roomId + '/party/remove', { memberId: member.memberId }); } catch (e) { msg(say(e.message)); }
+    // 내보내면 서버가 이 방의 초대를 모두 지우므로 새 QR을 받는다
+    try { await api('/api/rooms/' + roomId + '/party/remove', { memberId: member.memberId }); newInvite(); } catch (e) { msg(say(e.message)); }
   }
   const approving = new Set();
   function autoApprove() {

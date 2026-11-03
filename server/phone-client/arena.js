@@ -48,6 +48,8 @@
     const me = typeof ownMember === 'function' ? ownMember() : null;
     if (!me?.approved) return;
     A.open = true; el('arena').hidden = false; document.body.classList.add('arena-active');
+    // 확대된 채로 열리면 전투 화면(touch-action:none)에서는 손가락으로 되돌릴 수 없으므로 원래 비율로 되돌린다
+    if ((window.visualViewport?.scale ?? 1) > 1.01) { const vp = document.querySelector('meta[name=viewport]'); if (vp) { const c = vp.content; vp.content = c + ', minimum-scale=1'; setTimeout(() => { vp.content = c; }, 300); } }
     if (A.headingOffset == null) { A.aim = A.target = clampSector(SEAT_FRONT[me.seat] ?? 0); }
     audio(); resize(); cancelAnimationFrame(A.raf); A.raf = requestAnimationFrame(frame);
   }
