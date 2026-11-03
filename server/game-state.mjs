@@ -13,6 +13,20 @@ const DEFINITIONS = Object.freeze([
     { stageId: 'EXTRACT', title: 'Virtual extraction', objectiveId: 'EXTRACTION_DISTANCE', type: 'VIRTUAL_DISTANCE', target: 100, drivable: true },
     { stageId: 'COMPLETE', title: 'Mission complete', objectiveId: null, type: 'COMPLETE', target: 0, drivable: false },
   ] },
+  { scenarioId:'zombie-defense-v1',title:'Zombie defense mini-mission',stages:[
+    {stageId:'DEFEND',title:'Defend the party',objectiveId:'DEFENSE_CLEAR',type:'SERVER_COMBAT_CLEAR',target:1,drivable:false},
+    {stageId:'COMPLETE',title:'Mission complete',objectiveId:null,type:'COMPLETE',target:0,drivable:false},
+  ]},
+  { scenarioId:'supply-run-v1',title:'Supply coordination mission',stages:[
+    {stageId:'PREPARE',title:'Gather shared supplies',objectiveId:'SUPPLIES_READY',type:'SHARED_SUPPLIES',target:2,drivable:false},
+    {stageId:'DELIVER',title:'Two crew confirm delivery',objectiveId:'DELIVERY',type:'UNIQUE_PHONE_INTERACTIONS',target:2,drivable:false},
+    {stageId:'COMPLETE',title:'Mission complete',objectiveId:null,type:'COMPLETE',target:0,drivable:false},
+  ]},
+  { scenarioId:'signal-puzzle-v1',title:'Cooperative signal puzzle',stages:[
+    {stageId:'DECODE',title:'Two crew decode the signal',objectiveId:'SIGNAL_DECODE',type:'UNIQUE_PHONE_INTERACTIONS',target:2,drivable:false},
+    {stageId:'SYNC',title:'Two crew synchronize relays',objectiveId:'RELAY_SYNC',type:'UNIQUE_PHONE_INTERACTIONS',target:2,drivable:false},
+    {stageId:'COMPLETE',title:'Mission complete',objectiveId:null,type:'COMPLETE',target:0,drivable:false},
+  ]},
 ]);
 const DEFAULT_ROLE = Object.freeze({ DRIVER: 'DRIVER', FRONT_PASSENGER: 'SCOUT', REAR_LEFT: 'TECH', REAR_RIGHT: 'COVER' });
 const copy = value => structuredClone(value);
@@ -183,11 +197,11 @@ export function createGameStateService({ clock = Date.now, driverLeaseMs = 2000,
     request(input, ['commandId', 'roomEpoch', 'expectedGameRevision', 'objectiveId', 'action']); epoch(context, input); revision(game, input); playable(context);
     const member = approved(context);
     if (!member || member.role === 'CAR_HOST') throw error('ROLE_FORBIDDEN', 'Approved phone crew required for this interaction', 403);
-    if (game.stageId !== 'INFILTRATE' || input.objectiveId !== 'TERMINALS' || input.action !== 'INTERACT') throw error('GAME_INTERACTION_UNAVAILABLE', 'This stage has no matching interaction', 409);
+    if (stage(game).type !== 'UNIQUE_PHONE_INTERACTIONS' || input.objectiveId !== stage(game).objectiveId || input.action !== 'INTERACT') throw error('GAME_INTERACTION_UNAVAILABLE', 'This stage has no matching interaction', 409);
     if (game.interactions.includes(context.memberId)) throw error('GAME_ALREADY_INTERACTED', 'Each crew member contributes once', 409);
-    if (game.interactions.length >= 2) throw error('GAME_STAGE_COMPLETE', 'Terminal objective is already complete', 409);
+    if (game.interactions.length >= stage(game).target) throw error('GAME_STAGE_COMPLETE', 'Terminal objective is already complete', 409);
     game.interactions.push(context.memberId); game.revision++; game.updatedAt = clock(); game.objectiveState = objective(game, context);
-    return outcome(game, context, true, [{ type: 'objective.progress', objectiveId: 'TERMINALS', progress: game.interactions.length }]);
+    return outcome(game, context, true, [{ type: 'objective.progress', objectiveId: stage(game).objectiveId, progress: game.interactions.length }]);
   }
   function input(game, context, body) {
     host(context); request(body, ['commandId', 'roomEpoch', 'driverSessionId', 'inputSeq', 'throttle', 'brake']); epoch(context, body); playable(context);

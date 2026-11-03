@@ -13,7 +13,7 @@ test('OpenAPI covers exactly the implemented REST route inventory', () => {
   assert.equal(spec.openapi, '3.1.0');
   const actual = Object.entries(spec.paths).flatMap(([path,item]) => Object.keys(item).filter(m => methods.has(m)).map(m => `${m.toUpperCase()} ${path}`)).sort();
   assert.deepEqual(actual, protocol.http.map(r => `${r.method} ${r.path}`).sort());
-  assert.equal(actual.length, 36);
+  assert.equal(actual.length, 55);
   assert.equal(spec.paths['/ws'], undefined, 'WS is a separate appendix, not an HTTP operation');
   assert.equal(spec.paths['/observer/ws'], undefined, 'Observer WS is also a separate appendix');
   const ids = Object.values(spec.paths).flatMap(p => Object.entries(p).filter(([m]) => methods.has(m)).map(([,op]) => op.operationId));
@@ -53,7 +53,7 @@ test('OpenAPI distinguishes read-only operator authorization and durable-storage
       if (methods.has(method)) assert.ok(operation.responses['503']['x-error-codes'].includes('STORAGE_UNAVAILABLE'), path);
     }
   }
-  assert.equal(protocol.persistence.formatVersion, 1);
+  assert.equal(protocol.persistence.formatVersion, 2);
   assert.equal(protocol.observer.readOnly, true);
   assert.equal(protocol.observer.viewMode, 'SERVER_STATE_NOT_SCREEN_CAPTURE');
   assert.equal(spec['x-observer-websocket'].path, protocol.observer.webSocketPath);
@@ -80,7 +80,7 @@ test('4D contract separates logical API state from native-only physical effect e
   assert.ok(spec.components.schemas.EffectSummary.required.includes('controlVersion'));
   assert.ok(spec.components.schemas.EffectSessionRequest.allOf[0].then.required.includes('vehicleConnectionId'));
   assert.ok(spec.components.schemas.EffectSessionRequest.allOf[0].then.required.includes('expectedControlVersion'));
-  assert.equal(spec.components.schemas.Health.properties.contractRevision.const, 8);
+  assert.equal(spec.components.schemas.Health.properties.contractRevision.const, 10);
   assert.equal(protocol.vehicleEffects.executionReport.type, 'vehicle.effect.report');
   assert.ok(spec.paths[base + '/scene'].post.responses['409']['x-error-codes'].includes('GAME_SCENE_MANAGED'));
 });
@@ -108,7 +108,7 @@ test('server-state contract separates durable mission data from driver/cabin/eff
   assert.equal(spec.components.schemas.GameLogicalState.properties.driverSessionId, undefined);
   assert.equal(spec.components.schemas.GameLogicalState.properties.driverControl, undefined);
   assert.equal(spec['x-cabin-websocket'].messageSchema.$ref, '#/components/schemas/CabinReport');
-  assert.equal(protocol.serverState.revision, 8);
+  assert.equal(protocol.serverState.revision, 10);
   assert.equal(protocol.cabin.reportType, 'vehicle.cabin.report');
   assert.equal(spec.paths['/api/rooms'].post.requestBody.required, false);
   assert.ok(spec.paths['/api/rooms'].post.responses['400']['x-error-codes'].includes('INVALID_JSON'));

@@ -11,7 +11,7 @@
       "response": {
         "ok": "boolean",
         "protocol": "zride-demo-v1",
-        "contractRevision": 8
+        "contractRevision": 10
       }
     },
     {
@@ -353,6 +353,139 @@
       "auth": "host",
       "requestSchema": "SpotContribution",
       "responseSchema": "SpotContributionResult"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/party/events/join",
+      "auth": "host",
+      "requestSchema": "EventJoinRequest",
+      "responseSchema": "EventJoinResponse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/rooms/{roomId}/results",
+      "auth": "approved member",
+      "requestSchema": null,
+      "responseSchema": "MissionResultPage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/rooms/{roomId}/rewards",
+      "auth": "approved member",
+      "requestSchema": null,
+      "responseSchema": "RewardPage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/rewards/claim",
+      "auth": "host",
+      "requestSchema": "RewardClaimRequest",
+      "responseSchema": "RewardClaimResponse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/client-config",
+      "auth": "public",
+      "requestSchema": null,
+      "responseSchema": "GameClientConfig"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/guest",
+      "auth": "public",
+      "requestSchema": "GuestAccountRequest",
+      "responseSchema": "AccountSession"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/google/challenge",
+      "auth": "optional account; LINK requires account",
+      "requestSchema": "GoogleChallengeRequest",
+      "responseSchema": "GoogleChallenge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/google/exchange",
+      "auth": "optional account; LINK requires original account",
+      "requestSchema": "GoogleExchangeRequest",
+      "responseSchema": "AccountSession"
+    },
+    {
+      "method": "POST",
+      "path": "/api/invites/preview",
+      "auth": "optional account",
+      "requestSchema": "InvitePreviewRequest",
+      "responseSchema": "InvitePreview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountView"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/profile",
+      "auth": "phone account",
+      "requestSchema": "AccountProfileRequest",
+      "responseSchema": "AccountView"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/parties",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "PhoneMemberships"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/history",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountHistory"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/refresh",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountSession"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/logout",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountLogout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/party-ticket",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountGameTicket"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/invitations/accept",
+      "auth": "phone account",
+      "requestSchema": "AccountInviteAcceptance",
+      "responseSchema": "AccountJoinedParty"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/invitations/cancel",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountJoinCancelled"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/party/leave",
+      "auth": "phone account",
+      "requestSchema": null,
+      "responseSchema": "AccountPartyLeft"
     }
   ],
   "authFirstMessage": {
@@ -402,7 +535,8 @@
     "vehicle.effect.stop",
     "world.snapshot",
     "world.unavailable",
-    "collection.changed"
+    "collection.changed",
+    "mission.changed"
   ],
   "resultExample": {
     "type": "result",
@@ -544,7 +678,7 @@
   ],
   "wave": "All three targets dead => CLEARED and new epoch; explicit host round.start resets HP",
   "pendingProjection": "Only own pending member; vehicle states redacted UNKNOWN, other members and zombies hidden, stats zero",
-  "contractRevision": 8,
+  "contractRevision": 10,
   "collectionCommandExample": {
     "type": "command",
     "commandId": "unique-id",
@@ -597,7 +731,7 @@
     "claimResult": "locationValidated indicates reported input checks only; hardwareAttested false; emulator source => MOCK_DEMO"
   },
   "persistence": {
-    "formatVersion": 1,
+    "formatVersion": 2,
     "engine": "SQLite checkpoint; WAL + synchronous FULL",
     "cliDefault": "data/zride.sqlite",
     "env": "ZRIDE_DB_PATH",
@@ -735,7 +869,7 @@
     }
   },
   "serverState": {
-    "revision": 8,
+    "revision": 10,
     "docs": "docs/server-state.md",
     "scenarioIds": [
       "generic-coop-v1",
@@ -788,10 +922,24 @@
         "COOP"
       ],
       "heist-demo-v1": [
-        "PREPARE:supplies>=2",
-        "INFILTRATE:two distinct approved PHONE interactions",
-        "DEFEND:server waveCleared",
-        "EXTRACT:server virtual distance>=100m",
+        "PREPARE",
+        "INFILTRATE",
+        "DEFEND",
+        "EXTRACT",
+        "COMPLETE"
+      ],
+      "zombie-defense-v1": [
+        "DEFEND",
+        "COMPLETE"
+      ],
+      "supply-run-v1": [
+        "PREPARE",
+        "DELIVER",
+        "COMPLETE"
+      ],
+      "signal-puzzle-v1": [
+        "DECODE",
+        "SYNC",
         "COMPLETE"
       ]
     },
@@ -878,5 +1026,43 @@
       "cycle": "nearby.spawnCycleId must be echoed on claim; stale cycle => SPAWN_CYCLE_CONFLICT. Replay of an old successful command returns its original receipt without a new reward.",
       "notification": "collection.changed and snapshot.collection.revision invalidate all party caches once at expiry. Demo fixture IDs leave collectedPickupIds at expiry."
     }
+  },
+  "missionEvents": {
+    "revision": 9,
+    "join": "Configure finite mission, publish/select eligible spot, join current instance before start. generic-coop-v1 is not an event mission.",
+    "instances": "ACTIVE until target distinct-party contributions or server expiry; then COOLDOWN and a new instanceId after respawn. Prior instances/results/awards remain archived. No catch-up minting of missed cycles during downtime.",
+    "policy": {
+      "durationMs": 1800000,
+      "respawnMs": 300000,
+      "target": 3,
+      "missionRewardSupplies": 1,
+      "sharedRewardSupplies": 2
+    },
+    "results": "Server observes finite mission actions, persists outcome and per-stage member interactions. Reconfigure/disband cancels active run. Legacy completed rooms are imported without retroactive rewards.",
+    "contribution": "Explicit HOST request requires instanceId, server result, pre-start binding, current event revision and parked gate. One party per event; old results cannot contribute to new cycles.",
+    "settlement": "PENDING award per mission/run/party and shared-instance/party. HOST claims into party supplies in the same DB commit as CLAIMED flag and receipt. No cash or real-world reward. Successful identical command replays; a different command for an already claimed award conflicts.",
+    "clock": "Global event expiry continues while a party is paused. Timer pauses bound active rooms when instance closes. Reconfigure and join a new cycle to play again.",
+    "notifications": "mission.changed and snapshot.missionLedger; REST paginated results/rewards are authoritative. Not a hardware effect replay.",
+    "limits": "Capacity 10000 runs, instances, command receipts. Fail closed on capacity; pages default50/max100. No automatic archive deletion or cross-party account balance."
+  },
+  "phoneAccounts": {
+    "revision": 10,
+    "scope": "Stable phone account ID; does not grant CAR_HOST or vehicle authority.",
+    "credentials": {
+      "accountToken": "PHONE_ACCOUNT, hashed server-side, 8-hour renewable session",
+      "gameToken": "PARTY_PLAY, approved room membership only; account resume rotates the old game token",
+      "googleCredential": "Google-signed ID token with one-use server nonce. Provider access/refresh tokens are not retained."
+    },
+    "joining": "QR URL fragment -> preview -> phone guest/Google login -> account invitation accept -> target HOST approval -> room-scoped WS",
+    "switch": "expectedActivePartyId + confirmSwitch, old participation stays until target approval. Atomic removal/archive from old room and activation in target. One active membership across account devices. Cancel/removal before approval retains old party.",
+    "dataOwnership": {
+      "personal": "Profile, identity mapping, membership history and own mission participation summaries",
+      "party": "Supplies, reward awards, mission progress, vehicle state; never copied into a personal wallet or moved with a user",
+      "vehicle": "Existing native HOST token and fresh telemetry. Google phone login is not Pleos owner consent."
+    },
+    "guestRecovery": "Resume/refresh requires the account token. Lost guest token or private browser storage cannot recover identity across devices. Google LINK keeps the userId; an existing Google identity collision returns conflict without automatic merging.",
+    "transport": "Account APIs require trusted HTTPS whenever public origin is HTTPS. Google remains disabled without HTTPS + client ID. Current HTTP demo guest testing is not a production Google deployment.",
+    "configuration": "Generic GAME_* values; display name and URLs are not database identity keys. Protocol/service compatibility identifiers remain stable.",
+    "migration": "Account-aware checkpoint format2 accepts legacy1. Down-revision code must not rewrite format2; deliberate backup restoration is needed for downgrade."
   }
 }

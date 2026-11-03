@@ -13,7 +13,7 @@ test('configured team key gates both guest roles without storing or echoing enro
   try {
     const health = await (await fetch(base + '/healthz')).json();
     assert.deepEqual(Object.keys(health).sort(), ['contractRevision', 'ok', 'protocol']);
-    assert.equal(health.contractRevision, 8);
+    assert.equal(health.contractRevision, 10);
     for (const role of ['CAR_HOST', 'PHONE']) {
       for (const supplied of [undefined, '', 'wrong', 123, { value: accessKey }, accessKey + 'x']) {
         const rejected = await session({ role, nickname: 'Test', accessKey: supplied });

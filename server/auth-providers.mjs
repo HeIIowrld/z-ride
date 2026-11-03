@@ -1,4 +1,4 @@
-/** Integration port only. Google Cloud configuration and real verifier are not shipped. */
+/** Legacy descriptor. Current phone account login and the real verifier live in accounts.mjs. */
 export function createAuthProviders({ googleClientId = '', publicOrigin = '', verifyGoogleIdToken } = {}) {
   const configured = !!googleClientId && publicOrigin.startsWith('https://');
   return {

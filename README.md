@@ -2,6 +2,10 @@
 
 전국 장소 **106,361개 OSM 객체**의 유형별 JSON 목록·출처·이용 예시는 [data/places](data/places/README.md)에 있습니다. 이 카탈로그는 검토 대기 자료이며 기존 게임 스폰에는 자동 적용하지 않습니다.
 
+revision 10: [폰 계정·QR 참가·차량 전환 API와 목업](server/docs/phone-accounts.md). Google 설정 전 비활성, REST 55개.
+
+revision 9: [범용 미션·이벤트 회차·결과·보상·재생성](server/docs/events-results-rewards.md).
+
 revision 8: [파티 공동 수집·5분 리스폰](server/docs/collection-respawn.md) · [도메인 연결 인계](server/docs/domain-handoff.md) · [부하 검증](server/docs/load-validation-20261102.md).
 
 [![Server CI](https://github.com/HeIIowrld/z-ride/actions/workflows/server-ci.yml/badge.svg)](https://github.com/HeIIowrld/z-ride/actions/workflows/server-ci.yml)
