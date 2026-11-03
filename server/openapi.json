@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Z-RIDE local prototype REST API",
-    "version": "0.6.0-revision9",
+    "version": "0.7.0-revision10",
     "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders."
   },
   "servers": [
@@ -823,7 +823,8 @@
               }
             },
             "x-error-codes": [
-              "ROLE_FORBIDDEN"
+              "ROLE_FORBIDDEN",
+              "ACCOUNT_PARTY_JOIN_REQUIRED"
             ]
           },
           "404": {
@@ -8273,6 +8274,1892 @@
           }
         ]
       }
+    },
+    "/api/client-config": {
+      "get": {
+        "operationId": "Client-ConfigGet",
+        "summary": "/api/client-config",
+        "description": "Revision 10. public. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameClientConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        }
+      }
+    },
+    "/api/accounts/guest": {
+      "post": {
+        "operationId": "AccountsGuestPost",
+        "summary": "/api/accounts/guest",
+        "description": "Revision 10. public. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [],
+        "responses": {
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          },
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestAccountRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google/challenge": {
+      "post": {
+        "operationId": "AuthGoogleChallengePost",
+        "summary": "/api/auth/google/challenge",
+        "description": "Revision 10. optional account; LINK requires account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {},
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleChallenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleChallengeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google/exchange": {
+      "post": {
+        "operationId": "AuthGoogleExchangePost",
+        "summary": "/api/auth/google/exchange",
+        "description": "Revision 10. optional account; LINK requires original account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {},
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleExchangeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invites/preview": {
+      "post": {
+        "operationId": "InvitesPreviewPost",
+        "summary": "/api/invites/preview",
+        "description": "Revision 10. optional account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {},
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitePreviewRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "operationId": "MeGet",
+        "summary": "/api/me",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        }
+      }
+    },
+    "/api/me/profile": {
+      "post": {
+        "operationId": "MeProfilePost",
+        "summary": "/api/me/profile",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountProfileRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/parties": {
+      "get": {
+        "operationId": "MePartiesGet",
+        "summary": "/api/me/parties",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneMemberships"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        }
+      }
+    },
+    "/api/me/history": {
+      "get": {
+        "operationId": "MeHistoryGet",
+        "summary": "/api/me/history",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      }
+    },
+    "/api/accounts/refresh": {
+      "post": {
+        "operationId": "AccountsRefreshPost",
+        "summary": "/api/accounts/refresh",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/logout": {
+      "post": {
+        "operationId": "AccountsLogoutPost",
+        "summary": "/api/accounts/logout",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountLogout"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/party-ticket": {
+      "post": {
+        "operationId": "MeParty-TicketPost",
+        "summary": "/api/me/party-ticket",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountGameTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/invitations/accept": {
+      "post": {
+        "operationId": "MeInvitationsAcceptPost",
+        "summary": "/api/me/invitations/accept",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          },
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountJoinedParty"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountInviteAcceptance"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/invitations/cancel": {
+      "post": {
+        "operationId": "MeInvitationsCancelPost",
+        "summary": "/api/me/invitations/cancel",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountJoinCancelled"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/party/leave": {
+      "post": {
+        "operationId": "MePartyLeavePost",
+        "summary": "/api/me/party/leave",
+        "description": "Revision 10. phone account. See docs/phone-accounts.md. Account and gameplay credentials have separate purposes.",
+        "security": [
+          {
+            "phoneAccountAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPartyLeft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "ACCOUNT_AUTH_REQUIRED",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_PROVIDER_REJECTED"
+            ]
+          },
+          "403": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "AUTH_HTTPS_REQUIRED"
+            ]
+          },
+          "404": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "PARTY_SWITCH_CONFIRMATION_REQUIRED",
+              "PARTY_SWITCH_CONFLICT",
+              "PENDING_JOIN_EXISTS",
+              "ALREADY_IN_PARTY",
+              "SWITCH_CONFIRMATION_EXPIRED",
+              "ACCOUNT_LINK_CONFLICT",
+              "ACCOUNT_ALREADY_LINKED",
+              "NO_ACTIVE_PARTY",
+              "NO_PENDING_PARTY"
+            ]
+          },
+          "429": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE",
+              "AUTH_PROVIDER_DISABLED"
+            ]
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8291,6 +10178,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Independent reviewer credential; observer key is read-only and cannot review."
+      },
+      "phoneAccountAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque accountToken from guest/Google exchange. Separate purpose from CAR_HOST/PHONE gameplay tokens. Cannot authenticate game WS or send vehicle telemetry."
       }
     },
     "schemas": {
@@ -8365,7 +10257,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 9
+            "const": 10
           }
         },
         "required": [
@@ -9607,7 +11499,7 @@
             "const": "zride-demo-v1"
           },
           "contractRevision": {
-            "const": 9
+            "const": 10
           }
         },
         "required": [
@@ -12572,23 +14464,78 @@
         "type": "object",
         "properties": {
           "guest": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "method": {
+                "const": "PERSISTENT_ACCOUNT_TOKEN"
+              }
+            },
+            "required": [
+              "enabled",
+              "method"
+            ],
+            "additionalProperties": false
           },
           "google": {
             "type": "object",
             "properties": {
               "enabled": {
-                "const": false
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "clientId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "method": {
+                "const": "ID_TOKEN_WITH_SERVER_NONCE"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
-            }
+            },
+            "required": [
+              "enabled",
+              "configured",
+              "clientId",
+              "method",
+              "reason"
+            ],
+            "additionalProperties": false
           },
           "pleos": {
             "type": "object",
             "properties": {
               "enabled": {
                 "const": false
+              },
+              "purpose": {
+                "const": "VEHICLE_DATA_OWNER_AUTHORIZATION"
+              },
+              "generalGameLogin": {
+                "const": false
+              },
+              "reason": {
+                "type": "string"
               }
-            }
+            },
+            "required": [
+              "enabled",
+              "purpose",
+              "generalGameLogin",
+              "reason"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -13178,6 +15125,596 @@
           "rewardGranted"
         ],
         "additionalProperties": false
+      },
+      "PhoneAccount": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "GUEST",
+              "GOOGLE"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "createdAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "activePartyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "activePartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pendingPartyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pendingPartyName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "userId",
+          "kind",
+          "displayName",
+          "createdAt",
+          "activePartyId",
+          "activePartyName",
+          "pendingPartyId",
+          "pendingPartyName"
+        ],
+        "additionalProperties": false
+      },
+      "AccountSession": {
+        "type": "object",
+        "properties": {
+          "accountToken": {
+            "type": "string",
+            "description": "Opaque PHONE_ACCOUNT bearer. Never a Google token or a game/vehicle token."
+          },
+          "tokenPurpose": {
+            "const": "PHONE_ACCOUNT"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "account": {
+            "$ref": "#/components/schemas/PhoneAccount"
+          },
+          "linked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountToken",
+          "tokenPurpose",
+          "expiresAt",
+          "account"
+        ],
+        "additionalProperties": false
+      },
+      "AccountView": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/PhoneAccount"
+          }
+        },
+        "required": [
+          "account"
+        ],
+        "additionalProperties": false
+      },
+      "GuestAccountRequest": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          }
+        },
+        "required": [
+          "nickname"
+        ],
+        "additionalProperties": false
+      },
+      "AccountProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          }
+        },
+        "required": [
+          "displayName"
+        ],
+        "additionalProperties": false
+      },
+      "GoogleChallengeRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "enum": [
+              "LOGIN",
+              "LINK"
+            ],
+            "default": "LOGIN"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "GoogleChallenge": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "LOGIN",
+              "LINK"
+            ]
+          }
+        },
+        "required": [
+          "challengeId",
+          "nonce",
+          "expiresAt",
+          "clientId",
+          "mode"
+        ],
+        "additionalProperties": false
+      },
+      "GoogleExchangeRequest": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string"
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 12000,
+            "description": "Google ID token with the server-issued nonce; not an access token/email/subject."
+          }
+        },
+        "required": [
+          "challengeId",
+          "credential"
+        ],
+        "additionalProperties": false
+      },
+      "PhoneMembership": {
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string"
+          },
+          "partyId": {
+            "type": "string"
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "SWITCHED",
+              "LEFT",
+              "REMOVED",
+              "CLOSED",
+              "CANCELLED"
+            ]
+          },
+          "joinedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "endedAt": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "membershipId",
+          "partyId",
+          "partyName",
+          "memberId",
+          "status",
+          "joinedAt",
+          "endedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PhoneMemberships": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/PhoneAccount"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhoneMembership"
+            }
+          }
+        },
+        "required": [
+          "account",
+          "memberships"
+        ],
+        "additionalProperties": false
+      },
+      "AccountHistory": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "resultId": {
+                  "type": "string"
+                },
+                "partyId": {
+                  "type": "string"
+                },
+                "missionRunId": {
+                  "type": "string"
+                },
+                "scenarioId": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "enum": [
+                    "SUCCEEDED",
+                    "EXPIRED",
+                    "CANCELLED"
+                  ]
+                },
+                "endedAt": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ownInteractions": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "resultId",
+                "partyId",
+                "missionRunId",
+                "scenarioId",
+                "outcome",
+                "endedAt",
+                "ownInteractions"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "results",
+          "nextOffset"
+        ],
+        "additionalProperties": false
+      },
+      "InvitePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "inviteToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "inviteToken"
+        ],
+        "additionalProperties": false
+      },
+      "InvitePreview": {
+        "type": "object",
+        "properties": {
+          "partyId": {
+            "type": "string"
+          },
+          "partyName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requiresHostApproval": {
+            "const": true
+          },
+          "joinable": {
+            "type": "boolean"
+          },
+          "availableSeats": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "FRONT_PASSENGER",
+                "REAR_LEFT",
+                "REAR_RIGHT"
+              ]
+            }
+          },
+          "activePartyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requiresVehicleSwitch": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "partyId",
+          "partyName",
+          "expiresAt",
+          "requiresHostApproval",
+          "joinable",
+          "availableSeats",
+          "activePartyId",
+          "requiresVehicleSwitch"
+        ],
+        "additionalProperties": false
+      },
+      "AccountInviteAcceptance": {
+        "type": "object",
+        "properties": {
+          "inviteToken": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "seat": {
+            "enum": [
+              "FRONT_PASSENGER",
+              "REAR_LEFT",
+              "REAR_RIGHT"
+            ]
+          },
+          "passengerConfirmed": {
+            "const": true
+          },
+          "expectedActivePartyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirmSwitch": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "inviteToken",
+          "seat",
+          "passengerConfirmed",
+          "expectedActivePartyId"
+        ],
+        "additionalProperties": false
+      },
+      "AccountGameTicket": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "tokenPurpose": {
+            "const": "PARTY_PLAY"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "pending": {
+            "const": false
+          },
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          }
+        },
+        "required": [
+          "token",
+          "tokenPurpose",
+          "expiresAt",
+          "sessionId",
+          "roomId",
+          "memberId",
+          "pending",
+          "room"
+        ],
+        "additionalProperties": false
+      },
+      "AccountJoinedParty": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "tokenPurpose": {
+            "const": "PARTY_PLAY"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "pending": {
+            "const": true
+          },
+          "room": {
+            "$ref": "#/components/schemas/RoomSnapshot"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/PhoneMembership"
+          },
+          "account": {
+            "$ref": "#/components/schemas/PhoneAccount"
+          },
+          "previousPartyRemainsActiveUntilApproval": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "token",
+          "tokenPurpose",
+          "sessionId",
+          "expiresAt",
+          "roomId",
+          "memberId",
+          "pending",
+          "room",
+          "membership",
+          "account",
+          "previousPartyRemainsActiveUntilApproval"
+        ],
+        "additionalProperties": false
+      },
+      "AccountLogout": {
+        "type": "object",
+        "properties": {
+          "loggedOut": {
+            "const": true
+          },
+          "partyParticipationRetained": {
+            "const": true
+          }
+        },
+        "required": [
+          "loggedOut",
+          "partyParticipationRetained"
+        ],
+        "additionalProperties": false
+      },
+      "AccountJoinCancelled": {
+        "type": "object",
+        "properties": {
+          "cancelled": {
+            "const": true
+          },
+          "account": {
+            "$ref": "#/components/schemas/PhoneAccount"
+          }
+        },
+        "required": [
+          "cancelled",
+          "account"
+        ],
+        "additionalProperties": false
+      },
+      "AccountPartyLeft": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "const": true
+          },
+          "account": {
+            "$ref": "#/components/schemas/PhoneAccount"
+          }
+        },
+        "required": [
+          "left",
+          "account"
+        ],
+        "additionalProperties": false
+      },
+      "GameClientConfig": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "apiOrigin": {
+            "type": "string"
+          },
+          "phoneJoinUrl": {
+            "type": "string"
+          },
+          "auth": {
+            "$ref": "#/components/schemas/AuthProviders"
+          }
+        },
+        "required": [
+          "displayName",
+          "apiOrigin",
+          "phoneJoinUrl",
+          "auth"
+        ],
+        "additionalProperties": false
       }
     }
   },
@@ -13279,5 +15816,12 @@
     "refreshResults": true,
     "refreshRewards": true,
     "delivery": "Post-commit invalidation hint. Deduplicate by revision/resultId; reconnect reads snapshot and REST. Physical effects are never replayed."
+  },
+  "x-phone-accounts": {
+    "scope": "PHONE_IDENTITY_NOT_VEHICLE_AUTHORITY",
+    "policy": "One active vehicle participation; historical memberships retained. A confirmed switch only moves participation after target HOST approval. No party inventory transfer.",
+    "configuration": "GAME_DISPLAY_NAME/GAME_PUBLIC_ORIGIN/GAME_PHONE_JOIN_URL/GAME_BROWSER_API_ORIGIN/GAME_GOOGLE_CLIENT_ID. Existing ZRIDE settings remain fallback aliases.",
+    "google": "Disabled without client ID and HTTPS. Official Google library verifies signature/issuer/audience/expiry; server checks iat/nonce and consumes persisted challenges. LINK preserves guest userId; existing identity conflicts never merge by email.",
+    "storage": "Format 2 imports legacy format1. Older releases reject format2 to prevent silently dropping account records. Backup is required for downgrade."
   }
 }

@@ -127,5 +127,5 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
     return events.contribute(room,body,gateAllowed);
   }
   function closeParty(roomId) { delete state.parties[roomId]; routes.delete(roomId); state.revision++; }
-  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent };
+  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent, partyName:id=>state.parties[id]?.name??'차량 파티' };
 }

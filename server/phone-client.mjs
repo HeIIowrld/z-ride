@@ -9,12 +9,12 @@ const FILES = new Map([
 ]);
 
 /** Same-origin reference PHONE client. Credentials stay in browser memory. */
-export function createPhoneClientService({apiOrigin=''}={}) {
+export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={}) {
   if(apiOrigin)apiOrigin=checkedOrigin(apiOrigin);
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, {
-    bytes: readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
+    bytes: file==='index.html'?Buffer.from(readFileSync(new URL('./phone-client/' + file, import.meta.url),'utf8').replaceAll('Z-RIDE',displayName.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;'))):readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
   }]));
-  assets.set('/play/config.js',{bytes:Buffer.from('window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin})+');\n'),type:'text/javascript; charset=utf-8'});
+  assets.set('/play/config.js',{bytes:Buffer.from('window.GAME_CONFIG=window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin,displayName})+');\n'),type:'text/javascript; charset=utf-8'});
   return {
     handleHttp(req, res, path) {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
