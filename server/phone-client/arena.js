@@ -4,13 +4,18 @@
 (() => {
   const FOV = 64;               // 화면에 보이는 가로 시야(도)
   const HIT_TOLERANCE = 15;     // server.mjs fire 판정과 동일(표시용)
+  // 상하 조준(pitchDeg). 서버가 부위별 판정을 지원하면 true로 바꿔 fire에 함께 보낸다.
+  // 제안: 노션 "[제안] 부위별 사격 판정" / 지금 서버는 angleDeg만 판정한다.
+  const SEND_PITCH = false;
+  const PITCH_MIN = -30, PITCH_MAX = 30, PITCH_SPEED = 45; // 도, 도/초
+  const PX_PER_PITCH = 39 / 19; // 좀비 크기 단위(s)당: 몸통 중심(0°)→머리 중심(약 19°)
   const SEAT_FRONT = { FRONT_PASSENGER: 20, REAR_LEFT: -100, REAR_RIGHT: 120 };
   const el = id => document.getElementById(id);
   const norm = a => { a = ((a + 180) % 360 + 360) % 360 - 180; return a === -180 ? 180 : a; };
   const diff = (a, b) => norm(a - b);
 
   const A = {
-    open: false, aim: 0, target: 0, mode: 'stick', stick: 0, headingOffset: null, rawHeading: null,
+    open: false, aim: 0, target: 0, mode: 'stick', stick: 0, stickY: 0, pitch: 0, targetPitch: 0, headingOffset: null, rawHeading: null,
     drag: null, flash: 0, recoil: 0, shake: 0, popups: [], lastShotTime: 0, lastSupplies: null,
     zombieFx: new Map(), audio: null, raf: 0,
   };
@@ -43,7 +48,7 @@
     const me = typeof ownMember === 'function' ? ownMember() : null;
     if (!me?.approved) return;
     A.open = true; el('arena').hidden = false; document.body.classList.add('arena-active');
-    if (A.headingOffset == null) { A.aim = A.target = SEAT_FRONT[me.seat] ?? 0; }
+    if (A.headingOffset == null) { A.aim = A.target = clampSector(SEAT_FRONT[me.seat] ?? 0); }
     audio(); resize(); cancelAnimationFrame(A.raf); A.raf = requestAnimationFrame(frame);
   }
   function closeArena() { A.open = false; el('arena').hidden = true; document.body.classList.remove('arena-active'); cancelAnimationFrame(A.raf); }
@@ -55,7 +60,7 @@
     let h = typeof e.webkitCompassHeading === 'number' ? e.webkitCompassHeading : (e.absolute || e.alpha != null) && e.alpha != null ? 360 - e.alpha : null;
     if (h == null) return;
     A.rawHeading = h;
-    if (A.mode === 'gyro' && A.headingOffset != null) A.target = norm(h - A.headingOffset);
+    if (A.mode === 'gyro' && A.headingOffset != null) A.target = clampSector(norm(h - A.headingOffset));
   }
   el('arena-calibrate').addEventListener('click', async ev => {
     ev.stopPropagation();
@@ -70,7 +75,7 @@
     setTimeout(() => {
       if (A.rawHeading == null) { note('이 브라우저는 방향 센서를 주지 않아요. 조이스틱으로 조준하세요.'); return; }
       // 지금 폰이 가리키는 방향 = 차량 정면(0°)
-      A.headingOffset = A.rawHeading; A.mode = 'gyro'; A.target = 0;
+      A.headingOffset = A.rawHeading; A.mode = 'gyro'; A.target = clampSector(0);
       note('정면을 맞췄어요. 폰을 돌려 좀비를 찾으세요!');
     }, 250);
   });
@@ -96,6 +101,8 @@
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
     const x = dx / R;
     A.stick = Math.abs(x) < .12 ? 0 : Math.sign(x) * ((Math.abs(x) - .12) / .88) ** 1.6;
+    const y = -dy / R; // 위로 밀면 +
+    A.stickY = Math.abs(y) < .15 ? 0 : Math.sign(y) * ((Math.abs(y) - .15) / .85) ** 1.4;
   }
   base.addEventListener('pointerdown', e => {
     e.preventDefault(); e.stopPropagation();
@@ -104,7 +111,7 @@
     stickMove(e);
   });
   base.addEventListener('pointermove', e => { if (e.pointerId === stickId) stickMove(e); });
-  const stickEnd = e => { if (e.pointerId !== stickId) return; stickId = null; A.stick = 0; knob.style.transform = ''; base.classList.remove('active'); };
+  const stickEnd = e => { if (e.pointerId !== stickId) return; stickId = null; A.stick = 0; A.stickY = 0; knob.style.transform = ''; base.classList.remove('active'); };
   base.addEventListener('pointerup', stickEnd);
   base.addEventListener('pointercancel', stickEnd);
   function turnSpeed() {
@@ -116,6 +123,20 @@
   }
 
   el('arena-fire').addEventListener('click', ev => { ev.stopPropagation(); fire(); });
+
+  // ── 내 구역 밖으로는 조준이 못 나가게 ─────────────────────
+  // 구역 [s0, s1]의 중심·반폭으로 계산해 ±180° 경계를 넘어도 안전하다.
+  function clampSector(a) {
+    const s = sector(); if (!s) return norm(a);
+    const center = (s[0] + s[1]) / 2, half = (s[1] - s[0]) / 2;
+    const rel = diff(a, center);
+    return Math.abs(rel) <= half ? norm(a) : norm(center + Math.sign(rel) * half);
+  }
+  let lastEdge = 0;
+  function hitEdge() {
+    const now = performance.now(); if (now - lastEdge < 900) return; lastEdge = now;
+    A.shake = .15; buzz(12); note('여기까지가 내 방어 구역이에요');
+  }
 
   // ── 사격: 판정은 서버 ────────────────────────────────────
   function sector() { return ownMember()?.sector || null; }
@@ -131,7 +152,7 @@
       return;
     }
     el('angle').value = angle; // app.js의 구역 검사와 같은 값 사용
-    command('fire', { angleDeg: angle });
+    command('fire', SEND_PITCH ? { angleDeg: angle, pitchDeg: Math.round(A.pitch) } : { angleDeg: angle });
     A.flash = 1; A.recoil = 1; sfx.shot(); buzz(15);
   }
 
@@ -271,7 +292,7 @@
       ctx.strokeStyle = inSector(a) ? '#52f1d0' : '#4b6070'; ctx.lineWidth = major ? 2 : 1;
       ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - (major ? 14 : 7)); ctx.stroke();
       if (major) {
-        const name = { 0: '전방', 90: '우측', 180: '후방', '-90': '좌측' }[a] || a + '°';
+        const name = { 0: '전방', 90: '우측', 180: '후방', '-180': '후방', '-90': '좌측' }[a] || a + '°';
         ctx.fillStyle = a === 0 ? '#ffd166' : '#c8d6e2'; ctx.fillText(name, x, 18);
       }
     }
@@ -293,7 +314,9 @@
   function drawCrosshair() {
     const target = (room?.zombies || []).filter(z => z.hp > 0).map(z => Math.abs(diff(z.angleDeg, A.aim))).sort((a, b) => a - b)[0];
     const locked = target != null && target <= HIT_TOLERANCE && inSector(Math.round(A.aim));
-    const cx = W / 2, cy = H * .46 + A.recoil * 6 - H * .12, r = 18 + A.recoil * 8;
+    // 판정은 좌우 각도만 쓰므로, 조준점은 좀비 몸통 높이에 둔다(drawZombie의 foot·크기와 같은 식)
+    const zs = Math.min(W, H) * .0042;
+    const cx = W / 2, cy = H * .46 + H * .3 - 67 * zs - A.pitch * PX_PER_PITCH * zs + A.recoil * 6, r = 18 + A.recoil * 8;
     ctx.strokeStyle = locked ? '#ff6b4a' : '#e8f6ff'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.beginPath(); ctx.moveTo(cx + dx * (r - 8), cy + dy * (r - 8)); ctx.lineTo(cx + dx * (r + 10), cy + dy * (r + 10)); ctx.stroke(); }
@@ -312,17 +335,23 @@
   function hud(locked) {
     const me = ownMember();
     const live = (room?.zombies || []).filter(z => z.hp > 0 && inSector(z.angleDeg)).length;
-    el('arena-angle').textContent = Math.round(norm(A.aim)) + '°';
+    const p = Math.round(A.pitch);
+    el('arena-angle').textContent = Math.round(norm(A.aim)) + '°' + (p ? (p > 0 ? ' ↑' : ' ↓') + Math.abs(p) + '°' : '');
     el('arena-supplies').textContent = room?.collection?.inventory?.supplies ?? 0;
     el('arena-left').textContent = live;
     const support = room?.stats?.supportUntil > Date.now();
     el('arena-buff').hidden = !support;
     const ready = room?.state === 'PLAYING' && gateOpen();
-    el('arena-lock').hidden = ready;
-    el('arena-lock-text').textContent = !gateOpen() ? '주행 중 — 주차(P) 후 차량에서 전투를 시작해요' : room?.state === 'CLEARED' ? '거점 공략 완료! 🎉' : '차량에서 전투 시작을 기다리는 중';
+    const others = (room?.zombies || []).filter(z => z.hp > 0 && !inSector(z.angleDeg)).length;
+    const myDone = ready && live === 0 && others > 0;
+    el('arena-lock').hidden = ready && !myDone;
+    el('arena-lock-text').textContent = !gateOpen() ? '주행 중 — 주차(P) 후 차량에서 전투를 시작해요'
+      : myDone ? `내 구역 정리 완료! 다른 대원 구역에 ${others}마리 남았어요`
+      : room?.state === 'CLEARED' ? '거점 공략 완료! 🎉 차량에서 다음 웨이브를 시작할 수 있어요'
+      : '차량에서 전투 시작을 기다리는 중';
     el('arena-fire').classList.toggle('locked', locked);
     el('arena-fire').disabled = !ready;
-    el('arena-mode').textContent = A.mode === 'gyro' ? '폰을 돌려 조준 중' : '왼쪽 스틱으로 조준 · 화면 톡 = 사격';
+    el('arena-mode').textContent = A.mode === 'gyro' ? '폰을 돌려 조준 중' : '스틱으로 상하좌우 조준 · 화면 톡 = 사격';
     el('arena-seat').textContent = (typeof seats !== 'undefined' && seats[me?.seat]) || '';
   }
 
@@ -330,7 +359,13 @@
   function frame(t) {
     if (!A.open) return;
     const dt = Math.min(.05, (t - last) / 1000); last = t;
-    if (A.mode === 'stick') A.target = norm(A.target + turnSpeed() * dt);
+    if (A.mode === 'stick') {
+      const want = norm(A.target + turnSpeed() * dt), got = clampSector(want);
+      if (got !== want) hitEdge();
+      A.target = got;
+    }
+    A.targetPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, A.targetPitch + A.stickY * PITCH_SPEED * dt));
+    A.pitch += (A.targetPitch - A.pitch) * Math.min(1, dt * 18);
     A.aim = norm(A.aim + diff(A.target, A.aim) * Math.min(1, dt * (A.mode === 'gyro' ? 12 : 18)));
     A.flash = Math.max(0, A.flash - dt * 6); A.recoil = Math.max(0, A.recoil - dt * 7); A.shake = Math.max(0, A.shake - dt);
     for (const p of A.popups) p.life -= dt * 1.2; A.popups = A.popups.filter(p => p.life > 0);
@@ -349,5 +384,5 @@
   }
 
   // 테스트·관제용 최소 노출 (값 변경 아님)
-  window.ZRIDE_ARENA = Object.freeze({ state: () => ({ open: A.open, aim: A.aim, mode: A.mode }), setAim: a => { A.target = norm(a); } });
+  window.ZRIDE_ARENA = Object.freeze({ state: () => ({ open: A.open, aim: A.aim, pitch: A.pitch, mode: A.mode }), setAim: a => { A.target = clampSector(norm(a)); }, setPitch: p => { A.targetPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, p)); } });
 })();

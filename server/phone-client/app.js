@@ -17,8 +17,14 @@ function gateOpen() { return room?.vehicle?.playAllowed === true && room.vehicle
 function reset(clear = true) {
   generation++; clearTimeout(retryTimer); clearTimeout(pending?.timer); pending = null;
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
-  if (clear) { credentials = null; room = null; memberId = null; }
+  if (clear) { credentials = null; room = null; memberId = null; forgetSession(); }
 }
+// 새로고침·탭 재로딩(아이폰 Safari가 자주 함) 뒤에도 같은 자리로 다시 붙도록 이 탭에만 세션을 기억한다.
+// sessionStorage는 탭을 닫으면 지워지고, URL·로그에는 남지 않는다.
+const SESSION_KEY = 'zride.phone.session';
+function saveSession() { try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(credentials)); } catch {} }
+function forgetSession() { try { sessionStorage.removeItem(SESSION_KEY); } catch {} }
+function savedSession() { try { const v = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); return v && typeof v.token === 'string' && typeof v.roomId === 'string' ? v : null; } catch { return null; } }
 async function post(path, body, token) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
@@ -83,6 +89,8 @@ function readInviteFragment() {
   $('join-description').textContent = '차량 QR로 연결됩니다. 닉네임과 좌석을 선택해 참가 요청을 보내 주세요.';
   if (credentials) result('새 QR을 받았음. 현재 파티에서 탈퇴한 뒤 새 파티에 참가해 주세요.');
 }
+const restored = savedSession();
+if (restored) { credentials = restored; $('login-panel').hidden = true; $('game').hidden = false; result('다시 연결하는 중…'); connect(); }
 readInviteFragment();
 window.addEventListener('hashchange', readInviteFragment);
 function showLogin(message = '') { $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
@@ -98,7 +106,7 @@ $('join-form').addEventListener('submit', async event => {
       joined = await post('/api/join', { joinCode: $('join-code').value.trim().toUpperCase(), seat: $('seat').value }, session.token);
     }
     $('access-key').value = '';
-    credentials = { token: session.token, roomId: joined.roomId }; room = joined.room; receivedAt = Date.now();
+    credentials = { token: session.token, roomId: joined.roomId }; saveSession(); room = joined.room; receivedAt = Date.now();
     $('join-code').value = ''; $('login-panel').hidden = true; $('game').hidden = false;
     $('angle').value = { REAR_LEFT: -100, REAR_RIGHT: 140, FRONT_PASSENGER: 60 }[$('seat').value];
     result('차량에서 참가자 승인 후 시작할 수 있음.'); render(); connect();

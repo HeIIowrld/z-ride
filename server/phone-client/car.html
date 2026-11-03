@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09121b">
+  <title>Z-RIDE · 차량</title>
+  <link rel="stylesheet" href="/play/car.css">
+  <script src="/play/config.js"></script>
+  <script src="/play/qr.js" defer></script>
+  <script src="/play/car.js" defer></script>
+</head>
+<body>
+  <header>
+    <span class="wordmark">Z<span>—</span>RIDE</span>
+    <span class="tag">CAR HOST · 웹 시험판</span>
+    <span id="status" class="status">연결 전</span>
+  </header>
+
+  <!-- 1. 시작 -->
+  <section id="start" class="start">
+    <div class="card">
+      <p class="eyebrow">CAR SCREEN</p>
+      <h1>가족 탐험대 파티 열기</h1>
+      <p class="subtle">차량 화면에 QR을 띄우면 동승자가 휴대폰 카메라로 찍어 바로 합류해요. 앱 설치나 코드 입력은 필요 없어요.</p>
+      <label>차량 이름<input id="nickname" maxlength="24" value="우리 차" autocomplete="off"></label>
+      <details id="key-box"><summary>팀 테스트 서버 접근키 (필요할 때만)</summary>
+        <label>테스트 접근키<input id="access-key" type="password" maxlength="1024" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="로컬 서버는 비워 두세요"></label>
+      </details>
+      <button id="start-btn" class="primary" type="button">파티 열기</button>
+      <p id="start-error" class="error" role="alert"></p>
+    </div>
+  </section>
+
+  <!-- 2. 파티 진행 -->
+  <main id="party" hidden>
+    <section class="card qr-card">
+      <div class="qr-head"><p class="eyebrow">SCAN TO JOIN</p><span id="qr-timer" class="pill"></span></div>
+      <div id="qr" class="qr" aria-live="polite"></div>
+      <p id="qr-hint" class="subtle center">동승자는 휴대폰 카메라로 찍어 합류하세요.</p>
+      <div class="row">
+        <button id="qr-refresh" type="button" class="quiet">새 QR</button>
+        <button id="qr-toggle" type="button" class="quiet">QR 숨기기</button>
+      </div>
+      <p id="qr-error" class="error" role="alert"></p>
+    </section>
+
+    <section class="side">
+      <div class="card">
+        <div class="section-head"><h2>탐험대원</h2><span id="crew-count" class="pill">0 / 3</span></div>
+        <ul id="crew" class="crew"><li class="empty">아직 합류한 대원이 없어요.</li></ul>
+        <label class="check"><input id="auto-approve" type="checkbox"><span>합류 요청 자동 승인 (시험용)</span></label>
+      </div>
+
+      <div class="card">
+        <div class="section-head"><h2>차량 상태</h2><span id="gate" class="pill"></span></div>
+        <div class="gear" role="group" aria-label="시뮬레이션 기어">
+          <button type="button" data-gear="P" class="gear-btn">P 주차</button>
+          <button type="button" data-gear="D" class="gear-btn">D 주행</button>
+        </div>
+        <p class="footnote">시험판은 기어를 직접 고릅니다. 실제 Pleos 앱에서는 Vehicle SDK 신호로 바뀌어요.</p>
+      </div>
+
+      <div class="card" id="battle-card">
+        <div class="section-head"><h2>공동 전투</h2><span id="battle-state" class="pill"></span></div>
+        <div id="driving-cover" class="driving-cover" hidden>주행 중에는 게임 정보를 숨겨요.<br>정차(P) 후 확인하세요.</div>
+        <div id="battle-info">
+          <div class="stats">
+            <div><small>남은 좀비</small><b id="zombies-left">-</b></div>
+            <div><small>공동 보급품</small><b id="supplies">0</b></div>
+            <div><small>처치</small><b id="kills">0</b></div>
+          </div>
+          <div class="row">
+            <button id="round-start" type="button" class="primary">전투 시작</button>
+            <button id="round-pause" type="button" class="quiet">일시정지</button>
+          </div>
+          <button id="support" type="button" class="support">차량 지원 사격 (보급품 1개)</button>
+        </div>
+        <p id="action-msg" class="footnote" role="status" aria-live="polite"></p>
+      </div>
+
+      <button id="disband" type="button" class="danger">파티 해산</button>
+    </section>
+  </main>
+</body>
+</html>
