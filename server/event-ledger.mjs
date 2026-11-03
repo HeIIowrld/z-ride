@@ -135,7 +135,7 @@ export function createEventLedger({clock = Date.now, durationMs = 1800000, respa
       state.instances[instance.instanceId]=instance;state.current[instance.spotId]=instance.instanceId;
     }
   }
-  return {policy,current,join,observe,contribute,claim,results,rewards,tick,assertPlayable,
+  return {policy,current,join,observe,contribute,claim,results,rewards,tick,assertPlayable,allResults:()=>Object.values(state.results).map(clone),
     due:()=>Object.values(state.current).some(id=>{const i=state.instances[id];return i.phase==='ACTIVE'?clock()>=i.expiresAt:clock()>=i.respawnAt&&Object.keys(state.instances).length<capacity;}),
     projection:room=>({revision:state.revision,missionRunId:room.game.missionRunId,instanceId:binding(room)?.instanceId??null,resultId:state.results[keyOf(room)]?.resultId??null,outcome:state.results[keyOf(room)]?.outcome??null}),
     ensureConfigure:scenarioId=>{if(scenarioId!=='generic-coop-v1'&&Object.keys(state.runs).length>=capacity)throw fail('EVENT_CAPACITY','Mission capacity reached',429);},

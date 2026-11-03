@@ -1,4 +1,6 @@
-# 앱 팀 전달용 서버 연결 계약 — revision 9
+# 앱 팀 전달용 서버 연결 계약 — revision 10
+
+revision 10은 폰 개인 계정·게스트/Google 검증 구조·QR 미리보기·승인 후 차량 전환·개인 이력·이름/주소 설정을 추가한다. REST 55개. accountToken과 기존 게임/HOST 토큰을 분리한다. [계정 통신·목업·앱 호출 순서](phone-accounts.md)를 확인한다. Google Cloud client ID가 없어 운영 Google은 비활성이다.
 
 revision 9는 이벤트 회차·미션 결과 원장·공동 기여·보상 수령·재생성을 추가한다. REST 40개. **기여에는 instanceId와 시작 전 이벤트 참가가 필수**다. 좀비/습격/보급/협동 퍼즐을 지원한다. [앱 호출 순서와 정책](events-results-rewards.md)을 우선 확인한다.
 

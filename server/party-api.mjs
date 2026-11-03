@@ -4,16 +4,24 @@ const fail=(code,message,status=400)=>Object.assign(new Error(message),{code,sta
 const digest=s=>createHash('sha256').update(s).digest();
 export function createPartyApi(ctx) {
   const invites=new Map();
-  const providers=createAuthProviders({googleClientId:ctx.googleClientId,publicOrigin:ctx.publicOrigin});
+  const providers=ctx.authProviders??createAuthProviders({googleClientId:ctx.googleClientId,publicOrigin:ctx.publicOrigin});
   function authorizeReview(req) {
     const value=req.headers.authorization?.slice(7);
     if (!ctx.reviewToken || !req.headers.authorization?.startsWith('Bearer ') || !value || !timingSafeEqual(digest(value),digest(ctx.reviewToken))) throw fail('REVIEW_AUTH_REQUIRED','Separate place reviewer token required',401);
+  }
+  function previewInvite(inviteToken) {
+    if(typeof inviteToken!=='string'||inviteToken.length>128)throw fail('INVITE_REQUIRED','QR invitation required');
+    const invite=invites.get(digest(inviteToken).toString('hex'));
+    if(!invite||invite.expiresAt<=Date.now()||invite.used>=3)throw fail('INVITE_EXPIRED','Ask car for a fresh QR',409);
+    const room=ctx.roomFor(invite.roomId);if(room.closedAt)throw fail('INVITE_EXPIRED','Party closed',409);
+    return {partyId:room.roomId,partyName:ctx.places.partyName(room.roomId),expiresAt:invite.expiresAt,requiresHostApproval:true,joinable:room.members.size<4,availableSeats:['FRONT_PASSENGER','REAR_LEFT','REAR_RIGHT'].filter(seat=>![...room.members.values()].some(m=>m.seat===seat))};
   }
   function publicRequest(req,path,body) {
     if (path==='/api/auth/providers' && req.method==='GET') return {status:200,data:providers.describe()};
     if (path==='/api/admin/places/review' && req.method==='POST') { authorizeReview(req); const result=ctx.places.review(body); ctx.notify(); return {status:200,data:result}; }
     if (path!=='/api/invites/redeem' || req.method!=='POST') return null;
     if (typeof body.inviteToken!=='string' || body.inviteToken.length>128) throw fail('INVITE_REQUIRED','QR invitation required');
+    previewInvite(body.inviteToken);
     const invite=invites.get(digest(body.inviteToken).toString('hex'));
     if (!invite || invite.expiresAt<=Date.now()) throw fail('INVITE_EXPIRED','Ask car for a fresh QR',409);
     const room=ctx.roomFor(invite.roomId);
@@ -43,7 +51,7 @@ export function createPartyApi(ctx) {
     if (action==='route/spots') return {status:200,data:ctx.places.routeSpots(room.roomId,body)};
     if (action==='party/leave') {
       if (member.role==='CAR_HOST') throw fail('HOST_MUST_DISBAND','Host must explicitly disband',409);
-      room.departedMembers??=new Map();room.departedMembers.set(session.sessionId,member);room.members.delete(session.sessionId);session.roomId=null;
+      ctx.accounts?.depart(member,'LEFT');room.departedMembers??=new Map();room.departedMembers.set(session.sessionId,member);room.members.delete(session.sessionId);session.roomId=null;
       if (member.socket) ctx.closeSocket(member.socket,4410,'Left party');member.socket=null;
       ctx.pause(room,'MEMBER_LEFT');ctx.change(room);return {status:200,data:{partyId:room.roomId,status:'LEFT'}};
     }
@@ -52,7 +60,7 @@ export function createPartyApi(ctx) {
       const target=[...room.members.values()].find(m=>m.memberId===body.memberId);
       if (!target || target.role==='CAR_HOST') throw fail('INVALID_MEMBER','Select a phone member',409);
       for (const [key,invite] of invites) if(invite.roomId===room.roomId)invites.delete(key);
-      room.departedMembers??=new Map();room.departedMembers.set(target.sessionId,target);room.members.delete(target.sessionId);
+      ctx.accounts?.depart(target,'REMOVED');room.departedMembers??=new Map();room.departedMembers.set(target.sessionId,target);room.members.delete(target.sessionId);
       const s=[...ctx.sessions.values()].find(s=>s.sessionId===target.sessionId);if(s)s.roomId=null;
       if(target.socket)ctx.closeSocket(target.socket,4410,'Removed from party');target.socket=null;
       ctx.pause(room,'MEMBER_REMOVED');ctx.change(room);return {status:200,data:{partyId:room.roomId,status:'REMOVED',memberId:target.memberId}};
@@ -73,10 +81,10 @@ export function createPartyApi(ctx) {
       ctx.pause(room,'PARTY_DISBANDED');room.closedAt=Date.now();room.joinUsed=true;room.joinExpiresAt=0;ctx.joinCodes.delete(room.joinCode);
       room.vehicle.hostConnected=false;room.vehicle.receivedAt=0;room.vehicle.foreground=false;
       ctx.places.closeParty(room.roomId);for(const [key,invite] of invites)if(invite.roomId===room.roomId)invites.delete(key);
-      for(const m of room.members.values()) {const s=[...ctx.sessions.values()].find(s=>s.sessionId===m.sessionId);if(s)s.roomId=null;if(m.socket)ctx.closeSocket(m.socket,4410,'Party disbanded');m.socket=null;}
+      for(const m of room.members.values()) {ctx.accounts?.depart(m,'CLOSED');const s=[...ctx.sessions.values()].find(s=>s.sessionId===m.sessionId);if(s)s.roomId=null;if(m.socket)ctx.closeSocket(m.socket,4410,'Party disbanded');m.socket=null;}
       ctx.change(room);return {status:200,data:{partyId:room.roomId,status:'DISBANDED'}};
     }
     throw fail('NOT_FOUND','Party operation not found',404);
   }
-  return {publicRequest,handle};
+  return {publicRequest,handle,previewInvite};
 }

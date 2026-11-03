@@ -33,13 +33,14 @@ export function createRequestPolicy({allowedOrigins=[],trustedProxyAddresses=[]}
     if(!origin||!['GET','POST'].includes(method)||headers.some(h=>!['authorization','content-type'].includes(h)))throw fail('PREFLIGHT_FORBIDDEN','Unsupported CORS preflight',403);
     req.resume();res.writeHead(204,{'Access-Control-Allow-Methods':'GET, POST','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600','Content-Length':'0'});res.end();return true;
   }
-  return {clientAddress,acceptedOrigin,apply};
+  return {clientAddress,acceptedOrigin,apply,isSecure:req=>req.socket.encrypted===true||(trusted.has(normalize(req.socket.remoteAddress))&&req.headers['x-forwarded-proto']==='https')};
 }
 export function deploymentOptions(env=process.env) {
-  const list=name=>(env[name]??'').split(',').map(v=>v.trim()).filter(Boolean);
-  const apiOrigin=env.ZRIDE_BROWSER_API_ORIGIN?checkedOrigin(env.ZRIDE_BROWSER_API_ORIGIN):'';
-  let phonePublicUrl=env.ZRIDE_PHONE_PUBLIC_URL??'';
+  const configured={...env,ZRIDE_BROWSER_API_ORIGIN:env.GAME_BROWSER_API_ORIGIN??env.ZRIDE_BROWSER_API_ORIGIN,ZRIDE_PHONE_PUBLIC_URL:env.GAME_PHONE_JOIN_URL??env.ZRIDE_PHONE_PUBLIC_URL,ZRIDE_ALLOWED_ORIGINS:env.GAME_ALLOWED_ORIGINS??env.ZRIDE_ALLOWED_ORIGINS,ZRIDE_OBSERVER_ALLOWED_ORIGINS:env.GAME_OBSERVER_ALLOWED_ORIGINS??env.ZRIDE_OBSERVER_ALLOWED_ORIGINS,ZRIDE_TRUSTED_PROXY_ADDRESSES:env.GAME_TRUSTED_PROXY_ADDRESSES??env.ZRIDE_TRUSTED_PROXY_ADDRESSES};
+  const list=name=>(configured[name]??'').split(',').map(v=>v.trim()).filter(Boolean);
+  const apiOrigin=configured.ZRIDE_BROWSER_API_ORIGIN?checkedOrigin(configured.ZRIDE_BROWSER_API_ORIGIN):'';
+  let phonePublicUrl=configured.ZRIDE_PHONE_PUBLIC_URL??'';
   if(phonePublicUrl){const url=new URL(phonePublicUrl);if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.search||url.hash)throw new Error('Invalid phone public URL');phonePublicUrl=url.href;}
   const pickupRespawnMs=Number(env.ZRIDE_PICKUP_RESPAWN_MS??300000);
-  return {allowedOrigins:list('ZRIDE_ALLOWED_ORIGINS').map(checkedOrigin),observerAllowedOrigins:list('ZRIDE_OBSERVER_ALLOWED_ORIGINS').map(checkedOrigin),trustedProxyAddresses:list('ZRIDE_TRUSTED_PROXY_ADDRESSES'),browserApiOrigin:apiOrigin,phonePublicUrl,pickupRespawnMs,eventPolicy:{durationMs:Number(env.ZRIDE_EVENT_DURATION_MS??1800000),respawnMs:Number(env.ZRIDE_EVENT_RESPAWN_MS??300000),target:Number(env.ZRIDE_EVENT_TARGET_PARTIES??3),missionReward:Number(env.ZRIDE_MISSION_REWARD_SUPPLIES??1),sharedReward:Number(env.ZRIDE_SHARED_REWARD_SUPPLIES??2)}};
+  return {allowedOrigins:list('ZRIDE_ALLOWED_ORIGINS').map(checkedOrigin),observerAllowedOrigins:list('ZRIDE_OBSERVER_ALLOWED_ORIGINS').map(checkedOrigin),trustedProxyAddresses:list('ZRIDE_TRUSTED_PROXY_ADDRESSES'),browserApiOrigin:apiOrigin,phonePublicUrl,pickupRespawnMs,displayName:env.GAME_DISPLAY_NAME??'Z-RIDE',googleClientId:env.GAME_GOOGLE_CLIENT_ID??'',eventPolicy:{durationMs:Number(env.ZRIDE_EVENT_DURATION_MS??1800000),respawnMs:Number(env.ZRIDE_EVENT_RESPAWN_MS??300000),target:Number(env.ZRIDE_EVENT_TARGET_PARTIES??3),missionReward:Number(env.ZRIDE_MISSION_REWARD_SUPPLIES??1),sharedReward:Number(env.ZRIDE_SHARED_REWARD_SUPPLIES??2)}};
 }

@@ -12,6 +12,8 @@ import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
 import { createPlacesService } from './places.mjs';
 import { createPartyApi } from './party-api.mjs';
+import { createAccounts } from './accounts.mjs';
+import { createAccountApi } from './account-api.mjs';
 import { createRequestPolicy, deploymentOptions } from './request-policy.mjs';
 import { resolve } from 'node:path';
 
@@ -43,7 +45,7 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 
 export function createDemoServer(options = {}) {
-  const phoneClient = createPhoneClientService({apiOrigin:options.browserApiOrigin??''});
+  const phoneClient = createPhoneClientService({apiOrigin:options.browserApiOrigin??'',displayName:options.displayName??'Z-RIDE'});
   const requestPolicy=createRequestPolicy(options);
   const testAccessKey = options.testAccessKey ?? '';
   if (typeof testAccessKey !== 'string' || testAccessKey.length > 1024) throw new Error('testAccessKey must be a string up to 1024 characters');
@@ -58,6 +60,7 @@ export function createDemoServer(options = {}) {
   const places = createPlacesService({ catalogPath: options.placesPath, catalog: options.placesCatalog, clock:options.eventClock??Date.now, eventPolicy:options.eventPolicy });
   let publicOrigin = options.publicOrigin ?? '';
   if (publicOrigin) { const url = new URL(publicOrigin); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('publicOrigin must be a plain HTTP(S) origin'); publicOrigin = url.origin; }
+  const accounts=createAccounts({clock:options.accountClock??Date.now,googleClientId:options.googleClientId??'',publicOrigin,verifyGoogleIdToken:options.verifyGoogleIdToken});
   const autoEffects = new Map();
   const sessions = new Map();
   const rooms = new Map();
@@ -73,9 +76,9 @@ export function createDemoServer(options = {}) {
 
   function durableState() {
     return {
-      formatVersion: STATE_FORMAT_VERSION, places: places.durable(),
+      formatVersion: STATE_FORMAT_VERSION, places: places.durable(),accounts:accounts.durable(),
       sessions: [...sessions.entries()].map(([key, s]) => [key, {
-        sessionId: s.sessionId, role: s.role, nickname: s.nickname, expiresAt: s.expiresAt, roomId: s.roomId,
+        sessionId: s.sessionId, role: s.role, nickname: s.nickname, expiresAt: s.expiresAt, roomId: s.roomId,accountUserId:s.accountUserId,
       }]),
       rooms: [...rooms.values()].map(room => ({
         roomId: room.roomId, roomEpoch: room.roomEpoch, stateVersion: room.stateVersion,
@@ -88,7 +91,7 @@ export function createDemoServer(options = {}) {
         departedMembers: [...(room.departedMembers ?? new Map()).values()].map(m => ({ ...m, socket: undefined, receipts: [...m.receipts], collectedPickups: [...(m.collectedPickups??[])], worldClaims: [...(m.worldClaims??[])], worldReceipts: [...(m.worldReceipts??[])], gameReceipts: [...(m.gameReceipts??[])] })),
         members: [...room.members.values()].map(m => ({
           memberId: m.memberId, sessionId: m.sessionId, nickname: m.nickname, role: m.role,
-          seat: m.seat, approved: m.approved, receipts: [...m.receipts],
+          seat: m.seat, approved: m.approved, accountUserId:m.accountUserId,accountMembershipId:m.accountMembershipId, receipts: [...m.receipts],
           collectedPickups: [...(m.collectedPickups ?? [])],
           worldClaims: [...(m.worldClaims ?? [])], worldReceipts: [...(m.worldReceipts ?? [])],
           gameReceipts: [...(m.gameReceipts ?? [])],
@@ -97,8 +100,8 @@ export function createDemoServer(options = {}) {
     };
   }
   function restoreState(saved) {
-    if (!saved || saved.formatVersion !== STATE_FORMAT_VERSION || !Array.isArray(saved.sessions) || !Array.isArray(saved.rooms)) throw new Error('Invalid persisted server state');
-    places.restore(saved.places);
+    if (!saved || ![1, STATE_FORMAT_VERSION].includes(saved.formatVersion) || !Array.isArray(saved.sessions) || !Array.isArray(saved.rooms)) throw new Error('Invalid persisted server state');
+    places.restore(saved.places);accounts.restore(saved.accounts);
     for (const [key, session] of saved.sessions) sessions.set(key, session);
     for (const savedRoom of saved.rooms) {
       const room = {
@@ -393,22 +396,32 @@ export function createDemoServer(options = {}) {
     if (!item || item.until < now) { requestBuckets.set(key, { count: 1, until: now + 10000 }); return; }
     if (++item.count > limit) throw fail('RATE_LIMITED', 'Try again later', 429);
   }
-  const partyApi = createPartyApi({ places, rooms, sessions, joinCodes, publicOrigin,
+  const partyApi = createPartyApi({ places, rooms, sessions, joinCodes, publicOrigin, accounts, authProviders:{describe:accounts.describe},
     phonePublicUrl:options.phonePublicUrl,
     reviewToken: options.placeReviewToken ?? '', roomFor, memberFor, requireHost, passengerSeat,
     snapshot, change, gate, closeSocket, pause, collectionChanged, notify: notifyWorld,
     eventChanged:instanceId=>{for(const room of rooms.values())if(!room.closedAt&&places.events.projection(room).instanceId===instanceId){try{places.events.assertPlayable(room);}catch{pause(room,'EVENT_NOT_ACTIVE');}change(room);}notifyWorld();} });
+  const displayName=options.displayName??'Z-RIDE';
+  if(typeof displayName!=='string'||!displayName.trim()||displayName.length>64||/[\u0000-\u001f]/.test(displayName))throw new Error('Invalid display name');
+  const accountApi=createAccountApi({accounts,partyApi,rooms,sessions,places,isSecure:requestPolicy.isSecure,accountTlsRequired:publicOrigin.startsWith('https://'),roomFor,snapshot,pause,change,closeSocket,clientConfig:{displayName,apiOrigin:publicOrigin,phoneJoinUrl:options.phonePublicUrl??(publicOrigin?publicOrigin+'/play':''),auth:accounts.describe()}});
   const server = http.createServer(async (req, res) => {
     try {
       rateLimit('http:' + requestPolicy.clientAddress(req));
       const path = new URL(req.url, 'http://localhost').pathname;
       if(requestPolicy.apply(req,res,path))return;
-      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 9 });
+      if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 10 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
       if (phoneClient.handleHttp(req, res, path)) return;
       const body = req.method === 'POST' ? await readJson(req) : null;
+      if(req.method==='POST'&&path==='/api/auth/google/exchange'){
+        accountApi.requireGoogleTransport(req);
+        const plan=atomic(()=>accounts.beginGoogle(body,accountApi.token(req)));
+        const verified=await accounts.verifyGoogle(body.credential,plan);
+        return atomic(()=>result(res,200,accounts.finishGoogle(plan,verified)));
+      }
       return atomic(() => {
+      const accountResponse=accountApi.handle(req,path,body);if(accountResponse)return result(res,accountResponse.status,accountResponse.data);
       const publicResponse = partyApi.publicRequest(req,path,body);
       if (publicResponse) return result(res,publicResponse.status,publicResponse.data);
       if (req.method === 'POST' && path === '/api/session') {
@@ -465,6 +478,7 @@ export function createDemoServer(options = {}) {
         return result(res, 201, { roomId, joinCode, room: snapshot(room, member) });
       }
       if (req.method === 'POST' && path === '/api/join') {
+        if(session.accountUserId)throw fail('ACCOUNT_PARTY_JOIN_REQUIRED','Use the phone account invitation flow',403);
         if (session.role !== 'PHONE') throw fail('ROLE_FORBIDDEN', 'Phone session required', 403);
         if (!asText(body.joinCode, 64) || !passengerSeat(body.seat)) throw fail('INVALID_JOIN', 'joinCode and valid seat required');
         const room = roomFor(joinCodes.get(body.joinCode.toUpperCase()));
@@ -540,6 +554,7 @@ export function createDemoServer(options = {}) {
           if (!passengerSeat(seat)) throw fail('INVALID_SEAT', 'Passenger seat required');
           if (member.approved && member.seat !== seat && room.state === 'PLAYING') throw fail('REASSIGN_REQUIRES_PAUSE', 'Pause before changing a seat', 409);
           if ([...room.members.values()].some(m => m !== member && m.approved && m.seat === seat)) throw fail('SEAT_TAKEN', 'Seat already assigned', 409);
+          accountApi.approve(room,member);
           member.seat = seat; member.role = seat; member.approved = true; change(room);
           const observed = room.vehicle.seats.find(s => s.seat === seat)?.occupancy ?? 'UNKNOWN';
           if (body.allowManualUnknown === true && observed === 'UNKNOWN') { room.emptyLocks.delete(seat); change(room); }
@@ -815,8 +830,8 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ ...deploymentOptions(), dbPath: process.env.ZRIDE_DB_PATH || resolve('data/zride.sqlite'), observerToken: process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.ZRIDE_PUBLIC_ORIGIN });
+  const app = createDemoServer({ ...deploymentOptions(), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
-  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 9, persistence: app.persistence, exposure: process.env.ZRIDE_TEST_ACCESS_KEY ? 'team-test-key-protected' : 'local-debug' }));
+  console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 10, persistence: app.persistence, exposure: (process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY) ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
 }
