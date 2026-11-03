@@ -30,6 +30,12 @@ def main():
     check(manifest['snapshotAt'] == metadata['snapshot_at'], 'Snapshot mismatch')
     seen, paths = set(), set()
     categories, regions = collections.Counter(), collections.Counter()
+    display, access = collections.Counter(), collections.Counter()
+    from importlib.util import spec_from_file_location, module_from_spec
+    spec = spec_from_file_location("catalog_review", Path(__file__).with_name("review-place-catalog.py"))
+    review = module_from_spec(spec); spec.loader.exec_module(review)
+    check(manifest["format"] == metadata["export_format"] == "z-ride-place-catalog-v2", "Format mismatch")
+    check(manifest["displayCategories"] == review.CATEGORIES and len(review.CATEGORIES) <= 10, "Display category cap")
     unnamed = 0
     for shard in manifest['shards']:
         path = Path(shard['path'])
@@ -60,6 +66,17 @@ def main():
             check(row['sourceUrl'] == 'https://www.openstreetmap.org/' + row['id'], 'Source URL mismatch')
             check(datetime.fromisoformat(row['osmModifiedAt'].replace('Z', '+00:00')).utcoffset() is not None, 'Missing timestamp timezone')
             check(row['reviewStatus'] == 'pending' and row['gameEnabled'] is False, 'Unexpected game activation')
+            tags = row['accessTags']
+            check(set(tags) == {'snapshotAt','matched','tags'} and type(tags['matched']) is bool, 'Invalid access source')
+            check(tags['snapshotAt'] == metadata['access_source']['snapshot_at'], 'Access snapshot mismatch')
+            check(isinstance(tags['tags'], dict) and all(isinstance(v, str) for v in tags['tags'].values()), 'Invalid access tags')
+            check(tags['matched'] or not tags['tags'], 'Unmatched source with tags')
+            check(row['displayCategory'] in manifest['displayCategories'], 'Unknown display category')
+            check(row['displayCategory'] == review.display_category(row), 'Display classification mismatch')
+            check(row['carAccess'] == review.car_access(row), 'Access evidence mismatch')
+            check(row['carAccess']['routeVerified'] is False, 'Unverified routing marked verified')
+            display[row['displayCategory']] += 1
+            access[row['carAccess']['status']] += 1
             categories[row['category']] += 1
             regions[row['region']] += 1
             unnamed += row['unnamed']
@@ -67,6 +84,9 @@ def main():
     check(categories == manifest['byCategory'] == metadata['by_category'], 'Category totals mismatch')
     check(regions == manifest['byRegion'] == metadata['by_region'], 'Region totals mismatch')
     check(unnamed == metadata['unnamed'], 'Unnamed count mismatch')
+    check(display == manifest['byDisplayCategory'] == metadata['by_display_category'], 'Display totals mismatch')
+    check(access == manifest['byCarAccess'] == metadata['by_car_access'], 'Access totals mismatch')
+    check(categories['fuel_station'] == metadata['fuel_source']['count'], 'Fuel provenance count mismatch')
     check({p.name for p in ROOT.glob('*-0*.json')} == paths, 'Unlisted or missing shard')
     sample = load_json((ROOT / 'sample.json').read_bytes())
     check(len(sample) == 1 and sample[0]['id'] in seen, 'Sample missing from catalogue')

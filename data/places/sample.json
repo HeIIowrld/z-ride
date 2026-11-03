@@ -21,6 +21,18 @@
     "osmModifiedAt": "2026-08-26T08:35:43+00:00",
     "sourceUrl": "https://www.openstreetmap.org/relation/5501517",
     "reviewStatus": "pending",
-    "gameEnabled": false
+    "gameEnabled": false,
+    "accessTags": {
+      "snapshotAt": "2026-11-02T21:21:26Z",
+      "matched": true,
+      "tags": {}
+    },
+    "displayCategory": "heritage",
+    "carAccess": {
+      "status": "unknown",
+      "reason": "no_motorcar_permission_or_route_evidence",
+      "evidence": {},
+      "routeVerified": false
+    }
   }
 ]

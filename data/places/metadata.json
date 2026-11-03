@@ -6,32 +6,33 @@
   "source_page": "https://download.geofabrik.de/asia/south-korea.html",
   "snapshot_at": "2026-10-31T21:23:06Z",
   "extracted_at": "2026-11-01T13:05:14.702995+00:00",
-  "count": 106361,
+  "count": 113041,
   "by_category": {
     "attraction": 52429,
+    "charging_station": 1131,
     "parking": 52801,
-    "charging_station": 1131
+    "fuel_station": 6680
   },
   "by_region": {
-    "대전광역시": 2548,
-    "서울특별시": 10780,
-    "경기도": 23255,
-    "경상북도": 8504,
-    "경상남도": 9702,
-    "제주특별자치도": 2570,
-    "강원특별자치도": 6640,
-    "부산광역시": 3293,
-    "전남광주통합특별시": 11523,
-    "충청북도": 4874,
-    "전북특별자치도": 5773,
-    "충청남도": 6608,
-    "울산광역시": 1757,
-    "인천광역시": 4376,
-    "대구광역시": 3055,
-    "세종특별자치시": 1103
+    "대전광역시": 2770,
+    "서울특별시": 11337,
+    "경기도": 24539,
+    "경상북도": 8939,
+    "경상남도": 10291,
+    "제주특별자치도": 2735,
+    "강원특별자치도": 6974,
+    "부산광역시": 3686,
+    "전남광주통합특별시": 12192,
+    "충청북도": 5098,
+    "전북특별자치도": 6197,
+    "충청남도": 7066,
+    "울산광역시": 1964,
+    "인천광역시": 4637,
+    "대구광역시": 3465,
+    "세종특별자치시": 1151
   },
   "province_polygons": 16,
-  "unnamed": 51044,
+  "unnamed": 51817,
   "skipped": {
     "unnamed_attraction_skipped": 25813,
     "geometry_error": 9,
@@ -140,7 +141,7 @@
     "natural=flowers": 1,
     "historic=reconstruction": 1
   },
-  "coverage_note": "대한민국 OSM 추출본에서 선택한 방문명소·주차장·충전소 태그의 노드/선/면. 전국 모든 실제 시설을 완전히 수록한 목록은 아닙니다. 대표 좌표는 입구/주차/방문 허가를 뜻하지 않습니다. OSM 객체 기준이며 같은 시설의 노드와 면 등 중복 표현이 남아 있을 수 있습니다.",
+  "coverage_note": "Original OSM attractions/parking/charging plus fuel POIs selected from Korean province polygons. Not a complete inventory. POI coordinates are not entrances or driving-route endpoints. Different snapshots and regional boundaries are documented per source.",
   "source_extracted_count": 106367,
   "quality_filter": {
     "closed_or_invalid_name": 4,
@@ -153,8 +154,55 @@
     "http_last_modified": "Sat, 31 Oct 2026 23:58:10 GMT",
     "download_seconds": 388
   },
-  "export_format": "z-ride-place-catalog-v1",
+  "export_format": "z-ride-place-catalog-v2",
   "source_catalog_format": "gilbeot-osm-v1",
   "source_catalog_manifest_sha256": "f4c73931b4ac62da7b66c467000772d4292f00ab8cf8a8d936e07c040a0483ca",
-  "export_note": "원본 압축 행을 JSON 객체로 변환하고 유형별로 분할했습니다. 가상 데모 지점은 포함하지 않습니다. 검토 대기 및 게임 비활성 상태입니다."
+  "export_note": "원본 압축 행을 JSON 객체로 변환하고 유형별로 분할했습니다. 가상 데모 지점은 포함하지 않습니다. 검토 대기 및 게임 비활성 상태입니다.",
+  "by_display_category": {
+    "attraction": 2877,
+    "heritage": 3284,
+    "nature": 16607,
+    "culture": 2580,
+    "religion": 11117,
+    "waterfront": 1163,
+    "leisure": 14801,
+    "charging_station": 1131,
+    "parking": 52801,
+    "fuel_station": 6680
+  },
+  "by_car_access": {
+    "unknown": 109660,
+    "restricted_by_tag": 3220,
+    "allowed_by_tag": 161
+  },
+  "fuel_source": {
+    "url": "https://download.geofabrik.de/asia/south-korea-261102.osm.pbf",
+    "pbf_sha256": "523cbb385d81ff81aa299dbcda3202ec8124449330beec1bbde7f0aa7df8c4da",
+    "pbf_bytes": 290768655,
+    "region_polygons": 16,
+    "fuel_outside_region_polygons": 0,
+    "geometry_errors": [],
+    "snapshot_at": "2026-11-02T21:21:26Z",
+    "response_sha256": "41999de81e369a5a7f273c8de952f8885098bb7d516ffafeeff76cccec51c32c",
+    "count": 6680,
+    "reassigned_original_ids": 0,
+    "skipped": {
+      "closed_name": 1
+    },
+    "license": "ODbL-1.0",
+    "note": "Fuel POIs scoped by Korean province polygons. Polygon representative points are not vehicle entrances. Not a complete or live operational inventory."
+  },
+  "access_source": {
+    "url": "https://download.geofabrik.de/asia/south-korea-261102.osm.pbf",
+    "pbf_sha256": "523cbb385d81ff81aa299dbcda3202ec8124449330beec1bbde7f0aa7df8c4da",
+    "pbf_bytes": 290768655,
+    "region_polygons": 16,
+    "fuel_outside_region_polygons": 0,
+    "geometry_errors": [],
+    "snapshot_at": "2026-11-02T21:21:26Z",
+    "matched_original_ids": 106356,
+    "note": "Current tags joined by OSM ID; original geometry and descriptive tags retain their original snapshot."
+  },
+  "car_access_note": "accessTags preserves current mode-specific tags including conditional restrictions. Generic access=yes does not confirm motorcar permission. No record has route or entrance verification. allowed_by_tag is not a routing guarantee.",
+  "legacy_statistics_note": "by_tag, province_polygons, source_extracted_count, quality_filter and skipped describe the original v1 snapshot only; fuel and access enrichment have separate source metadata."
 }
