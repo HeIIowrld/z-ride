@@ -43,7 +43,7 @@ test('party membership is many-history/one-active, explicit switching waits for 
   assert.deepEqual(a.memberships(restored).memberships.map(m=>m.status),['SWITCHED','ACTIVE']);
   const third=member('three');a.pending(restored,a.planJoin(restored,'car-c',{expectedActivePartyId:'car-b',confirmSwitch:true}),third);now+=300001;
   assert.throws(()=>a.approval(room('car-c'),third),{code:'SWITCH_CONFIRMATION_EXPIRED'});a.depart(third,'CANCELLED');assert.equal(a.view(restored).activePartyId,'car-b');
-  const refreshed=a.refresh(credentials.accountToken);assert.throws(()=>a.authenticate(credentials.accountToken),{code:'ACCOUNT_AUTH_REQUIRED'});assert.equal(a.authenticate(refreshed.accountToken).userId,credentials.account.userId);
+  const refreshed=a.refresh(credentials.accountToken);assert.equal(refreshed.accountToken,credentials.accountToken);assert.equal(a.authenticate(refreshed.accountToken).userId,credentials.account.userId);
 });
 
 test('Google is unavailable without configuration, and expired challenges cannot be reused after restart',()=>{

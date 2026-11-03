@@ -24,7 +24,7 @@ export function createAccounts({clock=Date.now,sessionMs=28800000,capacity=10000
     const user={userId:randomUUID(),kind:'GUEST',displayName:body.nickname.trim(),createdAt:clock(),activeMembershipId:null,pendingMembershipId:null};state.users[user.userId]=user;return issue(user);
   }
   function profile(user,body){if(typeof body.displayName!=='string'||body.displayName.trim().length<1||body.displayName.length>24)throw fail('INVALID_NICKNAME','Display name 1..24 required',400);user.displayName=body.displayName.trim();return view(user);}
-  function refresh(token){const u=authenticate(token);bounded(state.sessions);const result=issue(u);delete state.sessions[digest(token)];return result;}
+  function refresh(token){const u=authenticate(token),s=state.sessions[digest(token)];s.expiresAt=clock()+sessionMs;return {accountToken:token,tokenPurpose:'PHONE_ACCOUNT',expiresAt:s.expiresAt,account:view(u)};}
   function logout(token){authenticate(token);delete state.sessions[digest(token)];return {loggedOut:true,partyParticipationRetained:true};}
   function challenge(body,token){
     if(!configured)throw fail('AUTH_PROVIDER_DISABLED','Configure HTTPS and Google client ID',503);

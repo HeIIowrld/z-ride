@@ -60,10 +60,10 @@ QR은 짧은 초대 URL만 담는다. HOST/개인/플레이 토큰을 QR에 넣�
 | POST /api/auth/google/exchange | challengeId·credential(ID token) | 계정 토큰/개인 식별자 |
 | GET /api/me | 계정 토큰 | 현재 계정·활성/대기 파티 |
 | POST /api/me/profile | 계정 토큰, displayName | 표시명 변경 |
-| POST /api/accounts/refresh | 계정 토큰 | 새 토큰, 이전 계정 토큰 폐기 |
+| POST /api/accounts/refresh | 계정 토큰 | 같은 계정 토큰의 만료 연장 |
 | POST /api/accounts/logout | 계정 토큰 | 현재 계정 토큰 폐기·폰 게임 세션 차단 |
 
-계정 세션은 기본 8시간이다. 만료 전에 갱신하고 동시 갱신 요청은 폰에서 하나로 합친다. 폰의 안전한 저장소에서 관리하고 URL·QR·로그에 넣지 않는다. 서버에는 토큰 해시만 저장한다. 로그아웃과 파티 탈퇴는 별개이며 파티 재고를 삭제하지 않는다.
+계정 세션은 기본 8시간이다. refresh는 동일 토큰의 만료를 연장하므로 갱신 응답이 유실돼도 기존 토큰을 즉시 잃지 않는다. 만료 전에 갱신하고 동시 갱신 요청은 폰에서 하나로 합친다. 폰의 안전한 저장소에서 관리하고 URL·QR·로그에 넣지 않는다. 서버에는 토큰 해시만 저장한다. 로그아웃과 파티 탈퇴는 별개이며 파티 재고를 삭제하지 않는다.
 
 ### Google은 설정 전까지 비활성
 
@@ -123,7 +123,9 @@ sequenceDiagram
 
 새 승인이 실패/취소/거절되면 이전 파티를 유지한다. 변경 동의는 5분 유효이며 승인 시 현재 활성 멤버십이 그때의 값과 일치해야 한다. 중간에 다른 기기가 전환하거나 탈퇴했다면 PARTY_SWITCH_CONFLICT로 거부하고 다시 확인한다.
 
-동일 파티 QR이면 ALREADY_IN_PARTY를 반환하므로 party-ticket으로 재연결한다. 새로운 ticket은 sessionId/memberId/room/token을 제공하며 이전 플레이 토큰·연결을 교체한다. **계정 토큰을 /ws에 직접 보내지 않는다.** 새 승인/이전 파티 제거·계정 참여 변경은 같은 checkpoint로 저장하고 저장 실패 시 성공 응답/전환 방송 없이 503으로 차단한다.
+동일 파티 QR이면 ALREADY_IN_PARTY를 반환하므로 party-ticket으로 재연결한다. 참가 응답이 유실돼 PENDING_JOIN_EXISTS가 나오면 새 게스트를 만들지 말고 /api/me의 대기 상태를 복구한다. 승인 뒤 party-ticket으로 플레이 자격증명을 다시 받는다. Google 교환 응답을 잃으면 새 LOGIN challenge로 재시도해 같은 identity로 복귀한다.
+
+새로운 ticket은 sessionId/memberId/room/token을 제공하며 이전 플레이 토큰·연결을 교체한다. **계정 토큰을 /ws에 직접 보내지 않는다.** 새 승인/이전 파티 제거·계정 참여 변경은 같은 checkpoint로 저장하고 저장 실패 시 성공 응답/전환 방송 없이 503으로 차단한다.
 
 이전 방식 `/api/invites/redeem`·참가 코드 기반 익명 세션은 참조 앱 호환용으로 남겼다. 이 경로로 만든 기존 익명 플레이 기록을 새 개인 계정의 소유라고 추정해 가져오지 않는다. 개인 이력이 필요한 신규 폰 구현은 반드시 계정 생성/로그인 후 `/api/me/invitations/accept`를 사용한다.
 
