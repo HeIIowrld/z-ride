@@ -15,7 +15,7 @@ test('phone reference client serves only allow-listed static assets with same-or
   // old idle connections. These static-asset checks do not test keep-alive.
   const request = (path, options = {}) => fetch(base + path, { ...options, headers: { connection: 'close', ...options.headers } });
   try {
-    for (const path of ['/play', '/play/', '/play/app.js', '/play/style.css']) {
+    for (const path of ['/play', '/play/', '/play/app.js', '/play/style.css', '/play/arena.js', '/play/arena.css', '/play/car', '/play/car.js', '/play/car.css', '/play/qr.js']) {
       const response = await request(path);
       assert.equal(response.status, 200);
       assert.ok(response.headers.get('content-security-policy').includes("connect-src 'self'"));
