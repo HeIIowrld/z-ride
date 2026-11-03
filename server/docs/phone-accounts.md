@@ -129,6 +129,15 @@ sequenceDiagram
 
 이전 방식 `/api/invites/redeem`·참가 코드 기반 익명 세션은 참조 앱 호환용으로 남겼다. 이 경로로 만든 기존 익명 플레이 기록을 새 개인 계정의 소유라고 추정해 가져오지 않는다. 개인 이력이 필요한 신규 폰 구현은 반드시 계정 생성/로그인 후 `/api/me/invitations/accept`를 사용한다.
 
+## 연결 복구 시 앱 처리
+
+- ACCOUNT_AUTH_REQUIRED에서 자동으로 새 게스트를 만들지 않는다. 기존 계정 재로그인/토큰 보관 상태를 확인한다.
+- PENDING_JOIN_EXISTS는 /api/me의 대기 참가를 복구하고 승인 후 party-ticket을 받는다.
+- PARTY_SWITCH_CONFLICT/SWITCH_CONFIRMATION_EXPIRED는 새 현재 파티를 확인하고 필요하면 대기를 취소한 뒤 전환을 다시 확인한다.
+- WS 4412는 다른 기기의 계정 재연결로 게임 세션이 교체된 것이다. 자동으로 ticket을 계속 재발급하면 두 기기가 서로 밀어낼 수 있으므로 명시적 사용자 재연결을 기다린다.
+- WS 4410에서는 /api/me로 활성/대기 파티를 다시 확인한다. 4413은 계정 로그아웃이다.
+- 계정에 연결된 플레이 토큰으로 옛 /api/join을 호출하면 ACCOUNT_PARTY_JOIN_REQUIRED다. 새 참가·전환은 계정 API를 사용한다.
+
 ## 이름과 주소 설정
 
 | 일반 설정 | 용도 |
