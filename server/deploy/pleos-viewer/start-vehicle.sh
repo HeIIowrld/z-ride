@@ -14,7 +14,7 @@ x11vnc -display "$DISPLAY" -rfbport "$((5900+i))" -localhost -forever -shared -n
 websockify --heartbeat=30 "$((6080+i))" "127.0.0.1:$((5900+i))" >"/home/emulator/logs/websocket-$i.log" 2>&1 &
 # 3 GiB/1600x900 is a constrained DEMO profile, below Pleos's 4 GiB guide.
 # Do not call this a vendor-supported performance configuration.
-/opt/android-sdk/emulator/emulator -avd "Pleos_$i" -port "$((5552+i*2))" -memory 3072 -cores 2 -gpu swiftshader -no-snapshot -no-boot-anim -noaudio -no-metrics -camera-back none -camera-front none >"/home/emulator/logs/emulator-$i.log" 2>&1 &
+/opt/android-sdk/emulator/emulator -avd "Pleos_$i" -port "$((5552+i*2))" -memory 3072 -cores 2 -gpu swiftshader -feature -Vulkan -no-snapshot -no-boot-anim -noaudio -no-metrics -camera-back none -camera-front none >"/home/emulator/logs/emulator-$i.log" 2>&1 &
 emu=$!
 # Official Virtual Console. ADB remains private; the fixed vehicle proxy uses this port.
 (for attempt in $(seq 1 180);do /opt/android-sdk/platform-tools/adb -s "emulator-$((5552+i*2))" forward "tcp:$((8080+i))" tcp:8088 >/dev/null 2>&1 && break;sleep 1;done) &
