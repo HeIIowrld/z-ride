@@ -25,10 +25,12 @@ public final class RoomClient {
     private WebSocket socket;
     private String base, token, roomId, sessionId;
     private boolean closed;
+    private volatile long authenticatedGeneration=-1;
     private volatile long generation;
     public RoomClient(Listener listener) { this.listener = listener; }
 
     public void connect(String baseUrl, boolean car, String nickname, String joinCode, String seat, String accessKey) {
+        authenticatedGeneration=-1;
         final long attempt=++generation;
         io.execute(() -> {
             try {
@@ -60,6 +62,7 @@ public final class RoomClient {
                         if(attempt!=generation)return;
                         try {
                             JSONObject msg = new JSONObject(text);
+                            if ("auth.ok".equals(msg.optString("type"))) authenticatedGeneration=attempt;
                             if ("snapshot".equals(msg.optString("type"))) {
                                 listener.onRoom(msg.getJSONObject("room"));
                                 listener.onStatus("Connected · room " + roomId);
@@ -68,11 +71,13 @@ public final class RoomClient {
                     }
                     @Override public void onFailure(WebSocket ws, Throwable error, Response response) {
                         if(attempt!=generation)return;
+                        authenticatedGeneration=-1;
                         listener.onStatus("Disconnected: " + error.getClass().getSimpleName());
                         listener.onDisconnected();
                     }
                     @Override public void onClosed(WebSocket ws, int code, String reason) {
                         if(attempt!=generation)return;
+                        authenticatedGeneration=-1;
                         listener.onStatus("Socket closed " + code);
                         listener.onDisconnected();
                     }
@@ -120,11 +125,13 @@ public final class RoomClient {
             }
         }catch(Exception e){callback.onError("Configuration unavailable");}});
     }
-    public boolean send(JSONObject message) { return socket != null && !closed && socket.send(message.toString()); }
+    // The HTTP room snapshot precedes WS auth. Never queue telemetry ahead of auth.
+    public boolean send(JSONObject message) { WebSocket current=socket;return authenticatedGeneration==generation && current != null && !closed && current.send(message.toString()); }
     public String getSessionId() { return sessionId; }
     public void close() {
         generation++;
         closed = true;
+        authenticatedGeneration=-1;
         if (socket != null) { socket.close(1000, "Activity finished"); socket = null; }
     }
     public void destroy() { close(); io.shutdownNow(); http.dispatcher().executorService().shutdown(); http.connectionPool().evictAll(); }
