@@ -1,5 +1,5 @@
 [Unit]
-Description=Pleos read-only per-vehicle screen catalog
+Description=Pleos interactive per-vehicle screen catalog
 After=network-online.target
 
 [Service]

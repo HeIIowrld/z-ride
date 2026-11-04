@@ -1,0 +1,12 @@
+[Unit]
+Description=Fixed Pleos Virtual Console proxy for emulator %i
+After=network-online.target
+[Service]
+User=emulator
+Group=emulator
+ExecStart=/usr/bin/socat TCP-LISTEN:818%i,bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:808%i
+Restart=on-failure
+MemoryMax=96M
+NoNewPrivileges=true
+[Install]
+WantedBy=multi-user.target

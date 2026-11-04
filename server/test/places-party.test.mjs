@@ -97,6 +97,14 @@ test('QR guests, approval, pending withdrawal, removal, party isolation and disb
   assert.equal((await request(b+'/approve',{memberId:g2.memberId,allowManualUnknown:true},host.token)).status,200);
   const ws=new WebSocket(`ws://127.0.0.1:${address.port}/ws`);sockets.push(ws);await new Promise(resolve=>ws.once('open',resolve));ws.send(JSON.stringify({type:'auth',token:g2.token,roomId:fresh.roomId}));
   await new Promise(resolve=>ws.once('message',resolve));
+  // Route revisions must reach the phone without waiting for unrelated vehicle reports.
+  const routeSnapshot=new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error('Route update was not broadcast to phone')),2000);
+    const receive=raw=>{const m=JSON.parse(raw);if(m.type==='snapshot'&&m.room.party.route.routeRevision===1){clearTimeout(timer);ws.off('message',receive);resolve(m.room.party.route);}};
+    ws.on('message',receive);
+  });
+  assert.equal((await request(b+'/route',{commandId:'demo-route',expectedRouteRevision:0,source:'DEMO_ROUTE',geometry:[point,{latitude:37.57,longitude:126.978}]},host.token)).status,200);
+  const routeState=await routeSnapshot;assert.equal(routeState.source,'DEMO_ROUTE');assert.equal(routeState.active,true);assert.equal(routeState.geometry,undefined);
   assert.equal((await request(b+'/party/remove',{memberId:g2.memberId},host.token)).status,200);
   assert.equal((await request(b,undefined,g2.token,'GET')).status,403);
   assert.equal((await request(b+'/party/leave',{},host.token)).status,409);

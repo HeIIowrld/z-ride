@@ -6883,7 +6883,7 @@
       "post": {
         "operationId": "setRoute",
         "summary": "setRoute",
-        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "description": "Host submits or clears navigation geometry using expectedRouteRevision. Success broadcasts room.party.route metadata to connected approved members; geometry is not broadcast or persisted. Demo emulator inputs use DEMO_ROUTE, never PLEOS_ROUTE.",
         "responses": {
           "200": {
             "description": "Success",

@@ -1,4 +1,6 @@
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 import importlib.util,json,time,unittest,urllib.request,urllib.error,threading
 from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('pleos_viewer',Path(__file__).with_name('viewer.py'))
@@ -37,7 +39,7 @@ class ViewerTests(unittest.TestCase):
                 with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(base+path)
                 self.assertEqual(error.exception.code,404)
             with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(urllib.request.Request(base+'/control',data=b'{}'))
-            self.assertEqual(error.exception.code,501)
+            self.assertEqual(error.exception.code,404)
         finally:server.shutdown();server.server_close();thread.join()
 
 if __name__=='__main__':unittest.main()

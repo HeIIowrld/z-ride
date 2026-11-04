@@ -1,5 +1,5 @@
 [Unit]
-Description=Pleos actual emulator %i with read-only screen
+Description=Pleos actual emulator %i with interactive screen
 After=network-online.target
 
 [Service]
@@ -11,7 +11,7 @@ ExecStart=/opt/pleos-runtime/start-vehicle %i
 Restart=no
 KillMode=control-group
 TimeoutStopSec=20
-MemoryMax=5800M
+MemoryMax=7500M
 MemorySwapMax=128M
 CPUQuota=300%
 NoNewPrivileges=true
