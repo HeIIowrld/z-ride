@@ -7,8 +7,8 @@ android {
         applicationId 'ai.zride.demo.car'
         minSdk 28
         targetSdk 34
-        versionCode 5
-        versionName '0.5.0'
+        versionCode 6
+        versionName '0.6.0'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     lint { htmlReport false; textReport true; xmlReport true }
@@ -17,4 +17,5 @@ dependencies {
     implementation project(':common')
     implementation 'ai.pleos.playground:Vehicle:2.3.2'
     implementation 'ai.pleos.playground:vehicle-data:1.1.11'
+    implementation 'ai.pleos.playground:NaviHelper:3.0.5'
 }

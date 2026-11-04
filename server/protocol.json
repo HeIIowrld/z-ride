@@ -575,7 +575,8 @@
     "serverTime",
     "zombies",
     "collection",
-    "party"
+    "party",
+    "navigation"
   ],
   "vehicleFields": [
     "ux",
@@ -1099,5 +1100,34 @@
     "capacity": "Only 1 constrained 3GiB/1600x900 demo AVD validated; official guide is 4GiB and host cannot sustain 2-3 with current workloads",
     "authority": "Read-only VNC server and browser; no public ADB, control, start/stop or arbitrary-file endpoint",
     "freshness": "Current Android user (10), app-private snapshot under10s; only room ID/state, counts, gear and UX are public"
+  },
+  "navigationReportExample": {
+    "type": "navigation.report",
+    "commandId": "unique-id",
+    "reportSeq": 1,
+    "navigation": {
+      "source": "PLEOS_NAVI_HELPER",
+      "sdkConnected": true,
+      "owned": true,
+      "routeRevision": 1,
+      "event": "DESTINATION_INFO",
+      "status": "ROUTE_DRIVE",
+      "destination": "Sample destination",
+      "remainingDistanceM": 1000,
+      "remainingTimeSec": 120,
+      "latitude": 37.5,
+      "longitude": 126.9,
+      "locationAgeMs": 100,
+      "geometryAvailable": false
+    }
+  },
+  "nativeNavigation": {
+    "sdk": "NaviHelper 3.0.5/navi-data 3.0.4",
+    "auth": "Current CAR_HOST socket; increasing reportSeq; approved party snapshots only",
+    "geometry": "TripSummary routePoints are POI summaries, not road polylines. SDK ownership clears previous demo geometry.",
+    "freshness": "Report expires after10s; position sample and age must remain within10s; reconnect/restart resets state",
+    "persistence": "SDK coordinates and navigation state excluded from SQLite checkpoints",
+    "callbacks": "Request success alone is not route readiness; callback delivery depends on the navigation app. Destination changes can be detected from SDK destination responses.",
+    "screen": "Existing game UX gates preserved; no APP_MAPS or driving exemption"
   }
 }

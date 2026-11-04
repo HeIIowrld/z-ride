@@ -21,7 +21,11 @@ public final class RoomClient {
         .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS)
         .pingInterval(10, TimeUnit.SECONDS).build();
     private final ExecutorService io = Executors.newSingleThreadExecutor();
-    private final Listener listener;
+    private volatile Listener listener;
+    private final java.util.concurrent.atomic.AtomicLong vehicleSequence=new java.util.concurrent.atomic.AtomicLong();
+    public long nextVehicleReportSequence(){return vehicleSequence.incrementAndGet();}
+    public void setListener(Listener value){listener=java.util.Objects.requireNonNull(value);}
+    public boolean isAuthenticated(){return authenticatedGeneration==generation&&socket!=null&&!closed;}
     private WebSocket socket;
     private String base, token, roomId, sessionId;
     private boolean closed;

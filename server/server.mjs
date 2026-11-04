@@ -11,6 +11,7 @@ import { createEffectsService } from './effects.mjs';
 import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
 import { createPlacesService } from './places.mjs';
+import {navigationReport,navigationSnapshot} from './navigation.mjs';
 import { createPartyApi } from './party-api.mjs';
 import { createAccounts } from './accounts.mjs';
 import { createAccountApi } from './account-api.mjs';
@@ -309,6 +310,7 @@ export function createDemoServer(options = {}) {
       missionLedger:places.events.projection(room),
       cabin: cabin.snapshot(cabinContext(room, viewer)),
       party: { partyId: room.roomId, status: room.closedAt ? 'DISBANDED' : 'ACTIVE', route: places.routeInfo(room.roomId) },
+      navigation: navigationSnapshot(room),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
       serverTime: Date.now(),
@@ -579,6 +581,15 @@ export function createDemoServer(options = {}) {
     wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
   });
   function perform(room, member, message) {
+    if(message.type==='navigation.report'){
+      if(member.role!=='CAR_HOST')throw fail('ROLE_FORBIDDEN','Only vehicle can report navigation',403);
+      if(!Number.isSafeInteger(message.reportSeq)||message.reportSeq<1||message.reportSeq<=(member.lastNavigationSeq??0))throw fail('STALE_REPORT','Navigation sequence must increase',409);
+      const value=navigationReport(message.navigation);member.lastNavigationSeq=message.reportSeq;
+      room.navigation={...value,revision:(room.navigation?.revision??0)+1};
+      const r=places.routeInfo(room.roomId);
+      if(value.sdkConnected&&(value.owned||value.status==='ROUTE_DRIVE')&&r.active&&r.source==='DEMO_ROUTE')places.setRoute(room.roomId,{commandId:randomUUID(),expectedRouteRevision:r.routeRevision,source:'NONE'});
+      change(room);return {reported:true,navigationRevision:room.navigation.revision};
+    }
     if (message.type === 'vehicle.report') {
       if (member.role !== 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Only vehicle can report state', 403);
       if (!UX.includes(message.ux) || !GEARS.includes(message.gear)) throw fail('INVALID_REPORT', 'Explicit UX and gear required');
@@ -709,6 +720,7 @@ export function createDemoServer(options = {}) {
           if (member.role === 'CAR_HOST') {
             ws.effectConnectionId = randomUUID(); ws.effectExpiresAt = session.expiresAt;
             member.lastReportSeq = 0;
+            member.lastNavigationSeq=0;room.navigation=null;
             pause(room, 'VEHICLE_RECONNECTED'); room.vehicle.receivedAt = 0; room.vehicle.hostConnected = true;
             room.vehicle.ux = 'UNKNOWN'; room.vehicle.gear = 'UNKNOWN';
             room.vehicle.foreground = false;

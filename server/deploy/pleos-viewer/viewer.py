@@ -5,6 +5,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 from simulation import simulator
+import native_navigation
 
 ROOT=Path(__file__).resolve().parent
 NOVNC=Path('/usr/share/novnc').resolve()
@@ -50,10 +51,12 @@ class Handler(BaseHTTPRequestHandler):
         path=unquote(urlsplit(self.path).path)
         match=re.fullmatch(r'/simulation/([123])',path)
         if match:return self.send_body(json.dumps(simulator.snapshot(int(match[1])),ensure_ascii=False).encode(),'application/json; charset=utf-8')
+        match=re.fullmatch(r'/navigation/([123])',path)
+        if match:return self.send_body(json.dumps(native_navigation.status(int(match[1]))).encode(),'application/json')
         if path=='/status.json':return self.send_body(json.dumps(catalog(),ensure_ascii=False).encode(),'application/json; charset=utf-8')
         if path in ['/','/index.html']:file=ROOT/'index.html'
         elif re.fullmatch(r'/[123]/?',path):file=ROOT/'viewer.html'
-        elif path in ['/app.js','/viewer.js','/simulation.js','/style.css']:file=ROOT/path[1:]
+        elif path in ['/app.js','/viewer.js','/simulation.js','/native-navigation.js','/style.css']:file=ROOT/path[1:]
         elif path.startswith('/novnc/'):
             file=(NOVNC/path[len('/novnc/'):]).resolve()
             if not file.is_relative_to(NOVNC) or file.suffix not in ['.js','.css','.svg','.png','.woff','.woff2']:return self.send_error(404)
@@ -62,13 +65,13 @@ class Handler(BaseHTTPRequestHandler):
         types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}
         self.send_body(file.read_bytes(),types.get(file.suffix,'application/octet-stream'))
     def do_POST(self):
-        match=re.fullmatch(r'/simulation/([123])',urlsplit(self.path).path)
+        match=re.fullmatch(r'/(simulation|navigation)/([123])',urlsplit(self.path).path)
         if not match:return self.send_error(404)
         if self.headers.get('Origin')!='https://hyundai.hjpark.net':return self.send_error(403)
         try:
             size=int(self.headers.get('Content-Length','0'))
             if not 0<size<=1024 or self.headers.get_content_type()!='application/json':return self.send_error(400)
-            body=json.loads(self.rfile.read(size));value=simulator.act(int(match[1]),body)
+            body=json.loads(self.rfile.read(size));value=native_navigation.execute(int(match[2]),body) if match[1]=='navigation' else simulator.act(int(match[2]),body)
             self.send_body(json.dumps(value,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         except (ValueError,TypeError) as e:
             self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
