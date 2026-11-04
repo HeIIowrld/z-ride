@@ -5,7 +5,7 @@
   const origin = window.GAME_CONFIG?.apiOrigin || location.origin;
   const storageKey = 'phone-account-v1:' + origin;
   let token = null, account = null, config = null, invite = null, preview = null;
-  let busy = false, polling = false, legacy = false, authGeneration = 0, inviteGeneration = 0, watch = null, googleTimer = null, sdkPromise;
+  let busy = false, polling = false, legacy = false, googleReady = false, authGeneration = 0, inviteGeneration = 0, watch = null, googleTimer = null, sdkPromise;
   const message = value => { $('account-error').textContent = value; };
   const notify = name => window.dispatchEvent(new CustomEvent(name));
   function save() { try { if (token) sessionStorage.setItem(storageKey, token); else sessionStorage.removeItem(storageKey); } catch { message('세션 저장소를 사용할 수 없어 새로고침하면 다시 로그인해야 함.'); } }
@@ -36,7 +36,7 @@
     $('account-signin').hidden = !!account;
     $('account-status').textContent = account ? `${account.displayName} · ${account.kind === 'GOOGLE' ? 'Google' : '게스트'}${account.activePartyId ? ' · '+(account.activePartyName || '참가 중인 차량') : ''}${account.pendingPartyId ? ' · 새 차량 승인 대기' : ''}` : 'Google 로그인 또는 게스트로 시작한 뒤 차량 QR을 찍어 주세요.';
     $('guest-button').disabled = busy || !config;
-    $('google-start').hidden = account?.kind === 'GOOGLE';
+    $('google-start').hidden = account?.kind === 'GOOGLE' || googleReady;
     $('google-start').disabled = busy || !config?.auth?.google?.enabled;
     $('google-start').textContent = account ? 'Google 연결 · 게스트 기록 유지' : 'Google 로그인';
     $('account-resume').hidden = !account?.activePartyId;
@@ -90,7 +90,7 @@
     });
     return sdkPromise;
   }
-  function clearGoogle() { clearTimeout(googleTimer); $('google-button').replaceChildren(); }
+  function clearGoogle() { clearTimeout(googleTimer); googleReady = false; $('google-button').replaceChildren(); }
   $('google-start').addEventListener('click', () => action(async () => {
     clearGoogle(); const generation = ++authGeneration, sourceToken = token;
     const challenge = await api('/api/auth/google/challenge', {mode:account ? 'LINK' : 'LOGIN'});
@@ -106,7 +106,8 @@
         });
       }});
     window.google.accounts.id.renderButton($('google-button'), {type:'standard',theme:'outline',size:'large',text:account ? 'continue_with' : 'signin_with',width:260});
-    googleTimer = setTimeout(() => { if (generation === authGeneration) { ++authGeneration; clearGoogle(); message('로그인 준비 시간이 지남. Google 로그인을 다시 눌러 주세요.'); } }, Math.max(1,challenge.expiresAt-Date.now()));
+    googleReady = true;
+    googleTimer = setTimeout(() => { if (generation === authGeneration) { ++authGeneration; clearGoogle(); render(); message('로그인 준비 시간이 지남. Google 로그인을 다시 눌러 주세요.'); } }, Math.max(1,challenge.expiresAt-Date.now()));
   }));
   $('guest-button').addEventListener('click', () => action(async () => {
     ++authGeneration; clearGoogle(); const nickname = $('account-nickname').value.trim();

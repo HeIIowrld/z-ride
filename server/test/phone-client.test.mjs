@@ -23,6 +23,7 @@ test('phone reference client serves only allow-listed static assets with same-or
       assert.ok(response.headers.get('content-security-policy').includes('wss://127.0.0.1:' + server.address().port));
       assert.equal(response.headers.get('cache-control'), 'no-store');
       assert.ok(response.headers.get('content-security-policy').includes('https://accounts.google.com/gsi/client'));
+      assert.ok(response.headers.get('content-security-policy').includes('img-src data:;'));
       assert.equal(response.headers.get('cross-origin-opener-policy'),'same-origin-allow-popups');
       for (const restriction of ['camera=()', 'microphone=()', 'geolocation=()']) assert.ok(response.headers.get('permissions-policy').includes(restriction));
       assert.ok((await response.text()).length > 50);
