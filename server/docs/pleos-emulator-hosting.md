@@ -56,3 +56,7 @@ PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicl
 웹 승인의 터치가 vehicle.report에 의해 취소되지 않도록 Android 승인 버튼은 대기 목록이 달라질 때만 다시 만든다. 공식 Virtual Console은 세션 heartbeat가 살아 있을 때만 쓰기를 허용하므로 이동 worker도 정해진 client ID의 세션을 갱신한다.
 
 [공식 Virtual Console 설치](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/use-vehicle-emulator) · [공식 기능 범위](https://document.pleos.ai/en/docs/pleos-only/app-test-guide/virtual-console-guide) · [noVNC 입력/화면 API](https://novnc.com/noVNC/docs/API.html).
+
+## 다중 AVD 그래픽 오류 대응
+
+세 AVD 동시 시험 중 1번 SIGSEGV와 2·3번 종료가 발생했다. OOM/호스트 guard 종료가 아닌 graphics/ColorBuffer 오류가 기록됐으며 원인 확정이나 장시간 안정성 검증은 별도다. Android 공식 문제 해결 지침에 따라 SwiftShader와 `-feature -Vulkan`을 함께 사용하고 AVD 기본 LCD도1600×900으로 맞춰 다시 시험한다. 메모리 여유만으로 세 대 장시간 실행을 보장하지 않는다. [Android Emulator 공식 문제 해결](https://developer.android.com/studio/run/emulator-troubleshooting).
