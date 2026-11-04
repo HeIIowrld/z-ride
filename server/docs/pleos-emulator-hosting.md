@@ -60,3 +60,5 @@ PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicl
 ## 다중 AVD 그래픽 오류 대응
 
 세 AVD 동시 시험 중 1번 SIGSEGV와 2·3번 종료가 발생했다. OOM/호스트 guard 종료가 아닌 graphics/ColorBuffer 오류가 기록됐으며 원인 확정이나 장시간 안정성 검증은 별도다. Android 공식 문제 해결 지침에 따라 SwiftShader와 `-feature -Vulkan`을 함께 사용하고 AVD 기본 LCD도1600×900으로 맞춰 다시 시험한다. 메모리 여유만으로 세 대 장시간 실행을 보장하지 않는다. [Android Emulator 공식 문제 해결](https://developer.android.com/studio/run/emulator-troubleshooting).
+
+Vulkan만 끈 재시험에서도 동시 종료가 재발했다. 이후 기본 렌더러를 ANGLE/SwiftShader인 `swangle`로 바꿨고 단일 AVD에서60km/h·10배속1624m 이동 → 자동 ARRIVED/P → 안내 취소/NONE 서버 영수증까지 통과했다. `PLEOS_GPU_MODE`는 swangle/SwiftShader(host 값은 소문자 swiftshader)/host 중 선택할 수 있고 기본은 swangle다. 그래픽 모드·충돌 이력·현재 실제 실행 대수는 최신 운영 상태와 함께 확인한다. 짧은 성공 시험으로 장시간 안정성을 주장하지 않는다. [Android 공식 렌더링 모드](https://developer.android.com/studio/run/emulator-acceleration).
