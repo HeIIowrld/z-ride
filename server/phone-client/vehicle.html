@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Z-RIDE · 차량 목업</title><link rel="stylesheet" href="/play/style.css"><script src="/play/config.js"></script><script src="/play/qrcode.js" defer></script><script src="/play/vehicle.js" defer></script></head>
+<body><main><header><a href="/play/demo" class="wordmark">Z-RIDE</a><span class="tag">VEHICLE MOCK / NO SDK</span></header>
+<p class="subtle">센터페시아 통신 목업임. 차량 신호는 시뮬레이션이고 실제 차량을 제어하지 않음.</p>
+<section class="panel"><h1>차량 파티 만들기</h1><form id="host-form"><label>차량 테스트 접근키<input id="host-key" type="password" autocomplete="off" maxlength="1024" placeholder="별도로 받은 테스트 접근키"></label><label>차량 이름<input id="host-name" value="TEST MOCK CAR" maxlength="24" required></label><button id="host-create" class="primary" type="submit">차량 연결 · 파티 생성</button></form><p id="host-status" class="subtle" role="status">차량 연결 전</p><p id="host-error" class="error" role="alert"></p></section>
+<section id="host-party" hidden>
+<section class="panel"><div class="section-heading"><h2>폰으로 QR 스캔</h2><span id="invite-ttl" class="pill"></span></div><canvas id="invite-qr" width="300" height="300" aria-label="차량 파티 참가 QR"></canvas><p class="subtle">Google 로그인 또는 게스트 시작 후 좌석 참가 요청을 보내면 됨. QR은 120초 유효함.</p><a id="invite-link" class="quiet" target="_blank" rel="noopener noreferrer" hidden>폰 참가 화면 새 탭으로 열기 ↗</a><button id="invite-renew" class="quiet" type="button">새 QR 발급</button><p class="footnote">통합 목업에서는 오른쪽 폰 화면에도 같은 초대를 전달함. QR에는 차량·개인 계정 토큰이 들어가지 않음.</p></section>
+<section class="panel"><h2>좌석 참가 요청 · 수동 승인</h2><ul id="host-members" class="mock-members"></ul><p id="host-summary" class="subtle"></p></section>
+<section class="panel"><h2>차량 상태 시뮬레이션</h2><label>기어<select id="host-gear"><option>P</option><option>D</option></select></label><p class="footnote">연결 중에만 2초마다 SIMULATED_API_CLIENTS 신호를 보냄. 페이지가 숨겨지거나 연결이 끊기면 차량 플레이 조건이 닫힘.</p><div class="account-actions"><button id="host-start" class="quiet" type="button">주차 전투 시작</button><button id="host-close" class="quiet" type="button">파티 해산</button></div></section>
+</section><section class="panel"><h2>실제 API 통신</h2><ol id="host-log" class="mock-log"></ol></section>
+</main></body></html>

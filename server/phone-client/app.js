@@ -122,7 +122,7 @@ $('join-form').addEventListener('submit', async event => {
 $('leave-button').addEventListener('click', async () => {
   if (!credentials) return;
   $('leave-button').disabled = true;
-  try { if(window.PHONE_ACCOUNT?.isAccountMode()&&window.PHONE_ACCOUNT.hasSession())await window.PHONE_ACCOUNT.leave();else await post('/api/rooms/'+credentials.roomId+'/party/leave',{},credentials.token);reset();showLogin('파티에서 탈퇴했음. 다시 참가하려면 차량의 새 QR을 사용해 주세요.');result(''); }
+  try { if(window.PHONE_ACCOUNT?.isAccountMode()&&window.PHONE_ACCOUNT.hasSession())await window.PHONE_ACCOUNT.leave(room?.members?.find(m=>m.seat===$('seat').value)?.approved!==true);else await post('/api/rooms/'+credentials.roomId+'/party/leave',{},credentials.token);reset();showLogin('현재 참가를 종료했음. 다시 참가하려면 차량의 새 QR을 사용해 주세요.');result(''); }
   catch(error) { result(describe(error)); }
   finally { $('leave-button').disabled=false; }
 });
@@ -141,6 +141,7 @@ function render() {
   $('my-name').textContent = me?.nickname || $('nickname').value;
   $('my-seat').textContent = seats[me?.seat] || '자리 확인 중';
   const approved = me?.approved === true;
+  $('leave-button').textContent=approved?'파티 탈퇴':'참가 요청 취소';
   $('pending-panel').hidden = approved; $('approved-content').hidden = !approved;
   if (!approved) return;
   $('battle-state').textContent = states[room.state] || room.state;

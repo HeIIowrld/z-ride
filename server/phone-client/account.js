@@ -142,7 +142,7 @@
         account = joined.account; return joined;
       } finally { busy = false; render(); }
     },
-    async leave() { const data = await api('/api/me/party/leave', {}); account = data.account; render(); },
+    async leave(pending = false) { const data = await api(pending ? '/api/me/invitations/cancel' : '/api/me/party/leave', {}); account = data.account; render(); },
     sync: () => action(async () => { await refresh(); }),
   };
   readInvite(); window.addEventListener('hashchange',readInvite);
