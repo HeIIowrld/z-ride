@@ -1074,5 +1074,16 @@
     "resume": "explicit party-ticket; pending approval completion connects once; 4412 never auto-resumes",
     "qr": "URL fragment removed before external SDK load; preview, explicit switch consent, HOST approval",
     "configuration": "GAME_GOOGLE_CLIENT_ID in private environment, exposed public ID through client-config/challenge; GAME_* URLs remain configurable"
+  },
+  "vehicleWebMock": {
+    "entry": "/play/demo",
+    "vehicle": "/play/vehicle",
+    "phone": "/play",
+    "transport": "Actual CAR_HOST REST+WS, QR120s and PHONE_ACCOUNT/approved PARTY_PLAY; no new REST endpoints",
+    "signals": "SIMULATED_API_CLIENTS, foreground/gear and 2s heartbeat, no SDK or actual actuation",
+    "qr": "Locally hosted MIT qrcode-generator 2.0.4; only invite fragment, never HOST/account/play token",
+    "iframe": "same-origin frame-ancestors only; parent message origin and exact child source verified; only invite URL and non-authoritative stage passed",
+    "secrets": "HOST access key cleared after enrollment; host credential memory only and never passed to parent/phone",
+    "google": "Actual configured GIS login in phone; account selection/consent by user; no new client or global branding change"
   }
 }

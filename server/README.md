@@ -1,5 +1,7 @@
 # Z-RIDE 최소 방 서버
 
+통합 통신 목업: **https://hyundai.hjpark.net/play/demo** — 센터페시아 QR·수동 승인과 폰 로그인/참가를 나란히 확인한다. [실행·API 순서](docs/vehicle-phone-mock.md). 실제 차량 SDK 대신 시뮬레이션 신호를 사용한다.
+
 폰 참가: **https://hyundai.hjpark.net/play** · [Google/게스트 로그인·QR 참가](docs/phone-accounts.md#폰-웹-참가-페이지--2026-11-04). 클라이언트 ID는 운영 `GAME_GOOGLE_CLIENT_ID` 설정, 폰은 서버에서 공개 설정을 조회한다. 실제 Google 동의는 사용자 브라우저에서 수행한다.
 
 revision 10: [폰 계정·QR 참가·차량 전환 API와 목업](docs/phone-accounts.md). Google 설정 전 비활성, REST 55개.

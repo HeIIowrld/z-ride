@@ -22,7 +22,7 @@ REQUIRED = {
     'package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
     'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'places.mjs', 'party-api.mjs', 'auth-providers.mjs', 'request-policy.mjs', 'event-ledger.mjs', 'accounts.mjs', 'account-api.mjs', 'observer.mjs', 'observer/index.html',
     'observer/app.js', 'observer/style.css', 'phone-client.mjs',
-    'phone-client/index.html', 'phone-client/app.js', 'phone-client/account.js', 'phone-client/style.css',
+    'phone-client/demo.html', 'phone-client/demo.js', 'phone-client/vehicle.html', 'phone-client/vehicle.js', 'phone-client/index.html', 'phone-client/app.js', 'phone-client/account.js', 'phone-client/style.css',
 }
 
 
