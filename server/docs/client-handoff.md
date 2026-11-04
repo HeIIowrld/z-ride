@@ -179,3 +179,6 @@ SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 
 - 게임 `/ws`는 Origin 없는 네이티브 클라이언트, 요청 Host와 같은 http/https 브라우저 Origin 또는 프로그램의 allowedOrigins 목록만 허용한다. 다른 사이트 Origin은 403이다.
 - 도구 `tools/demo-party.mjs`와 `deploy/persistence-smoke.mjs`는 비공개 환경 변수 `ZRIDE_TEST_ACCESS_KEY`를 읽어 세션 발급 본문에만 넣는다.
 - 외부 HTTP는 테스트 연결만 제공한다. 전송 암호화·브라우저 실제 GPS는 HTTPS/WSS 배포가 필요하다. 공개 페이지·스크린샷·노션 본문에 실제 접근키를 넣지 않는다.
+# 폰 웹 로그인 연결 — 2026-11-04
+
+`https://hyundai.hjpark.net/play`가 Google/게스트 계정과 기존 QR/파티 REST·WSS를 연결한다. `/play/account.js`가 계정·초대·전환을, `/play/app.js`가 플레이 티켓과 방 화면을 담당한다. `phone:ticket` 이벤트로 PARTY_PLAY 자격증명만 넘긴다. PHONE_ACCOUNT는 WS에 보내지 않는다. 계정은 tab sessionStorage, 플레이와 Google ID token은 메모리만 사용한다. Google 원본은 `https://hyundai.hjpark.net`, 리디렉션 URI는 사용하지 않는다. [계정 상세](phone-accounts.md) · [도메인 배포](domain-handoff.md)

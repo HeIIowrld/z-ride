@@ -13,7 +13,7 @@ EXTRACTOR = SCRIPT.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 REQUIRED = ['package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
             'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'places.mjs', 'party-api.mjs', 'auth-providers.mjs', 'request-policy.mjs', 'event-ledger.mjs', 'accounts.mjs', 'account-api.mjs', 'observer.mjs', 'observer/index.html',
             'observer/app.js', 'observer/style.css', 'phone-client.mjs',
-            'phone-client/index.html', 'phone-client/app.js', 'phone-client/style.css']
+            'phone-client/index.html', 'phone-client/app.js', 'phone-client/account.js', 'phone-client/style.css']
 
 
 class DeploymentArchiveTests(unittest.TestCase):

@@ -2,6 +2,18 @@
 
 2026-11-03 Asia/Seoul. 작업 범위는 **Pleos 센터페시아 앱 ↔ 서버 ↔ 폰**의 계정/참여 API다. 화면은 구조 확인용 목업이며 최종 앱 UI·게임 화면·Google Cloud 등록은 별도다. 전체 REST 55개.
 
+## 폰 웹 참가 페이지 — 2026-11-04
+
+현재 진입점은 **https://hyundai.hjpark.net/play**다. Google 로그인/게스트 시작, 게스트에 Google 연결, QR 미리보기·좌석 참가·차량 변경 동의, 승인 대기/취소, 현재 파티 재연결, 탈퇴·로그아웃을 제공한다. 차량 HOST 앱은 기존 API로 QR을 만들고 참가자를 승인한다. 실제 지도와 차량 SDK 실행은 이 페이지의 범위가 아니다.
+
+Google 클라이언트 ID는 운영 서버 `/etc/zride/zride.env`의 `GAME_GOOGLE_CLIENT_ID`에 넣는다. 브라우저는 `/api/client-config`와 `/api/auth/google/challenge`에서 필요한 공개 설정을 받는다. 승인된 JavaScript 원본은 `https://hyundai.hjpark.net`; 경로 `/play`나 `/api/auth/google/exchange`는 등록하지 않는다. GIS JavaScript popup 콜백의 credential을 기존 서버 nonce와 함께 검증하며, 서버 리디렉션이나 client secret을 사용하지 않는다.
+
+계정 토큰은 API origin별 `sessionStorage`에 보관하고 새로고침 시 refresh로 복원한다. Google ID token과 파티 플레이 토큰은 저장하지 않는다. 게스트는 탭 종료/저장소 삭제 뒤 복구되지 않으며 Google 연결 후 같은 Google 계정으로 복귀할 수 있다. 재연결은 명시적인 버튼으로만 요청하여 다른 기기와 티켓을 무한 교체하지 않는다. 새 참가 요청의 승인 완료만 한 번 자동 연결한다. 4412로 교체된 화면은 자동 재접속하지 않는다. 만료/오류 시 새 게스트를 자동 생성하지 않는다.
+
+Google 버튼은 클릭 후 120초 nonce challenge에 연결해 표시한다. 준비 시간이 지나면 다시 시작해야 한다. CSP는 Google GIS의 script/style/frame/connect 경로만 추가하며 popup용 COOP를 사용한다. QR fragment는 외부 GIS 스크립트를 불러오기 전에 주소에서 제거한다. 기존 코드 참가 버튼은 계정 이력에 연결되지 않는 별도 테스트 모드다.
+
+`phone-account-client.test.mjs`는 브라우저 컨트롤러와 실제 REST 서버를 연결해 게스트→Google 연결의 userId 유지, 탭 복원, QR 제거, 승인 전/후 티켓, 재로그인과 만료 시 비자동 게스트 생성을 검증한다. Google 응답은 합성 fixture이며 실제 사용자 Google 동의/로그인은 사용자의 브라우저에서 확인해야 한다.
+
 ## 화면 구조 목업
 
 ![센터페시아·폰 계정 흐름 목업](images/phone-account-flow.png)
@@ -67,7 +79,7 @@ QR은 짧은 초대 URL만 담는다. HOST/개인/플레이 토큰을 QR에 넣�
 
 ### Google은 설정 전까지 비활성
 
-사용자에게 Google Cloud 클라이언트가 아직 없으므로 **운영 Google 로그인은 현재 비활성**이다. 임의 email/sub를 받아 계정을 만드는 가짜 로그인은 제공하지 않는다.
+2026-11-03에는 Google Cloud 클라이언트가 없어 비활성이었다. 2026-11-04 사용자가 웹 클라이언트 ID를 발급했으며 위 폰 웹 참가 페이지와 HTTPS 운영 설정으로 연결한다. 설정이 없거나 HTTPS가 아니면 provider는 계속 비활성이다. 임의 email/sub를 받아 계정을 만드는 가짜 로그인은 제공하지 않는다.
 
 폰은 서버 nonce를 Google 로그인 요청에 넣고, Google이 서명한 ID token을 credential로 보낸다. 서버는 공식 `google-auth-library` 11.3.2로 서명/발급자/대상/만료를 검증하고 nonce/iat를 추가 검사한다. challenge는 외부 검증 전에 한 번만 사용했다고 저장하므로 경쟁 요청·재시작으로 재사용하지 못한다. Google access/refresh token과 원본 ID token은 DB에 보관하지 않는다.
 
@@ -78,7 +90,7 @@ Google identity는 발급자+sub를 해시한 키로 연결하고 이메일로 �
 - 다른 계정에 이미 연결된 Google identity이면 ACCOUNT_LINK_CONFLICT. 자동 병합/재고 복사하지 않는다. 앱은 기존 게스트 토큰/참여 상태를 덮어쓰지 말고 기존 계정 로그인 또는 게스트 계속 사용을 명시적으로 선택하게 한다.
 - 게스트 토큰을 잃거나 브라우저 저장소를 지우면 같은 게스트를 다른 기기에서 복구할 수 없다. 장기 복귀는 Google 연결 후 지원한다.
 
-클라이언트가 준비되면 실제 사이트의 Google Authorized JavaScript Origin/client ID를 등록하고 GAME_GOOGLE_CLIENT_ID를 설정한다. 이 로그인 검증 방식에는 Google client secret을 폰이나 서버 API 본문에 넣지 않는다. 실제 Google 등록/동의 화면/기기 연동은 아직 수행하지 않았다.
+클라이언트가 준비되면 실제 사이트의 Google Authorized JavaScript Origin/client ID를 등록하고 GAME_GOOGLE_CLIENT_ID를 설정한다. 이 로그인 검증 방식에는 Google client secret을 폰이나 서버 API 본문에 넣지 않는다. 사용자가 Cloud 클라이언트를 생성했으며 실제 사용자 동의/기기 로그인은 별도로 확인한다.
 
 근거: [Google ID token 서버 검증](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token), [GIS nonce](https://developers.google.com/identity/gsi/web/reference/html-reference#data-nonce), [OIDC](https://developers.google.com/identity/openid-connect/openid-connect). Pleos의 차량 소유자 OAuth는 이 폰 로그인과 다른 목적이며 기존 비활성 포트로 유지한다.
 
@@ -155,7 +167,7 @@ sequenceDiagram
 
 이름/주소 변경은 userId/partyId/membershipId/DB identity와 연결하지 않는다. 기존 ZRIDE_* 설정은 호환 별칭으로 유지하며 GAME_*가 있으면 우선한다. 내부 프로토콜/서비스 호환 식별자를 화면 이름 때문에 바꾸지 않는다. DNS/Cloudflare 설정은 이번 작업에서 변경하지 않는다.
 
-PUBLIC_ORIGIN이 HTTPS이면 계정 API는 실제 TLS 또는 명시적으로 신뢰한 프록시의 X-Forwarded-Proto=https를 요구한다. 임의 클라이언트의 위조 forwarded 헤더는 인정하지 않는다. 현재 HTTP 데모에서는 게스트 API만 시험하며 Google은 계속 꺼져 있다. 도메인 연결 시 TLS/신뢰 peer/허용 origin을 함께 설정한다.
+PUBLIC_ORIGIN이 HTTPS이면 계정 API는 실제 TLS 또는 명시적으로 신뢰한 프록시의 X-Forwarded-Proto=https를 요구한다. 임의 클라이언트의 위조 forwarded 헤더는 인정하지 않는다. HTTPS 운영 주소는 hyundai.hjpark.net이며 프록시 peer와 허용 origin을 함께 설정한다. 이 전환 뒤 기존 HTTP 직접 주소의 계정 API는 AUTH_HTTPS_REQUIRED로 차단한다.
 
 ## 저장 이행과 남은 범위
 
@@ -167,7 +179,7 @@ PUBLIC_ORIGIN이 HTTPS이면 계정 API는 실제 TLS 또는 명시적으로 신
 
 - accounts.test: 공식 라이브러리로 합성 RSA 서명 ID token 검증, issuer/audience/nonce/만료, 동일 sub 복귀, 같은 이메일의 다른 sub 분리, 연결 충돌, 기존 게스트 토큰 폐기.
 - account-integration.test: 실제 REST/WS+SQLite, 두 차량 간 승인 전/후 전환, 전환 저장 실패→복원, 재고 비이동, 개인 미션 이력, 토큰 용도 격리, 재시작·재연결·취소·로그아웃, HTTPS 프록시, 중복 Google challenge 교환, format1→2·이름 변경 후 userId 유지.
-- 실제 Google 계정/Cloud 등록/실물 폰 로그인은 수행하지 않았다. 서명/서버 통신은 합성 자격증명으로 검증한다.
+- Google Cloud 클라이언트는 사용자가 생성했다. 실제 사용자 Google 동의/실물 폰 로그인은 아직 검증하지 않았으며 서명/서버 통신은 합성 자격증명으로 검증한다.
 
 ```sh
 node tools/account-flow-demo.mjs http://127.0.0.1:8000

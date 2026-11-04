@@ -3,7 +3,7 @@
   "info": {
     "title": "Z-RIDE local prototype REST API",
     "version": "0.7.0-revision10",
-    "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders."
+    "description": "Implemented server-owned mission/motion/cabin state, world/storage/observer and 4D effect-intent contract, checked 2026-11-01. CLI uses a single-instance SQLite checkpoint (format 2, imports legacy format 1); programmatic createDemoServer() stays ephemeral unless dbPath/stateStore is configured. Closed demo, not production vehicle authentication. REST only; game /ws and read-only /observer/ws are documented separately. Location and cabin reports are client claims, never hardware attested. Example credentials/IDs are synthetic placeholders. Phone web account integration is served at /play (2026-11-04): GIS JavaScript popup, nonce-bound ID token exchange and guest/QR participation; no OAuth redirect endpoint. Checkpoint format 2 accepts legacy format 1."
   },
   "servers": [
     {

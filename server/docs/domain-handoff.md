@@ -1,5 +1,11 @@
 # hjpark.net 연결 인계
 
+2026-11-04: 현재 서비스 진입점은 **https://hyundai.hjpark.net/play**다. 개인 프로젝트에서 구성한 Proxmox 200 nginx가 315 컨테이너의 8000으로 HTTPS/WSS를 프록시한다. `hjpark.net/play`와 `play.hjpark.net`은 현재 배포 주소가 아니다. Google 승인된 JavaScript 원본은 `https://hyundai.hjpark.net`이고, 현재 GIS JavaScript popup 방식에는 승인된 리디렉션 URI가 필요 없다.
+
+운영 환경은 `GAME_PUBLIC_ORIGIN=https://hyundai.hjpark.net`, `GAME_PHONE_JOIN_URL=https://hyundai.hjpark.net/play`, `GAME_BROWSER_API_ORIGIN=https://hyundai.hjpark.net`, `GAME_ALLOWED_ORIGINS=https://hyundai.hjpark.net`, `GAME_OBSERVER_ALLOWED_ORIGINS=https://hyundai.hjpark.net`, `GAME_TRUSTED_PROXY_ADDRESSES=192.168.0.200`을 사용한다. 클라이언트 ID는 비공개 `/etc/zride/zride.env`의 `GAME_GOOGLE_CLIENT_ID`에 저장한다. 실제 값이나 다른 접근키는 저장소에 넣지 않는다. Node는 기존 컨테이너 인터페이스에서 서비스하며 200 프록시 이외의 전달 헤더를 신뢰하지 않는다.
+
+## 별도 프론트 배치가 필요할 때
+
 DNS·Cloudflare 설정은 사용자의 개인 프로젝트 세션에서 관리한다. 이 변경은 DNS·인증서·포트포워딩을 자동 변경하지 않는다. 아래 host/path는 최종 주소로 바꿀 수 있다.
 
 | 용도 | 예시 |
@@ -24,7 +30,7 @@ TRUSTED_PROXY_ADDRESSES는 API가 직접 보는 프록시 peer의 **정확한 IP
 node tools/export-phone.mjs https://api.hjpark.net /absolute/path/to/public-game
 ```
 
-이 도구는 PHONE 파일 4개와 .nojekyll만 내보낸다. 키·DB·관제 정보를 포함하지 않는다. API/WS URL과 asset의 상대 경로·CSP를 설정하므로 사용자 페이지 하위 경로에도 배치할 수 있다. GitHub Pages 실제 게시/Cloudflare 계정 설정은 이 서버 변경에 포함하지 않는다.
+이 도구는 PHONE 파일 5개와 .nojekyll만 내보낸다. 키·DB·관제 정보를 포함하지 않는다. API/WS URL과 asset의 상대 경로·CSP를 설정하므로 사용자 페이지 하위 경로에도 배치할 수 있다. GitHub Pages 실제 게시/Cloudflare 계정 설정은 이 서버 변경에 포함하지 않는다.
 
 ## 연결 완료 뒤 확인
 

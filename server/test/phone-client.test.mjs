@@ -15,13 +15,15 @@ test('phone reference client serves only allow-listed static assets with same-or
   // old idle connections. These static-asset checks do not test keep-alive.
   const request = (path, options = {}) => fetch(base + path, { ...options, headers: { connection: 'close', ...options.headers } });
   try {
-    for (const path of ['/play', '/play/', '/play/app.js', '/play/style.css']) {
+    for (const path of ['/play', '/play/', '/play/app.js', '/play/account.js', '/play/style.css']) {
       const response = await request(path);
       assert.equal(response.status, 200);
       assert.ok(response.headers.get('content-security-policy').includes("connect-src 'self'"));
       assert.ok(response.headers.get('content-security-policy').includes('ws://127.0.0.1:' + server.address().port));
       assert.ok(response.headers.get('content-security-policy').includes('wss://127.0.0.1:' + server.address().port));
       assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.ok(response.headers.get('content-security-policy').includes('https://accounts.google.com/gsi/client'));
+      assert.equal(response.headers.get('cross-origin-opener-policy'),'same-origin-allow-popups');
       for (const restriction of ['camera=()', 'microphone=()', 'geolocation=()']) assert.ok(response.headers.get('permissions-policy').includes(restriction));
       assert.ok((await response.text()).length > 50);
     }

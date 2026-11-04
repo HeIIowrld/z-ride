@@ -5,10 +5,11 @@ const FILES = new Map([
   ['/play', ['index.html', 'text/html; charset=utf-8']],
   ['/play/', ['index.html', 'text/html; charset=utf-8']],
   ['/play/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/play/account.js', ['account.js', 'text/javascript; charset=utf-8']],
   ['/play/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
 
-/** Same-origin reference PHONE client. Credentials stay in browser memory. */
+/** PHONE client: account tokens in tab sessionStorage, play tokens in memory. */
 export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={}) {
   if(apiOrigin)apiOrigin=checkedOrigin(apiOrigin);
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, {
@@ -33,8 +34,9 @@ export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={})
       }
       res.writeHead(200, {
         'content-type': file.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-        'referrer-policy': 'no-referrer', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+        'content-security-policy': "default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        'cross-origin-opener-policy': 'same-origin-allow-popups',
+        'referrer-policy': 'strict-origin-when-cross-origin', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       });
       res.end(req.method === 'HEAD' ? undefined : file.bytes); return true;
     },
