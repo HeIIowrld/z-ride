@@ -6,6 +6,21 @@ revision 9 변경: 공동 기여는 instanceId와 사전 참가한 유한 미션
 
 ## 설치와 원본
 
+### GitHub 차량 도로망 카탈로그 적용 (2026-11-04)
+
+PR #9의 v3 데이터17,923건(주차장17,179·명소423·충전소119·주유소202)을 main에 병합했다. 현재 권장 importer는 저장소의 `data/places/manifest.json`에 나열된7개 JSON shard만 읽으며 SHA256·바이트·행 수·ID·WGS84·pending/disabled·도로망 근거를 검사한다. exclusions는 표시 목록에서 읽지 않는다.
+
+```sh
+node server/tools/import-github-places.mjs /var/lib/zride/places.json --with-demo
+# GAME_PLACES_PATH 또는 ZRIDE_PLACES_PATH를 위 파일로 지정한 뒤 서버 재시작
+```
+
+운영 데이터는 release 디렉터리 밖의 위 경로에 원자적으로 교체하고 소유권/권한을 유지한다. 코드 배포는 이 파일을 덮어쓰지 않는다. 이후 카탈로그 변경도 importer 실행과 재시작이 필요하다. 기존 길벗 importer는 과거 원본 재현용이며 새 v3 데이터의 적용 명령은 아니다.
+
+시설 대표점은 `latitude/longitude`, 내비 목적지 후보는 `navigationDestination` 및 `drivingAssessment.arrival`로 분리한다. 기존 `osm-node-...` ID는 유지한다. `networkRoundTrip=true`는 OSM 지도상 연결 근거이며 실차 검증이 아니다. 모든 신규 장소는 게임 비활성/UNKNOWN 상태를 유지하고 기존 별도 검수만 게임 활성 권한을 준다.
+
+승인된 폰의 `/play` → ‘차량 주변 장소 리스트’에서 현재 차량 위치 주변10km, 가까운50개를 유형별 조회한다. `eligibleOnly:false`로 미검수 후보도 표시하되 현장 미검증·게임 비활성을 명시한다. 실제 도로 우회거리가 아닌 직선거리순이다. 내비 도로 폴리라인 미제공으로 실제 SDK 경로 주변 선별은 여전히 별도다.
+
 ```sh
 node tools/import-places.mjs /var/lib/zride/places.json --with-demo
 ```
