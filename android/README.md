@@ -8,9 +8,36 @@
 | --- | --- | --- |
 | carapp | `ai.zride.demo.car` | CarUxRestrictions·기어·EV 속성·착석 진단, 방 생성·참가 승인, 라운드 시작·지원 펄스 |
 | phoneapp | `ai.zride.demo.phone` | 코드 참가·좌석 선택, 서울 실지도·폰 위치·서버 지점 수집, 차량 상대각 사격 |
+| carhost | `ai.zride.car` | **제품용 차량 화면(앱 팀)**: 파티 열기·QR 초대·대원 승인·주차 중 전투 시작·지원·해산. 아래 [carhost](#carhost--제품용-차량-화면) 참고 |
 | common | 라이브러리 | HTTPS/디버그 HTTP·표준 WebSocket 클라이언트, native Canvas 부채꼴·좀비 표적·HP |
 
 운전자는 사격하지 않고 지원 펄스로 동승자의 피해를 돕는다. 앞 동승석은 -45..90°, 뒷좌석 좌측은 -180..-45°, 우측은 45..180°다. 0°는 차량 전방, 양수는 오른쪽이다. 이는 게임 규칙이며 실제 차량의 사격·창문 제어와 무관하다. 서버가 승인·좌석·각도·현재 라운드·주차 상태를 검사한다.
+
+## carhost — 제품용 차량 화면
+
+2026-11-04 앱 팀. 웹 차량 화면(`/play/car`)에서 실물 폰으로 확인한 흐름을 native로 옮겼다. carapp(참조·진단)은 바꾸지 않았고, 서버 계약(REST·WS·판정)도 그대로 쓴다.
+
+- **차량 신호**: 표준 AAOS `CarUxRestrictionsManager`와 `GEAR_SELECTION`만 읽는다(읽기 전용). 모르는 값은 UNKNOWN=잠금. 2초마다 `vehicle.report`(source `AAOS_CAR_HOST`)를 보내고 최종 판정은 서버 gate가 한다. Pleos(`ai.pleos.playground.car`)와 일반 AAOS 둘 다 설치되도록 두 라이브러리 모두 optional.
+- **주행 중 가림**: UX 허용·P·foreground가 아니면 QR·대원·전투 정보를 전부 덮개로 가린다. 서버 응답을 기다리지 않는다.
+- **QR 초대**: `party/invite`의 `joinUrl`을 ZXing으로 앱 안에서 그린다(외부 서비스로 보내지 않음). 120초 카운트다운, 만료 시 빈자리가 있고 주차 중일 때만 새로 받는다. 초대 하나는 참가 3번까지라서 누가 들어오거나 내보내질 때마다 새 QR을 받는다. 세 자리가 차면 QR을 치운다.
+- **대원**: 승인 대기·접속 중·오프라인 표시, 승인·내보내기. 같은 자리에 오프라인으로 남은 옛 대원이 있으면 먼저 내보내고 승인한다(`SEAT_TAKEN` 방지). 자동 승인은 없다.
+- **전투**: 남은 좀비·보급품·처치, 전투 시작(완료 뒤 다음 웨이브)·일시정지·지원 사격. 못 누르는 이유를 버튼 아래에 보여 준다. 파티 해산은 확인 후 `party/disband`.
+- **연결**: 토큰은 메모리에만. WS가 끊기면 같은 방으로 다시 인증하고(방을 새로 만들지 않음), 8초 안에 `auth.ok`가 없으면 버리고 다시 붙는다. 4401·4409·4410·4429는 다시 붙지 않는다.
+- **소리**: 합류·승인·보급품·공략 완료·지원 때 짧은 자체 생성음(`USAGE_ASSISTANCE_SONIFICATION`, duck 포커스, 시스템 음량 변경 없음). 머리줄에서 끌 수 있다.
+- 서버 주소는 설정에 저장한다(기본 `http://10.0.2.2:8000`). 테스트 접근키는 서버가 요구할 때만 보이고 저장하지 않는다. Debug에서만 `--es serverUrl`과 평문 HTTP를 허용한다.
+
+```sh
+./gradlew :carhost:assembleDebug :carhost:lintDebug
+adb install -r carhost/build/outputs/apk/debug/carhost-debug.apk
+adb shell am start -n ai.zride.car/.HostActivity --es serverUrl http://10.0.2.2:8000
+```
+
+일반 AAOS 에뮬레이터(`system-images;android-34-ext9;android-automotive;arm64-v8a`)에서는 기어를 VHAL 주입으로 바꾼다. AAOS는 D에서 앱 전체를 시스템 차단 화면으로 덮고(게임 Activity는 distractionOptimized가 아님), 앱 자체 덮개는 그 앞 단계(UX 허용이지만 P가 아님)에서 가린다.
+
+```sh
+adb shell cmd car_service inject-vhal-event 0x11400400 8   # GEAR_SELECTION = D
+adb shell cmd car_service inject-vhal-event 0x11400400 4   # GEAR_SELECTION = P
+```
 
 ## 빌드
 
