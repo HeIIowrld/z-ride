@@ -34,7 +34,7 @@ export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={})
       }
       res.writeHead(200, {
         'content-type': file.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        'content-security-policy': "default-src 'none'; img-src data:; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
         'cross-origin-opener-policy': 'same-origin-allow-popups',
         'referrer-policy': 'strict-origin-when-cross-origin', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       });

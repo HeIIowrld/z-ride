@@ -35,3 +35,35 @@ jobs:
               assert error.code == 401
               assert json.load(error)['error']['code'] == 'TEST_ACCESS_REQUIRED'
               print('/api/session: missing access key rejected (401)')
+      - name: Check HTTPS phone login configuration and WSS upgrade
+        shell: python
+        run: |
+          import base64, json, os, socket, ssl, urllib.request, urllib.error
+          host = 'hyundai.hjpark.net'
+          base = 'https://' + host
+          for path in ['/healthz', '/play', '/play/account.js', '/play/app.js', '/observer']:
+              with urllib.request.urlopen(base + path, timeout=15) as response:
+                  assert response.status == 200
+                  if path == '/play':
+                      assert 'https://accounts.google.com/gsi/client' in response.headers['Content-Security-Policy']
+                      assert response.headers['Cross-Origin-Opener-Policy'] == 'same-origin-allow-popups'
+                  print(f'HTTPS {path}: HTTP {response.status}')
+          with urllib.request.urlopen(base + '/api/client-config', timeout=15) as response:
+              config = json.load(response)
+          assert config['apiOrigin'] == base
+          assert config['phoneJoinUrl'] == base + '/play'
+          assert config['auth']['google']['enabled'] is True
+          print('Google provider enabled; phone QR and API origins match HTTPS deployment')
+          try:
+              urllib.request.urlopen(base + '/api/me', timeout=15)
+              raise AssertionError('Account endpoint accepted a missing credential')
+          except urllib.error.HTTPError as error:
+              assert error.code == 401
+          context = ssl.create_default_context()
+          with socket.create_connection((host, 443), timeout=15) as plain:
+              with context.wrap_socket(plain, server_hostname=host) as tls:
+                  nonce = base64.b64encode(os.urandom(16)).decode()
+                  request = f'GET /ws HTTP/1.1\r\nHost: {host}\r\nOrigin: {base}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {nonce}\r\nSec-WebSocket-Version: 13\r\n\r\n'
+                  tls.sendall(request.encode())
+                  assert tls.recv(4096).split(b'\r\n', 1)[0] == b'HTTP/1.1 101 Switching Protocols'
+          print('WSS TLS verification and WebSocket upgrade passed; no play credential submitted')
