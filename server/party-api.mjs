@@ -65,7 +65,7 @@ export function createPartyApi(ctx) {
       if(target.socket)ctx.closeSocket(target.socket,4410,'Removed from party');target.socket=null;
       ctx.pause(room,'MEMBER_REMOVED');ctx.change(room);return {status:200,data:{partyId:room.roomId,status:'REMOVED',memberId:target.memberId}};
     }
-    if (action==='route') { const data=ctx.places.setRoute(room.roomId,body);return {status:200,data}; }
+    if (action==='route') { const data=ctx.places.setRoute(room.roomId,body);ctx.change(room);return {status:200,data}; }
     if (action==='party') { const data=ctx.places.setParty(room.roomId,body);ctx.change(room);return {status:200,data}; }
     if(action==='party/events/join'){const data=ctx.places.joinEvent(room,body);ctx.change(room);ctx.notify();return {status:200,data};}
     if(action==='rewards/claim'){const data=ctx.places.events.claim(room,body);if(!data.replayed)ctx.collectionChanged(room);return {status:200,data};}

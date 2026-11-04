@@ -3,6 +3,26 @@ location = /vehicles {
     if ($host != hyundai.hjpark.net) { return 404; }
     return 302 /vehicles/;
 }
+location ~ ^/vehicles/console/([123])/(.*)$ {
+    if ($host != hyundai.hjpark.net) { return 404; }
+    set $pleos_console_id $1;
+    set $pleos_console_path $2;
+    set $pleos_console_port 818$1;
+    if ($http_origin !~ "^$|^https://hyundai\.hjpark\.net$") { return 403; }
+    proxy_hide_header Access-Control-Allow-Origin;
+    proxy_pass http://192.168.0.221:$pleos_console_port/$pleos_console_path$is_args$args;
+    proxy_set_header Accept-Encoding "";
+    sub_filter_once off;
+    sub_filter_types application/javascript text/javascript text/css;
+    sub_filter '"/vehicle/' '"/vehicles/console/$pleos_console_id/vehicle/';
+    sub_filter '"/vendor/' '"/vehicles/console/$pleos_console_id/vendor/';
+    sub_filter '"/glb/' '"/vehicles/console/$pleos_console_id/glb/';
+    sub_filter '"/hdri/' '"/vehicles/console/$pleos_console_id/hdri/';
+    sub_filter '"/browser/' '"/vehicles/console/$pleos_console_id/browser/';
+    sub_filter '"/highway' '"/vehicles/console/$pleos_console_id/highway';
+    proxy_buffering off;
+    proxy_read_timeout 30s;
+}
 location ~ ^/vehicles/ws/([123])$ {
     if ($host != hyundai.hjpark.net) { return 404; }
     set $pleos_view_port 608$1;

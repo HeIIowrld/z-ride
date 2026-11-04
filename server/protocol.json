@@ -993,7 +993,7 @@
   "placesParties": {
     "revision": 7,
     "catalog": "ZRIDE_PLACES_PATH; OSM manifest integrity verified, all real places initially UNKNOWN/disabled",
-    "route": "128 points,20km max segment,500km max length,30min TTL; route geometry is never persisted or public",
+    "route": "128 points,20km max segment,500km max length,30min TTL; route geometry is never persisted or public; successful updates broadcast a room snapshot with the new routeRevision/source/active metadata to approved party members; geometry stays private",
     "invite": "HOST URL fragment capability,120s,3 uses,rotated/revoked on new invite/disband/restart; only pending PHONE sessions",
     "lifecycle": "pending leave, approved leave, host remove, host disband; no automatic host migration; transient disconnect keeps party",
     "shared": "world.subscribe / world.unsubscribe use commandId+spotId; world.snapshot is spot-scoped public summary, not room snapshot; no location proof or rewards",

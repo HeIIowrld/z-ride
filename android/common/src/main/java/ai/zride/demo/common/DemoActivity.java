@@ -54,12 +54,14 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private TextView inviteInfo;
     private Button inviteButton;
     private String inviteRoomId;
+    private String approvalSignature="";
     private final Runnable expireInvite=()->{if(inviteQr!=null){inviteQr.setImageDrawable(null);inviteQr.setVisibility(View.GONE);inviteInfo.setText("QR 만료 · 주차 상태에서 새 QR을 갱신합니다");if(connected&&foreground&&localAllowed&&room!=null&&room.optString("roomId").equals(inviteRoomId))requestPhoneInvite();}};
     private String localSeat="FRONT_PASSENGER";
     private final AtomicLong reportCounter=new AtomicLong();
-    private final Runnable reporter = new Runnable() { public void run() { if(isCar())sendVehicle();main.postDelayed(this,2000); } };
+    private final Runnable reporter = new Runnable() { public void run() { if(isCar()){sendVehicle();onVehicleDemoTick();}main.postDelayed(this,2000); } };
     protected abstract boolean isCar();
     protected void onVehicleForegroundChanged(boolean value) {}
+    protected void onVehicleDemoTick() {}
     protected void addVehicleControls(LinearLayout container) {}
     protected void inspectExtraDiagnostics() {}
     protected void addPhoneCollectionContent(LinearLayout container) {}
@@ -151,9 +153,12 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     public void onStatus(String value){main.post(()->status.setText(value));event("connection",newJSONObject("message",value));}
     public void onDisconnected(){main.post(()->{connected=false;updateGameVisibility();});}
     public void onRoom(JSONObject value){main.post(()->{connected=true;room=value;updateGameVisibility();roomLabel.setText("ROOM "+value.optString("roomId")+"  CODE "+value.optString("joinCode","—")+"  "+value.optString("state"));
-        JSONArray members=value.optJSONArray("members");StringBuilder label=new StringBuilder();approvals.removeAllViews();
+        JSONArray members=value.optJSONArray("members");StringBuilder label=new StringBuilder(),pending=new StringBuilder();
+        if(isCar()&&members!=null)for(int i=0;i<members.length();i++){JSONObject m=members.optJSONObject(i);if(m!=null&&!m.optBoolean("approved"))pending.append(m.optString("memberId")).append('|').append(m.optString("seat")).append('|').append(m.optString("nickname")).append('\n');}
+        String nextApprovals=value.optString("roomId")+":"+pending;boolean refreshApprovals=!nextApprovals.equals(approvalSignature);
+        if(refreshApprovals){approvals.removeAllViews();approvalSignature=nextApprovals;}
         if(members!=null)for(int i=0;i<members.length();i++){JSONObject m=members.optJSONObject(i);if(m==null)continue;if(!isCar()&&m.optString("sessionId").equals(client.getSessionId()))localSeat=m.optString("seat",localSeat);label.append(m.optString("nickname")).append(" / ").append(m.optString("role")).append(" / ").append(m.optString("seatEvidence")).append(m.optBoolean("approved")?" ✓":" 승인 대기").append("\n");
-            if(isCar()&&!m.optBoolean("approved")){final String id=m.optString("memberId"),seat=m.optString("seat");approvals.addView(button(m.optString("nickname")+" "+seat+" 승인",v->client.approve(id,seat)));}}
+            if(isCar()&&refreshApprovals&&!m.optBoolean("approved")){final String id=m.optString("memberId"),seat=m.optString("seat");approvals.addView(button(m.optString("nickname")+" "+seat+" 승인",v->client.approve(id,seat)));}}
         JSONObject stats=value.optJSONObject("stats");if(stats!=null){JSONObject collection=value.optJSONObject("collection");JSONObject inventory=collection==null?null:collection.optJSONObject("inventory");statsLabel.setText("SHOTS "+stats.optInt("shots")+" · HITS "+stats.optInt("hits")+" · KILLS "+stats.optInt("kills")+" · SUPPLIES "+(inventory==null?0:inventory.optInt("supplies"))+(stats.optBoolean("supportActive")?" · SUPPORT ×"+stats.optInt("supportDamage",2):""));JSONObject shot=stats.optJSONObject("lastShot");if(shot!=null){long time=shot.optLong("time");if(sawRoom&&time>lastShotTime&&shot.optBoolean("accepted"))gameAudio.feedback(shot.optBoolean("hit"));lastShotTime=Math.max(lastShotTime,time);}}sawRoom=true;
         if(!isCar())refreshCollection(value);
         memberLabel.setText(label.toString());arena.setRoom(value);updateGameVisibility();onRoomData(value);});
