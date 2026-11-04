@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - 'server/**'
+      - 'data/places/**'
+      - 'tools/*place*'
       - '.github/workflows/server-ci.yml'
   pull_request:
     paths:
       - 'server/**'
+      - 'data/places/**'
+      - 'tools/*place*'
       - '.github/workflows/server-ci.yml'
   workflow_dispatch:
 
@@ -45,6 +49,11 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Test server and API contract
         run: npm test
+      - name: Validate checked-in place catalog and server conversion
+        run: |
+          python3 ../tools/validate-place-catalog.py
+          python3 ../tools/test-place-review.py
+          node tools/import-github-places.mjs /tmp/zride-places.json --with-demo
       - name: Validate deployment archive boundary
         run: |
           python3 deploy/test_archive.py

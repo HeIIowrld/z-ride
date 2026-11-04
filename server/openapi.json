@@ -6579,7 +6579,7 @@
       "post": {
         "operationId": "nearbyPlaces",
         "summary": "nearbyPlaces",
-        "description": "Revision 7. See docs/places-parties.md for lifecycle, privacy and freshness rules.",
+        "description": "Approved party member query. eligibleOnly=false lists unreviewed Git v3 candidates with mapped arrival evidence; game eligibility still requires separate review. Straight-line distance is not road detour distance.",
         "responses": {
           "200": {
             "description": "Success",
@@ -14178,6 +14178,37 @@
           },
           "isDemo": {
             "type": "boolean"
+          },
+          "navigationDestination": {
+            "type": "object",
+            "description": "Mapped car arrival node, separate from facility coordinates; not field verified.",
+            "properties": {
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              },
+              "basis": {
+                "enum": [
+                  "OSM_NETWORK_NODE_NOT_FIELD_VERIFIED"
+                ]
+              }
+            },
+            "required": [
+              "latitude",
+              "longitude",
+              "basis"
+            ],
+            "additionalProperties": false
+          },
+          "drivingAssessment": {
+            "type": "object",
+            "description": "OSM topology evidence; networkRoundTrip does not establish field access or game eligibility.",
+            "additionalProperties": true
+          },
+          "displayCategory": {
+            "type": "string"
           }
         },
         "required": [

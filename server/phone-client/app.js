@@ -144,6 +144,7 @@ function render() {
   $('leave-button').textContent=approved?'파티 탈퇴':'참가 요청 취소';
   $('pending-panel').hidden = approved; $('approved-content').hidden = !approved;
   if (!approved) return;
+  $('places-refresh').disabled=!room.navigation?.available||!room.navigation.position;
   $('battle-state').textContent = states[room.state] || room.state;
   $('battle-reason').textContent = room.pauseReason ? room.pauseReason.split(',').map(reason => gateNames[reason] || reason).join(' · ') : room.state === 'PLAYING' ? '차량 주차 조건 유지 중' : '차량에서 시작 / 재개';
   $('supplies').textContent = room.collection?.inventory?.supplies ?? 0;
@@ -169,6 +170,19 @@ function render() {
   $('navigation-progress').textContent=nav?.available?`남은 거리 ${nav.remainingDistanceM??'—'}m · 시간 ${nav.remainingTimeSec??'—'}초 · ${nav.position?'차량 위치 갱신됨 ('+nav.positionSource+')':'차량 위치 확인 중'} · 도로 경로 형상 미제공`:'';
   renderControls(); drawRadar();
 }
+
+$('places-refresh').addEventListener('click',async()=>{
+ const active=credentials,position=room?.navigation?.position;
+ if(!active||!ownMember()?.approved||!room.navigation.available||!position||Date.now()-receivedAt>10000){$('places-status').textContent='승인된 파티와 최신 차량 위치가 필요함';return;}
+ $('places-refresh').disabled=true;$('places-status').textContent='장소 조회 중…';
+ try{
+  const response=await fetch(apiOrigin+'/api/places/nearby',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+active.token},body:JSON.stringify({...position,radiusM:10000,limit:50,eligibleOnly:false,...($('place-category').value?{category:$('place-category').value}:{})})});
+  if(!response.ok)throw new Error('HTTP '+response.status);const value=await response.json();
+  if(credentials!==active||!ownMember()?.approved)return;
+  $('places-status').textContent=value.version+' · 전체 '+value.count+'건 중 주변 '+value.places.length+'건'+(value.truncated?' (가까운 50건)':'');
+  $('place-list').replaceChildren(...value.places.map(p=>{const li=document.createElement('li'),name=document.createElement('strong'),detail=document.createElement('p');name.textContent=p.name;detail.textContent=p.category+' · '+p.distanceM+'m · '+(p.isDemo?'가상 시연 장소':p.drivingAssessment?.networkRoundTrip?'도로망 진입·복귀 근거 있음 / 현장 미검증':'도로망 근거 미확인')+' · '+(p.enabled?'게임 활성':'게임 비활성');li.append(name,detail);return li;}));
+ }catch{$('places-status').textContent='장소 조회 실패 · 연결 상태를 확인해 주세요';}finally{if(credentials===active)$('places-refresh').disabled=false;}
+});
 function renderControls() {
   const me = ownMember(), angle = Number($('angle').value), allowedAngle = inside(angle, me?.sector);
   $('angle-value').textContent = angle + '°';
