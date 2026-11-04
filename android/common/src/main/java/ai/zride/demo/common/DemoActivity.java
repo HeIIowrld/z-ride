@@ -54,7 +54,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private TextView inviteInfo;
     private Button inviteButton;
     private String inviteRoomId;
-    private final Runnable expireInvite=()->{if(inviteQr!=null){inviteQr.setImageDrawable(null);inviteQr.setVisibility(View.GONE);inviteInfo.setText("QR 만료 · 새 초대 QR을 발급해 주세요");}};
+    private final Runnable expireInvite=()->{if(inviteQr!=null){inviteQr.setImageDrawable(null);inviteQr.setVisibility(View.GONE);inviteInfo.setText("QR 만료 · 주차 상태에서 새 QR을 갱신합니다");if(connected&&foreground&&localAllowed&&room!=null&&room.optString("roomId").equals(inviteRoomId))requestPhoneInvite();}};
     private String localSeat="FRONT_PASSENGER";
     private final AtomicLong reportCounter=new AtomicLong();
     private final Runnable reporter = new Runnable() { public void run() { if(isCar())sendVehicle();main.postDelayed(this,2000); } };

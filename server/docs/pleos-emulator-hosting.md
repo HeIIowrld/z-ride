@@ -22,7 +22,7 @@ CT317: RAM 제한6GiB, 4 CPU, rootfs64GiB. AVD 서비스는 MemoryMax5800M/Memor
 
 참조 APK `ai.zride.demo.car`가 실제 AAOS CarPropertyManager/CarUxRestrictions와 Pleos Vehicle SDK를 읽고 공용 서버에 CAR_HOST/WS로 연결한다. 실제 부팅 후 gear=P, UX=ALLOWED, 충전 상태·Pleos SOC 읽기를 확인했다. SDK 착석 Boolean 의미는 기존대로 미검증이므로 점유를 확정하지 않는다.
 
-차량 앱의 폰 초대 QR은 기존 party/invite API를 호출한다. 120초·최대3회 초대 URL만 표시하고 HOST/개인 토큰을 QR이나 로그에 넣지 않는다. QR 발급은 로컬 UX/foreground 허용 때만 가능하고 주행 제한 때 숨긴다. 폰은 같은 Google/게스트·계정 초대 API를 사용하며 실제 차량 앱의 승인 목록에 나타난다. 실제 센서가 달린 전기차를 검증한 것은 아니다.
+차량 앱의 폰 초대 QR은 기존 party/invite API를 호출한다. 120초·최대3회 초대 URL만 표시하고 HOST/개인 토큰을 QR이나 로그에 넣지 않는다. QR 발급은 로컬 UX/foreground 허용 때만 가능하고 주행 제한 때 숨긴다. 한 번 QR을 발급한 동일 방에서 주차·foreground가 유지되면 만료 시 자동 갱신한다. 폰은 같은 Google/게스트·계정 초대 API를 사용하며 실제 차량 앱의 승인 목록에 나타난다. 실제 센서가 달린 전기차를 검증한 것은 아니다.
 
 상태 서비스는 Android의 **현재 사용자**를 확인한 뒤 디버그 앱 private room-state.json 중 최신 10초 이내의 roomId/기어/UX/인원만 공개한다. Android Automotive의 사용자10과 사용자0을 혼동하지 않는다. 오래된 파일로 파티가 연결됐다고 표시하지 않으며 참가 코드·토큰·원시 좌표·멤버 상세는 상태 JSON에서 제외한다.
 
