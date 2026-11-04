@@ -1,0 +1,49 @@
+[
+  {
+    "id": "node/359906695",
+    "name": "구산 해수욕장",
+    "category": "attraction",
+    "latitude": 36.752798,
+    "longitude": 129.467958,
+    "region": "경상북도",
+    "address": "",
+    "theme": "water",
+    "facts": {
+      "natural": "beach",
+      "location_basis": "osm_node",
+      "name_en": "Gusan Beach"
+    },
+    "unnamed": false,
+    "osmModifiedAt": "2019-01-01T15:12:14+00:00",
+    "sourceUrl": "https://www.openstreetmap.org/node/359906695",
+    "reviewStatus": "pending",
+    "gameEnabled": false,
+    "accessTags": {
+      "snapshotAt": "2026-11-02T21:21:26Z",
+      "matched": true,
+      "tags": {}
+    },
+    "displayCategory": "waterfront",
+    "carAccess": {
+      "status": "unknown",
+      "reason": "no_motorcar_permission_or_route_evidence",
+      "evidence": {},
+      "routeVerified": false
+    },
+    "drivingAssessment": {
+      "status": "osm_network_connected",
+      "method": "connected_parking_same_site",
+      "roadWayId": 907718547,
+      "roadNodeId": 8428756147,
+      "arrival": {
+        "latitude": 36.7526139,
+        "longitude": 129.4678282
+      },
+      "parkingId": "way/907718550",
+      "poiToParkingDistanceM": 0.0,
+      "networkRoundTrip": true,
+      "fieldVerified": false,
+      "snapshotAt": "2026-11-02T21:21:26Z"
+    }
+  }
+]

@@ -1,0 +1,151 @@
+{
+  "format": "z-ride-place-catalog-v3",
+  "license": "ODbL-1.0",
+  "attribution": "© OpenStreetMap contributors",
+  "snapshotAt": "2026-10-31T21:23:06Z",
+  "count": 17923,
+  "byCategory": {
+    "attraction": 423,
+    "charging_station": 119,
+    "parking": 17179,
+    "fuel_station": 202
+  },
+  "byRegion": {
+    "경상북도": 1337,
+    "경상남도": 1599,
+    "전북특별자치도": 1418,
+    "전남광주통합특별시": 1884,
+    "제주특별자치도": 393,
+    "경기도": 4058,
+    "부산광역시": 382,
+    "서울특별시": 1190,
+    "충청남도": 1289,
+    "강원특별자치도": 1075,
+    "인천광역시": 824,
+    "대전광역시": 536,
+    "충청북도": 680,
+    "대구광역시": 532,
+    "울산광역시": 346,
+    "세종특별자치시": 380
+  },
+  "metadata": "metadata.json",
+  "schema": "schema.json",
+  "shards": [
+    {
+      "path": "attraction-000.json",
+      "category": "attraction",
+      "count": 423,
+      "bytes": 426057,
+      "sha256": "48c8424e925e814222fe8d7669b81df172050d558945d2746265e4800f147af7"
+    },
+    {
+      "path": "charging_station-000.json",
+      "category": "charging_station",
+      "count": 119,
+      "bytes": 125701,
+      "sha256": "b1d2ec63f017b0cbf3a6d1e1e9b348ffed74a566ecaa3340d98af264cf513cfd"
+    },
+    {
+      "path": "parking-000.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 5006016,
+      "sha256": "bd5c66f8f5eaee8418528f72880918786ea50d91e61ad4abc618406d44652dbb"
+    },
+    {
+      "path": "parking-001.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 5007678,
+      "sha256": "7743cc6dcb763a15be3aff6e605e7f2bfe91de7f19d237e575b1d0f980d82a59"
+    },
+    {
+      "path": "parking-002.json",
+      "category": "parking",
+      "count": 5000,
+      "bytes": 5019664,
+      "sha256": "041b8acf6663900fc25825eb07bb2b2d9466f3ef040ae36e836f2f0ea75847c5"
+    },
+    {
+      "path": "parking-003.json",
+      "category": "parking",
+      "count": 2179,
+      "bytes": 2186076,
+      "sha256": "c5df54e8a4af089a72599976b086f31ec8ca654af52b3a8356728e321d5b90b9"
+    },
+    {
+      "path": "fuel_station-000.json",
+      "category": "fuel_station",
+      "count": 202,
+      "bytes": 207733,
+      "sha256": "40f04a75d618fb0968e40056b4c90af1888da7c91bf09fa2f9a85878b3317f2d"
+    }
+  ],
+  "snapshots": {
+    "legacyPlaces": "2026-10-31T21:23:06Z",
+    "fuelAndAccess": "2026-11-02T21:21:26Z"
+  },
+  "displayCategories": {
+    "nature": "산·숲·자연",
+    "waterfront": "바다·물가",
+    "heritage": "역사·유적",
+    "culture": "문화·전시",
+    "leisure": "공원·레저",
+    "religion": "종교시설",
+    "attraction": "기타 명소",
+    "parking": "주차장",
+    "charging_station": "전기차 충전소",
+    "fuel_station": "주유소·가스충전소"
+  },
+  "byDisplayCategory": {
+    "waterfront": 1,
+    "leisure": 345,
+    "attraction": 19,
+    "heritage": 16,
+    "culture": 12,
+    "religion": 30,
+    "charging_station": 119,
+    "parking": 17179,
+    "fuel_station": 202
+  },
+  "byCarAccess": {
+    "unknown": 17906,
+    "allowed_by_tag": 17
+  },
+  "drivingFilter": {
+    "source": {
+      "snapshotAt": "2026-11-02T21:21:26Z",
+      "url": "https://download.geofabrik.de/asia/south-korea-261102.osm.pbf",
+      "sha256": "523cbb385d81ff81aa299dbcda3202ec8124449330beec1bbde7f0aa7df8c4da",
+      "geometryErrors": {},
+      "linearBarrierNodes": 141335,
+      "explicitBarrierPassages": 1615
+    },
+    "inputCount": 113041,
+    "retainedCount": 17923,
+    "excludedCount": 95118,
+    "excludedByReason": {
+      "terrain_not_vehicle_destination": 17385,
+      "missing_current_geometry": 40,
+      "facility_access_restricted_or_conditional": 3230,
+      "inactive_facility": 7,
+      "no_connected_same_site_car_arrival": 74456
+    },
+    "methods": {
+      "connected_parking_same_site": 756,
+      "shared_car_road_node": 1,
+      "car_road_node_inside_facility": 17166
+    },
+    "network": {
+      "anchorNodes": 2146364,
+      "roundTripNodes": 8834524,
+      "acceptedWays": 1172197,
+      "blockedNodes": 172181,
+      "restrictionMemberWays": 26102
+    },
+    "evidenceSha256": "71d55abdbdbf0cb100365725aa57aa7a5a49c125d8e33a02c6d64797ddbd4904",
+    "inputSha256": "97a618feb80a490c16997f7e5b5f4d2305184a14f3058fc39d07630b81155147",
+    "audit": "exclusions.json",
+    "policy": "Shared car-road node or connected same-site parking. No distance-only snapping. Turn-restriction member ways, conditional/restricted access and barriers excluded. No live or field guarantee."
+  }
+}
