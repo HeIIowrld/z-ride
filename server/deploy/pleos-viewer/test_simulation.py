@@ -40,5 +40,15 @@ class SimulationTests(unittest.TestCase):
         with patch.object(self.sim,'geo',side_effect=RuntimeError):self.sim.tick(1,102)
         self.assertEqual(self.sim.snapshot(1)['state'],'ERROR')
         self.assertEqual(self.sim.snapshot(1)['speedKph'],0)
+    def test_partial_native_snapshot_is_retried_before_route_submission(self):
+        original=self.sim.private;reads=0
+        def partial(i,*args,**kwargs):
+            nonlocal reads
+            if args==('cat','files/room-state.json'):
+                reads+=1
+                if reads==1:return '{'
+            return original(i,*args,**kwargs)
+        self.sim.private=partial
+        result=self.act('destination');self.assertEqual(reads,2);self.assertEqual(result['routeStatus'],'PENDING')
 
 if __name__=='__main__':unittest.main()
