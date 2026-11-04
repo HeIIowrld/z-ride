@@ -403,7 +403,7 @@ export function createDemoServer(options = {}) {
     eventChanged:instanceId=>{for(const room of rooms.values())if(!room.closedAt&&places.events.projection(room).instanceId===instanceId){try{places.events.assertPlayable(room);}catch{pause(room,'EVENT_NOT_ACTIVE');}change(room);}notifyWorld();} });
   const displayName=options.displayName??'Z-RIDE';
   if(typeof displayName!=='string'||!displayName.trim()||displayName.length>64||/[\u0000-\u001f]/.test(displayName))throw new Error('Invalid display name');
-  const accountApi=createAccountApi({accounts,partyApi,rooms,sessions,places,isSecure:requestPolicy.isSecure,accountTlsRequired:publicOrigin.startsWith('https://'),roomFor,snapshot,pause,change,closeSocket,clientConfig:{displayName,apiOrigin:publicOrigin,phoneJoinUrl:options.phonePublicUrl??(publicOrigin?publicOrigin+'/play':''),auth:accounts.describe()}});
+  const accountApi=createAccountApi({accounts,partyApi,rooms,sessions,places,isSecure:requestPolicy.isSecure,accountTlsRequired:publicOrigin.startsWith('https://'),roomFor,snapshot,pause,change,closeSocket,clientConfig:{displayName,apiOrigin:publicOrigin,phoneJoinUrl:options.phonePublicUrl??(publicOrigin?publicOrigin+'/play':''),sessionAccessKeyRequired:!!testAccessDigest,auth:accounts.describe()}});
   const server = http.createServer(async (req, res) => {
     try {
       rateLimit('http:' + requestPolicy.clientAddress(req));

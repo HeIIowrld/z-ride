@@ -6,4 +6,4 @@ android {
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     lint { htmlReport false; textReport true; xmlReport true }
 }
-dependencies { api 'com.squareup.okhttp3:okhttp:4.12.0' }
+dependencies { api 'com.squareup.okhttp3:okhttp:4.12.0'; implementation 'com.google.zxing:core:3.5.4' }

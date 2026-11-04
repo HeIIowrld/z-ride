@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $=id=>document.getElementById(id),origin=window.GAME_CONFIG?.apiOrigin||location.origin;
-  let credential=null,room=null,ws=null,authenticated=false,reportSeq=0,timer=null,invite=null,busy=false,closed=false,phase='',lastMembers='';
+  let credential=null,room=null,ws=null,authenticated=false,reportSeq=0,timer=null,invite=null,busy=false,closed=false,phase='',lastMembers='',configReady=false;
   const notify=stage=>{if(stage!==phase){phase=stage;if(window.parent!==window)window.parent.postMessage({type:'mock:vehicle',stage},location.origin);}};
   function log(text){const row=document.createElement('li');row.textContent=new Date().toLocaleTimeString()+' · '+text;$('host-log').prepend(row);while($('host-log').children.length>25)$('host-log').lastChild.remove();}
   function status(text){$('host-status').textContent=text;}
@@ -16,7 +16,7 @@
     ws.send(JSON.stringify({type:'vehicle.report',commandId:crypto.randomUUID(),reportSeq:++reportSeq,ux:'ALLOWED',gear:$('host-gear').value,foreground:!document.hidden,seats:[],source:'SIMULATED_API_CLIENTS'}));
   }
   function render(){
-    $('host-create').disabled=busy||authenticated;$('host-create').textContent=room&&!closed?'차량 다시 연결':'차량 연결 · 파티 생성';
+    $('host-create').disabled=busy||authenticated||!configReady;$('host-create').textContent=room&&!closed?'차량 다시 연결':'차량 연결 · 파티 생성';
     $('host-form').hidden=authenticated;$('host-party').hidden=!room||closed;
     $('invite-renew').disabled=busy||!authenticated;$('host-start').disabled=busy||!authenticated||$('host-gear').value!=='P';$('host-close').disabled=busy;
     if(!room)return;
@@ -67,4 +67,6 @@
   timer=setInterval(()=>{report();if(invite){const seconds=Math.max(0,Math.ceil((invite.expiresAt-Date.now())/1000));$('invite-ttl').textContent=seconds?seconds+'초 남음':'만료 · 새 QR 발급 필요';if(!seconds){$('invite-qr').hidden=true;$('invite-link').hidden=true;}}},2000);
   window.addEventListener('pagehide',()=>{clearInterval(timer);ws?.close();});
   window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
+  render();
+  void (async()=>{try{const response=await fetch(new URL('/api/client-config',origin),{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error('CONFIG_UNAVAILABLE');const config=await response.json();const required=config.sessionAccessKeyRequired!==false;$('host-key-label').hidden=!required;$('host-key').required=required;configReady=true;status(required?'차량 테스트 접근키를 입력해 주세요.':'공개 시연 · 접근키 없이 차량 파티를 만들 수 있음.');render();}catch(e){error(e);}})();
 })();

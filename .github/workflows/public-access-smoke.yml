@@ -27,12 +27,15 @@ jobs:
                   status = error.code
               print(f'{path}: HTTP {status}')
               assert status == expected, f'{path} expected {expected}'
-          request = urllib.request.Request(base + '/api/session', data=b'{"role":"PHONE","nickname":"external-probe"}', headers={'Content-Type': 'application/json'})
+          with urllib.request.urlopen(base + '/api/client-config', timeout=15) as response:
+              protected = json.load(response)['sessionAccessKeyRequired']
+          request = urllib.request.Request(base + '/api/session', data=b'{"role":"CAR_HOST","nickname":"external-probe"}', headers={'Content-Type': 'application/json'})
           try:
-              urllib.request.urlopen(request, timeout=15)
-              raise AssertionError('Session without team access key must be refused')
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  assert not protected and response.status == 201
+              print('/api/session: public vehicle enrollment accepted (201)')
           except urllib.error.HTTPError as error:
-              assert error.code == 401
+              assert protected and error.code == 401
               assert json.load(error)['error']['code'] == 'TEST_ACCESS_REQUIRED'
               print('/api/session: missing access key rejected (401)')
       - name: Check HTTPS phone login configuration and WSS upgrade

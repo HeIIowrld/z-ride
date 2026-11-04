@@ -1,0 +1,20 @@
+[Unit]
+Description=Pleos actual emulator %i with read-only screen
+After=network-online.target
+
+[Service]
+Type=simple
+User=emulator
+Group=emulator
+Environment=HOME=/home/emulator
+ExecStart=/opt/pleos-runtime/start-vehicle %i
+Restart=no
+KillMode=control-group
+TimeoutStopSec=20
+MemoryMax=5800M
+MemorySwapMax=128M
+CPUQuota=300%
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

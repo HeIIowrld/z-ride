@@ -11,6 +11,7 @@ test('configured team key gates both guest roles without storing or echoing enro
   const base = `http://127.0.0.1:${address.port}`;
   const session = body => fetch(base + '/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   try {
+    assert.equal((await (await fetch(base+'/api/client-config')).json()).sessionAccessKeyRequired,true);
     const health = await (await fetch(base + '/healthz')).json();
     assert.deepEqual(Object.keys(health).sort(), ['contractRevision', 'ok', 'protocol']);
     assert.equal(health.contractRevision, 10);
@@ -39,6 +40,8 @@ test('local fixtures can omit enrollment protection; independent operator key ne
   const local = createDemoServer();
   const address = await local.listen(0);
   try {
+    assert.equal((await (await fetch(`http://127.0.0.1:${address.port}/api/client-config`)).json()).sessionAccessKeyRequired,false);
+    assert.equal((await fetch(`http://127.0.0.1:${address.port}/api/session`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'CAR_HOST', nickname: 'Public car' }) })).status, 201);
     assert.equal((await fetch(`http://127.0.0.1:${address.port}/api/session`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'PHONE', nickname: 'Local' }) })).status, 201);
   } finally { await local.close(); }
   const protectedApp = createDemoServer({ testAccessKey: 'fixture-enroll', observerToken: 'fixture-observe' });

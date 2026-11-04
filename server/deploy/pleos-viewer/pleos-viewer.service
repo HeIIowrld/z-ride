@@ -1,0 +1,15 @@
+[Unit]
+Description=Pleos read-only per-vehicle screen catalog
+After=network-online.target
+
+[Service]
+User=emulator
+Group=emulator
+WorkingDirectory=/opt/pleos-viewer
+ExecStart=/usr/bin/python3 /opt/pleos-viewer/viewer.py
+Restart=on-failure
+NoNewPrivileges=true
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target
