@@ -51,7 +51,16 @@ class Simulator:
     def geo(self,i,p,speed):
         self.adb(i,'emu','geo','fix',str(p['longitude']),str(p['latitude']),'0','8',str(round(speed/1.852,3)))
     def submit(self,i,s,geometry,source='DEMO_ROUTE'):
-        room=json.loads(self.private(i,'cat','files/room-state.json'))
+        # The reference APK refreshes this diagnostic file on every snapshot.
+        # A read during truncation is transient, not an invalid browser command.
+        for attempt in range(5):
+            try:
+                room=json.loads(self.private(i,'cat','files/room-state.json'))
+                if not isinstance(room,dict) or not room.get('roomId'):raise ValueError()
+                break
+            except ValueError:
+                if attempt==4:raise RuntimeError('VEHICLE_SNAPSHOT_UNAVAILABLE')
+                time.sleep(.05)
         command=str(uuid.uuid4())
         body={'commandId':command,'roomId':room['roomId'],'source':source,'geometry':geometry}
         self.private(i,'tee','files/demo-route.tmp',input_data=json.dumps(body).encode())
