@@ -164,6 +164,9 @@ function render() {
   $('participant-count').textContent = room.members.filter(member => member.connected).length + ' / ' + room.members.length + ' 연결';
   $('members').replaceChildren(...room.members.map(member => { const li = document.createElement('li'); const label = document.createElement('b'); label.textContent = member.nickname + (member.memberId === memberId ? ' (나)' : ''); const detail = document.createElement('span'); detail.textContent = (seats[member.seat] || member.seat) + ' · ' + (member.connected ? '접속' : '오프라인'); li.append(label, detail); return li; }));
   $('room-meta').textContent = room.roomId + ' · 전투 #' + room.roomEpoch + ' · 서버 상태 v' + room.stateVersion;
+  const nav=room.navigation;
+  $('navigation-summary').textContent=nav?.available?`${nav.destination||'목적지 미설정'} · ${nav.status} · SDK 경로 #${nav.nativeRouteRevision} · 서버 #${nav.revision}${nav.error?' · '+nav.error:''}`:'차량 내비 신호 대기/만료';
+  $('navigation-progress').textContent=nav?.available?`남은 거리 ${nav.remainingDistanceM??'—'}m · 시간 ${nav.remainingTimeSec??'—'}초 · ${nav.position?'차량 위치 갱신됨 ('+nav.positionSource+')':'차량 위치 확인 중'} · 도로 경로 형상 미제공`:'';
   renderControls(); drawRadar();
 }
 function renderControls() {

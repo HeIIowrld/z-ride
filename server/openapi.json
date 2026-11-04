@@ -10966,6 +10966,9 @@
           },
           "missionLedger": {
             "$ref": "#/components/schemas/MissionLedgerProjection"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/NavigationState"
           }
         },
         "required": [
@@ -15720,6 +15723,88 @@
           "sessionAccessKeyRequired"
         ],
         "additionalProperties": false
+      },
+      "NavigationState": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "const": "PLEOS_NAVI_HELPER"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "event": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "nativeRouteRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "remainingDistanceM": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "remainingTimeSec": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "position": {
+            "$ref": "#/components/schemas/PlaceCoordinate"
+          },
+          "locationAgeMs": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "geometryAvailable": {
+            "const": false
+          },
+          "reportAgeMs": {
+            "type": "number"
+          },
+          "hardwareAttested": {
+            "const": false
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "positionSource": {
+            "enum": [
+              "PLEOS_NAVI_HELPER",
+              "ANDROID_GNSS"
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "available",
+          "status",
+          "geometryAvailable"
+        ]
       }
     }
   },
@@ -15828,5 +15913,14 @@
     "configuration": "GAME_DISPLAY_NAME/GAME_PUBLIC_ORIGIN/GAME_PHONE_JOIN_URL/GAME_BROWSER_API_ORIGIN/GAME_GOOGLE_CLIENT_ID. Existing ZRIDE settings remain fallback aliases.",
     "google": "Disabled without client ID and HTTPS. Official Google library verifies signature/issuer/audience/expiry; server checks iat/nonce and consumes persisted challenges. LINK preserves guest userId; existing identity conflicts never merge by email.",
     "storage": "Format 2 imports legacy format1. Older releases reject format2 to prevent silently dropping account records. Backup is required for downgrade."
+  },
+  "x-native-navigation-websocket": {
+    "sdk": "NaviHelper 3.0.5/navi-data 3.0.4",
+    "auth": "Current CAR_HOST socket; increasing reportSeq; approved party snapshots only",
+    "geometry": "TripSummary routePoints are POI summaries, not road polylines. SDK ownership clears previous demo geometry.",
+    "freshness": "Report expires after10s; position sample and age must remain within10s; reconnect/restart resets state",
+    "persistence": "SDK coordinates and navigation state excluded from SQLite checkpoints",
+    "callbacks": "Request success alone is not route readiness; callback delivery depends on the navigation app. Destination changes can be detected from SDK destination responses.",
+    "screen": "Existing game UX gates preserved; no APP_MAPS or driving exemption"
   }
 }
