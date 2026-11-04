@@ -31,6 +31,11 @@ async function post(path, body, token) {
 }
 function describe(error) {
   const code = error?.message || error;
+  if(code==='VEHICLE_QR_REQUIRED')return '먼저 차량 화면의 QR을 찍어 주세요.';
+  if(code==='ACCOUNT_AUTH_REQUIRED')return '위에서 Google 로그인 또는 게스트 시작을 해 주세요.';
+  if(code==='PARTY_SWITCH_CONFIRMATION_REQUIRED')return '차량 변경 안내를 확인하고 동의 체크를 해 주세요.';
+  if(code==='ALREADY_IN_PARTY')return '이미 이 파티에 참가했음. 위의 현재 파티 화면 연결을 눌러 주세요.';
+  if(code==='PENDING_JOIN_EXISTS')return '이미 차량 승인을 기다리고 있음. 위에서 대기 상태를 확인하거나 취소해 주세요.';
   if (['PAIRING_EXPIRED', 'PAIRING_USED', 'ROOM_NOT_FOUND'].includes(code)) return '참가 코드를 사용할 수 없음. 차량에서 새 코드를 받아 주세요.';
   if (code === 'ROOM_FULL') return '방이 가득 참. 최대 차량 1대 + 동승자 3명까지 참가할 수 있음.';
   return errors[code] || '처리하지 못함 · ' + (/^[A-Z0-9_]+$/.test(code) ? code : '연결 상태를 확인해 주세요');
@@ -66,13 +71,14 @@ function connect() {
     if (current !== generation) return;
     memberId = null;
     if (pending) { clearTimeout(pending.timer); pending = null; result('연결이 끊김. 처리 결과는 재연결 후 보급품·좀비 HP로 확인해 주세요.'); }
-    if ([4401, 4403, 4409, 4410].includes(event.code)) { reset(); showLogin(event.code === 4410 ? '파티에서 나왔거나 차량이 해산했음. 새 QR로 다시 참가해 주세요.' : event.code === 4409 ? '다른 화면으로 연결이 옮겨짐. 한 참가자는 한 화면에서 접속해 주세요.' : '세션을 확인할 수 없음. 다시 참가해 주세요.'); return; }
+    if ([4401, 4403, 4409, 4410, 4412, 4413].includes(event.code)) { reset(); showLogin(event.code === 4412 ? '다른 화면에서 파티를 연결했음. 이 화면으로 돌아오려면 현재 파티 화면 연결을 눌러 주세요.' : event.code === 4413 ? '계정에서 로그아웃했음.' : event.code === 4410 ? '파티 상태가 바뀜. 계정 상태를 확인하거나 새 QR로 참가해 주세요.' : event.code === 4409 ? '다른 화면으로 연결이 옮겨짐. 한 참가자는 한 화면에서 접속해 주세요.' : '세션을 확인할 수 없음. 다시 참가해 주세요.'); if(event.code!==4413)window.PHONE_ACCOUNT?.sync(); return; }
     status('연결 끊김 · 자동 재연결 대기', 'error'); renderControls();
     if (credentials) retryTimer = setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++) + Math.random() * 300);
   };
 }
 let inviteToken = null;
 function readInviteFragment() {
+  if (window.PHONE_ACCOUNT) return;
   const incoming = new URLSearchParams(location.hash.slice(1)).get('invite');
   if (!incoming) return;
   inviteToken = incoming;
@@ -86,29 +92,37 @@ function readInviteFragment() {
 readInviteFragment();
 window.addEventListener('hashchange', readInviteFragment);
 function showLogin(message = '') { $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
+function useTicket(joined) {
+  reset(); credentials = {token:joined.token,roomId:joined.roomId}; room=joined.room; receivedAt=Date.now();
+  const me=room?.members?.find(m=>m.memberId===joined.memberId); if(me?.seat)$('seat').value=me.seat;
+  $('login-panel').hidden=true; $('game').hidden=false;
+  $('angle').value={REAR_LEFT:-100,REAR_RIGHT:140,FRONT_PASSENGER:60}[$('seat').value];
+  result(joined.pending ? '차량에서 참가자 승인 후 시작할 수 있음.' : '현재 파티에 연결 중…'); render(); connect();
+}
+window.addEventListener('phone:ticket',event=>useTicket(event.detail));
+window.addEventListener('phone:reset',()=>{reset();showLogin();});
 $('join-form').addEventListener('submit', async event => {
-  event.preventDefault(); if (joining) return; joining = true; reset();
+  event.preventDefault(); if (joining) return; joining = true;
   $('join-button').disabled = true; $('form-error').textContent = ''; status('참가 요청 중…');
   try {
     let session, joined;
-    if (inviteToken) {
+    if (window.PHONE_ACCOUNT?.isAccountMode()) {
+      joined=await window.PHONE_ACCOUNT.join($('seat').value,$('passenger-confirm').checked); session=joined;
+    } else if (inviteToken) {
       joined = await post('/api/invites/redeem', {inviteToken,nickname:$('nickname').value.trim(),seat:$('seat').value,passengerConfirmed:$('passenger-confirm').checked}); session = joined;
     } else {
       session = await post('/api/session', { role: 'PHONE', nickname: $('nickname').value.trim(), accessKey: $('access-key').value });
       joined = await post('/api/join', { joinCode: $('join-code').value.trim().toUpperCase(), seat: $('seat').value }, session.token);
     }
     $('access-key').value = '';
-    credentials = { token: session.token, roomId: joined.roomId }; room = joined.room; receivedAt = Date.now();
-    $('join-code').value = ''; $('login-panel').hidden = true; $('game').hidden = false;
-    $('angle').value = { REAR_LEFT: -100, REAR_RIGHT: 140, FRONT_PASSENGER: 60 }[$('seat').value];
-    result('차량에서 참가자 승인 후 시작할 수 있음.'); render(); connect();
-  } catch (error) { reset(); showLogin(describe(error)); }
+    $('join-code').value = ''; useTicket({...joined,token:session.token});
+  } catch (error) { showLogin(describe(error)); window.PHONE_ACCOUNT?.sync(); }
   finally { joining = false; $('join-button').disabled = false; }
 });
 $('leave-button').addEventListener('click', async () => {
   if (!credentials) return;
   $('leave-button').disabled = true;
-  try { await post('/api/rooms/'+credentials.roomId+'/party/leave',{},credentials.token);reset();showLogin('파티에서 탈퇴했음. 다시 참가하려면 차량의 새 QR을 사용해 주세요.');result(''); }
+  try { if(window.PHONE_ACCOUNT?.isAccountMode()&&window.PHONE_ACCOUNT.hasSession())await window.PHONE_ACCOUNT.leave();else await post('/api/rooms/'+credentials.roomId+'/party/leave',{},credentials.token);reset();showLogin('파티에서 탈퇴했음. 다시 참가하려면 차량의 새 QR을 사용해 주세요.');result(''); }
   catch(error) { result(describe(error)); }
   finally { $('leave-button').disabled=false; }
 });

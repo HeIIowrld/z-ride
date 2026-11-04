@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#09121b">
   <title>Z-RIDE · 동승자</title>
   <link rel="stylesheet" href="/play/style.css">
+  <script src="/play/account.js" defer></script>
   <script src="/play/app.js" defer></script>
   <script src="/play/config.js"></script>
 </head>
@@ -13,20 +14,44 @@
   <main>
     <header><a class="wordmark" href="/play">Z<span>—</span>RIDE</a><span class="tag">PASSENGER / TEST</span></header>
     <div id="connection" class="connection" role="status">방에 참가해 주세요</div>
+    <section id="account-panel" class="panel">
+      <p class="eyebrow">PHONE ACCOUNT</p><h1>로그인하고 차량에 참가</h1>
+      <p id="account-status" class="subtle" role="status">계정 설정 확인 중…</p>
+      <div id="account-signin">
+        <label>닉네임<input id="account-nickname" maxlength="24" autocomplete="nickname" placeholder="게임에서 사용할 이름"></label>
+        <button id="guest-button" type="button" class="primary" disabled>게스트로 시작</button>
+      </div>
+      <div class="account-actions">
+        <button id="google-start" type="button" class="quiet" disabled>Google 로그인</button>
+        <div id="google-button"></div>
+        <button id="account-resume" type="button" class="quiet" hidden>현재 파티 화면 연결</button>
+        <button id="account-cancel" type="button" class="quiet" hidden>대기 중인 참가 요청 취소</button>
+        <button id="account-logout" type="button" class="quiet" hidden>로그아웃</button>
+      </div>
+      <p id="account-error" class="error" role="alert"></p>
+      <p class="footnote">계정은 이 탭의 세션 저장소에 보관됨. 게스트는 탭을 닫거나 저장소를 지우면 복구할 수 없음. Google 연결 후에는 같은 Google 계정으로 다시 로그인할 수 있음.</p>
+    </section>
     <section id="login-panel" class="panel login">
       <p class="eyebrow">SQUAD LINK</p><h1>같이 타고, 같이 지킨다.</h1>
-      <p id="join-description" class="subtle">아이폰 Safari에서도 동승자 역할로 참가할 수 있음. 차량 앱에서 참가 코드를 받아 입력해 주세요.</p>
+      <p id="join-description" class="subtle">로그인 후 차량 화면의 QR을 찍어 주세요. 아이폰 Safari에서도 앱 설치 없이 참가할 수 있음.</p>
       <form id="join-form">
+        <p id="invite-status" class="subtle" role="status">차량 QR을 기다리는 중</p>
+        <label id="switch-label" class="check" hidden><input id="switch-confirm" type="checkbox"><span>새 차량에서 승인하면 기존 파티에서 나옴. 기존 파티 재고는 이동하지 않음.</span></label>
         <p id="invite-notice" class="subtle" hidden>차량 QR로 참가합니다. 앱 설치·접근키 입력 없이 좌석을 선택하면 차량에 승인 요청을 보냅니다.</p>
-        <label>테스트 접근키<input id="access-key" type="password" maxlength="1024" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="별도로 받은 팀 테스트 키"></label>
-        <label>닉네임<input id="nickname" required maxlength="24" autocomplete="off" placeholder="누가 탔는지 알려 주세요"></label>
-        <div class="form-row"><label>참가 코드<input id="join-code" required minlength="10" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="10자리 코드"></label>
+        <button id="legacy-toggle" type="button" class="quiet">기존 테스트 코드로 참가</button>
+        <div id="legacy-fields" hidden>
+          <p class="footnote">코드 참가는 계정 이력과 연결되지 않는 기존 테스트 모드임.</p>
+          <label>테스트 접근키<input id="access-key" type="password" maxlength="1024" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="별도로 받은 팀 테스트 키"></label>
+          <label>닉네임<input id="nickname" maxlength="24" autocomplete="off" placeholder="누가 탔는지 알려 주세요"></label>
+          <label>참가 코드<input id="join-code" minlength="10" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="10자리 코드"></label>
+        </div>
+        <div class="form-row">
           <label>앉은 자리<select id="seat"><option value="REAR_LEFT">뒤 왼쪽 · 좌측 방어</option><option value="REAR_RIGHT">뒤 오른쪽 · 우측 방어</option><option value="FRONT_PASSENGER">앞 동승석 · 전방 사수</option></select></label></div>
         <label class="check"><input id="passenger-confirm" type="checkbox" required><span>운전자가 아닌 동승자임을 확인함. 운전 중에는 조작하지 않음.</span></label>
         <button id="join-button" class="primary" type="submit">방 참가하기 <span>↗</span></button>
       </form>
       <p id="form-error" class="error" role="alert"></p>
-      <p class="footnote">테스트 클라이언트 · 접속 정보는 이 페이지를 닫거나 새로고침하면 사라짐.</p>
+      <p class="footnote">차량의 좌석 승인 후 참여할 수 있음. 계정 로그인만으로 차량 제어 권한이 생기지 않음.</p>
     </section>
 
     <section id="game" hidden>

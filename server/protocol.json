@@ -998,7 +998,7 @@
     "lifecycle": "pending leave, approved leave, host remove, host disband; no automatic host migration; transient disconnect keeps party",
     "shared": "world.subscribe / world.unsubscribe use commandId+spotId; world.snapshot is spot-scoped public summary, not room snapshot; no location proof or rewards",
     "persistence": "reviews,party visibility,shared progress and contribution receipts saved; QR capabilities/routes/subscriptions reset",
-    "oauth": "auth-providers.mjs adapter port; Google and Pleos login disabled, no external credentials accepted"
+    "oauth": "Google phone accounts use nonce-bound ID token verification when HTTPS and GAME_GOOGLE_CLIENT_ID are configured; Pleos vehicle-owner OAuth stays disabled"
   },
   "deployment": {
     "environment": [
@@ -1064,5 +1064,15 @@
     "transport": "Account APIs require trusted HTTPS whenever public origin is HTTPS. Google remains disabled without HTTPS + client ID. Current HTTP demo guest testing is not a production Google deployment.",
     "configuration": "Generic GAME_* values; display name and URLs are not database identity keys. Protocol/service compatibility identifiers remain stable.",
     "migration": "Account-aware checkpoint format2 accepts legacy1. Down-revision code must not rewrite format2; deliberate backup restoration is needed for downgrade."
+  },
+  "phoneWebClient": {
+    "entry": "https://hyundai.hjpark.net/play",
+    "accountController": "/play/account.js",
+    "authFlow": "GIS JavaScript popup callback, server challenge nonce and verified ID token exchange; no redirect URI or client secret",
+    "accountStorage": "API-origin-scoped tab sessionStorage; explicit guest creation; no automatic identity replacement on failure",
+    "playStorage": "memory only; PHONE_ACCOUNT is never game WS auth",
+    "resume": "explicit party-ticket; pending approval completion connects once; 4412 never auto-resumes",
+    "qr": "URL fragment removed before external SDK load; preview, explicit switch consent, HOST approval",
+    "configuration": "GAME_GOOGLE_CLIENT_ID in private environment, exposed public ID through client-config/challenge; GAME_* URLs remain configurable"
   }
 }
