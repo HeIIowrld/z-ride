@@ -1084,6 +1084,20 @@
     "qr": "Locally hosted MIT qrcode-generator 2.0.4; only invite fragment, never HOST/account/play token",
     "iframe": "same-origin frame-ancestors only; parent message origin and exact child source verified; only invite URL and non-authoritative stage passed",
     "secrets": "HOST access key cleared after enrollment; host credential memory only and never passed to parent/phone",
-    "google": "Actual configured GIS login in phone; account selection/consent by user; no new client or global branding change"
+    "google": "Actual configured GIS login in phone; account selection/consent by user; no new client or global branding change",
+    "enrollment": "Public demo GAME_TEST_ACCESS_KEY is empty; client-config.sessionAccessKeyRequired=false hides the key field. Existing role/party/session/observer authority is unchanged."
+  },
+  "pleosEmulatorViews": {
+    "catalog": "/vehicles/",
+    "screens": [
+      "/vehicles/1",
+      "/vehicles/2",
+      "/vehicles/3"
+    ],
+    "status": "/vehicles/status.json on the separate CT317 viewer service",
+    "source": "ACTUAL_PLEOS_AVD, API34/Pleos2.1.0; 1 running, 2/3 stopped",
+    "capacity": "Only 1 constrained 3GiB/1600x900 demo AVD validated; official guide is 4GiB and host cannot sustain 2-3 with current workloads",
+    "authority": "Read-only VNC server and browser; no public ADB, control, start/stop or arbitrary-file endpoint",
+    "freshness": "Current Android user (10), app-private snapshot under10s; only room ID/state, counts, gear and UX are public"
   }
 }

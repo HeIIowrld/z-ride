@@ -3,6 +3,10 @@ package ai.zride.demo.common;
 import android.app.Activity;
 import android.os.*;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.common.BitMatrix;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
@@ -46,6 +50,11 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private Spinner seats;
     private LinearLayout approvals, gamePanel;
     private SeatArenaView arena;
+    private ImageView inviteQr;
+    private TextView inviteInfo;
+    private Button inviteButton;
+    private String inviteRoomId;
+    private final Runnable expireInvite=()->{if(inviteQr!=null){inviteQr.setImageDrawable(null);inviteQr.setVisibility(View.GONE);inviteInfo.setText("QR 만료 · 주차 상태에서 새 QR을 갱신합니다");if(connected&&foreground&&localAllowed&&room!=null&&room.optString("roomId").equals(inviteRoomId))requestPhoneInvite();}};
     private String localSeat="FRONT_PASSENGER";
     private final AtomicLong reportCounter=new AtomicLong();
     private final Runnable reporter = new Runnable() { public void run() { if(isCar())sendVehicle();main.postDelayed(this,2000); } };
@@ -75,6 +84,11 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         }
         connectButton=button(isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->connectRoom());root.addView(connectButton);
         status=text("연결 전",14);root.addView(status);roomLabel=text("ROOM —",18);root.addView(roomLabel);
+        if(isCar()){
+            inviteButton=button("폰 초대 QR 발급",v->requestPhoneInvite());root.addView(inviteButton);
+            inviteInfo=text("서버 연결 후 주차 상태에서 QR을 발급합니다 · 폰 로그인 후 차량 승인",14);root.addView(inviteInfo);
+            inviteQr=new ImageView(this);inviteQr.setContentDescription("폰 파티 참가 QR");inviteQr.setBackgroundColor(Color.WHITE);inviteQr.setVisibility(View.GONE);root.addView(inviteQr,new LinearLayout.LayoutParams(512,512));
+        }
         memberLabel=text("",13);root.addView(memberLabel);
         approvals=new LinearLayout(this);approvals.setOrientation(LinearLayout.VERTICAL);root.addView(approvals);
         if(!isCar()){
@@ -105,7 +119,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         }
         resultLabel=text("서버 판정 대기",14);root.addView(resultLabel);
         root.addView(text("색 영역 = 좌석 사격각. 그림은 상대각 시연용이며 서버가 각도·좌석·주차 조건을 판정합니다.",12));
-        client=new RoomClient(this);updateGameVisibility();
+        client=new RoomClient(this);refreshEnrollmentConfig();updateGameVisibility();
         DebugCommandReceiver.attach(this);
         if(localDebugAutomation()&&getIntent().getBooleanExtra("autoConnect",false)&&!"connect".equals(getIntent().getStringExtra("testAction")))main.postDelayed(this::connectRoom,800);
         acceptTestIntent(getIntent());
@@ -113,10 +127,25 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private TextView text(String value,int size){TextView t=new TextView(this);t.setText(value);t.setTextColor(Color.rgb(228,237,242));t.setTextSize(size);t.setPadding(0,5,0,5);return t;}
     private EditText edit(String hint,String value){EditText e=new EditText(this);e.setSingleLine(true);e.setTextColor(Color.WHITE);e.setHintTextColor(Color.GRAY);e.setHint(hint);e.setContentDescription(hint);e.setText(value);return e;}
     private Button button(String title,View.OnClickListener action){Button b=new Button(this);b.setText(title);b.setContentDescription(title);b.setOnClickListener(action);return b;}
+    private void refreshEnrollmentConfig(){client.getPublicConfig(serverInput.getText().toString().trim(),new RoomClient.ApiCallback(){public void onResponse(JSONObject value){main.post(()->{accessKeyInput.setVisibility(value.optBoolean("sessionAccessKeyRequired",true)?View.VISIBLE:View.GONE);});}public void onError(String error){}});}
     private void connectRoom(){((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(serverInput.getWindowToken(),0);client.close();connected=false;sawRoom=false;lastShotTime=0;reportCounter.set(0);localSeat=isCar()?"DRIVER":seats.getSelectedItem().toString();String accessKey=accessKeyInput.getText().toString();accessKeyInput.setText("");client.connect(serverInput.getText().toString().trim(),isCar(),nicknameInput.getText().toString().trim(),isCar()?"":codeInput.getText().toString(),localSeat,accessKey);}
     @Override protected void onResume(){super.onResume();DebugCommandReceiver.attach(this);foreground=true;onVehicleForegroundChanged(true);main.post(reporter);}
     @Override protected void onPause(){foreground=false;onVehicleForegroundChanged(false);if(isCar())sendVehicle();main.removeCallbacks(reporter);localAllowed=false;updateGameVisibility();super.onPause();}
-    @Override protected void onDestroy(){DebugCommandReceiver.detach(this);if(accessKeyInput!=null)accessKeyInput.setText("");main.removeCallbacks(reporter);main.removeCallbacks(testRunner);if(gameAudio!=null)gameAudio.close();client.destroy();super.onDestroy();}
+    @Override protected void onDestroy(){DebugCommandReceiver.detach(this);if(accessKeyInput!=null)accessKeyInput.setText("");main.removeCallbacks(expireInvite);main.removeCallbacks(reporter);main.removeCallbacks(testRunner);if(gameAudio!=null)gameAudio.close();client.destroy();super.onDestroy();}
+    private void requestPhoneInvite(){
+        if(!isCar()||!connected||!foreground||!localAllowed||room==null)return;
+        final String requested=room.optString("roomId");inviteButton.setEnabled(false);
+        client.postApi("/api/rooms/"+requested+"/party/invite",new JSONObject(),new RoomClient.ApiCallback(){
+            public void onResponse(JSONObject value){main.post(()->{if(room==null||!requested.equals(room.optString("roomId")))return;try{
+                long ttl=value.getLong("expiresAt")-System.currentTimeMillis();if(ttl<=0)throw new IllegalStateException("초대 시간이 만료됨");
+                BitMatrix bits=new MultiFormatWriter().encode(value.getString("joinUrl"),BarcodeFormat.QR_CODE,512,512);
+                Bitmap bitmap=Bitmap.createBitmap(512,512,Bitmap.Config.ARGB_8888);int[] pixels=new int[512*512];
+                for(int y=0;y<512;y++)for(int x=0;x<512;x++)pixels[y*512+x]=bits.get(x,y)?Color.BLACK:Color.WHITE;
+                bitmap.setPixels(pixels,0,512,0,0,512,512);inviteRoomId=requested;inviteQr.setImageBitmap(bitmap);inviteQr.setVisibility(View.VISIBLE);inviteInfo.setText("폰으로 QR 스캔 → Google/게스트 로그인 → 참가 요청 → 이 차량에서 승인 · 120초 유효");main.removeCallbacks(expireInvite);main.postDelayed(expireInvite,ttl);
+            }catch(Exception e){inviteInfo.setText("QR 발급 실패 · 다시 발급해 주세요");}updateGameVisibility();});}
+            public void onError(String error){main.post(()->{inviteInfo.setText("QR 발급 실패 · 서버 연결을 확인해 주세요");updateGameVisibility();});}
+        });
+    }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);acceptTestIntent(intent);}
     final void receiveDebugCommand(Intent intent){main.post(()->acceptTestIntent(intent));}
     public void onStatus(String value){main.post(()->status.setText(value));event("connection",newJSONObject("message",value));}
@@ -136,7 +165,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     public void onResult(JSONObject value){main.post(()->resultLabel.setText(value.toString()));String action=pendingCommands.remove(value.optString("commandId"));if(action!=null){try{JSONObject receipt=new JSONObject(value.toString()).put("requestedAction",action);writePrivate("last-action-result.json",receipt);}catch(Exception ignored){}}event("server.result",value);}
     protected void applyVehicle(JSONObject value,boolean allowed){latestVehicle=value;localAllowed=allowed&&foreground;main.post(()->{diagnostics.setText(value.toString());updateGameVisibility();});if(foreground)sendVehicle();}
     protected void applyExtraDiagnostics(JSONObject value){writePrivate("cabin-state.json",value);main.post(()->{if(extraDiagnostics!=null)try{extraDiagnostics.setText(value.toString(2));}catch(Exception ignored){}});}
-    private void updateGameVisibility(){if(gamePanel==null)return;boolean show=!isCar()||(localAllowed&&foreground);gamePanel.setVisibility(show?View.VISIBLE:View.GONE);if(isCar()){roomLabel.setVisibility(show?View.VISIBLE:View.GONE);memberLabel.setVisibility(show?View.VISIBLE:View.GONE);statsLabel.setVisibility(show?View.VISIBLE:View.GONE);approvals.setVisibility(show?View.VISIBLE:View.GONE);}else{int setup=connected?View.GONE:View.VISIBLE;serverInput.setVisibility(setup);nicknameInput.setVisibility(setup);accessKeyInput.setVisibility(setup);if(codeInput!=null)codeInput.setVisibility(setup);if(seats!=null)seats.setVisibility(setup);connectButton.setVisibility(setup);}String state=room==null?"WAITING":room.optString("state");boolean active=connected&&foreground&&"PLAYING".equals(state)&&(!isCar()||localAllowed);arena.update(localSeat,state,active);for(Button b:fireButtons)b.setEnabled(active);if(gameAudio!=null)gameAudio.setAllowed(active);if(!isCar()&&room!=null)refreshCollection(room);}
+    private void updateGameVisibility(){if(inviteButton!=null){if(inviteRoomId!=null&&room!=null&&!inviteRoomId.equals(room.optString("roomId"))){main.removeCallbacks(expireInvite);inviteQr.setImageDrawable(null);inviteRoomId=null;}inviteButton.setEnabled(connected&&foreground&&localAllowed);inviteButton.setVisibility(foreground&&localAllowed?View.VISIBLE:View.GONE);inviteQr.setVisibility(foreground&&localAllowed&&inviteQr.getDrawable()!=null?View.VISIBLE:View.GONE);}if(gamePanel==null)return;boolean show=!isCar()||(localAllowed&&foreground);gamePanel.setVisibility(show?View.VISIBLE:View.GONE);if(isCar()){roomLabel.setVisibility(show?View.VISIBLE:View.GONE);memberLabel.setVisibility(show?View.VISIBLE:View.GONE);statsLabel.setVisibility(show?View.VISIBLE:View.GONE);approvals.setVisibility(show?View.VISIBLE:View.GONE);}else{int setup=connected?View.GONE:View.VISIBLE;serverInput.setVisibility(setup);nicknameInput.setVisibility(setup);accessKeyInput.setVisibility(setup);if(codeInput!=null)codeInput.setVisibility(setup);if(seats!=null)seats.setVisibility(setup);connectButton.setVisibility(setup);}String state=room==null?"WAITING":room.optString("state");boolean active=connected&&foreground&&"PLAYING".equals(state)&&(!isCar()||localAllowed);arena.update(localSeat,state,active);for(Button b:fireButtons)b.setEnabled(active);if(gameAudio!=null)gameAudio.setAllowed(active);if(!isCar()&&room!=null)refreshCollection(room);}
     protected void sendVehicle(){if(!isCar()||!connected||client==null)return;try{JSONObject message=new JSONObject(latestVehicle.toString());message.put("type","vehicle.report").put("commandId",UUID.randomUUID().toString()).put("reportSeq",reportCounter.incrementAndGet()).put("foreground",foreground);client.send(message);}catch(Exception e){event("report.error",newJSONObject("message",e.toString()));}}
     private void sendAction(String action,Float angle){sendAction(action,angle,null);}
     private void sendAction(String action,Float angle,String pickupId){if(room==null)return;if(isCar()&&!localAllowed&&!action.equals("round.pause"))return;try{String id=UUID.randomUUID().toString();JSONObject msg=new JSONObject().put("type","command").put("commandId",id).put("roomEpoch",room.optLong("roomEpoch")).put("action",action);if(angle!=null)msg.put("angleDeg",angle);if(pickupId!=null)msg.put("pickupId",pickupId).put("passengerConfirmed",passengerConfirmation!=null&&passengerConfirmation.isChecked());if(pendingCommands.size()>256)pendingCommands.clear();pendingCommands.put(id,action);if(!client.send(msg))pendingCommands.remove(id);}catch(Exception ignored){}}

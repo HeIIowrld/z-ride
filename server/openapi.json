@@ -15706,13 +15706,18 @@
           },
           "auth": {
             "$ref": "#/components/schemas/AuthProviders"
+          },
+          "sessionAccessKeyRequired": {
+            "type": "boolean",
+            "description": "Whether legacy CAR_HOST/PHONE enrollment requires body.accessKey; false for the public demo. Does not waive account or party-session authentication."
           }
         },
         "required": [
           "displayName",
           "apiOrigin",
           "phoneJoinUrl",
-          "auth"
+          "auth",
+          "sessionAccessKeyRequired"
         ],
         "additionalProperties": false
       }

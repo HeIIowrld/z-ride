@@ -1,0 +1,18 @@
+# Include inside the existing HTTPS project vhost. Keep existing WS upgrade headers.
+location = /vehicles {
+    if ($host != hyundai.hjpark.net) { return 404; }
+    return 302 /vehicles/;
+}
+location ~ ^/vehicles/ws/([123])$ {
+    if ($host != hyundai.hjpark.net) { return 404; }
+    set $pleos_view_port 608$1;
+    proxy_pass http://192.168.0.221:$pleos_view_port;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+}
+location /vehicles/ {
+    if ($host != hyundai.hjpark.net) { return 404; }
+    proxy_pass http://192.168.0.221:8090/;
+    proxy_buffering off;
+    proxy_read_timeout 30s;
+}

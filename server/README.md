@@ -1,5 +1,9 @@
 # Z-RIDE 최소 방 서버
 
+실제 Pleos AVD 화면: **https://hyundai.hjpark.net/vehicles/** · [차량 1](https://hyundai.hjpark.net/vehicles/1). 별도 CT317/KVM에서 구동하고 화면은 읽기 전용으로 송출한다. 현재 1대만 실행하며 2·3번은 중지 상태다. [운영·자원·신호 검증](docs/pleos-emulator-hosting.md).
+
+공개 시연은 차량 접근키 없이 파티를 만들 수 있다. `/api/client-config`의 `sessionAccessKeyRequired=false`를 보고 웹/차량 앱에서 입력란을 숨긴다. 운영자 관제·장소 검수·개인/파티 토큰 인증은 별도로 유지한다.
+
 통합 통신 목업: **https://hyundai.hjpark.net/play/demo** — 센터페시아 QR·수동 승인과 폰 로그인/참가를 나란히 확인한다. [실행·API 순서](docs/vehicle-phone-mock.md). 실제 차량 SDK 대신 시뮬레이션 신호를 사용한다.
 
 폰 참가: **https://hyundai.hjpark.net/play** · [Google/게스트 로그인·QR 참가](docs/phone-accounts.md#폰-웹-참가-페이지--2026-11-04). 클라이언트 ID는 운영 `GAME_GOOGLE_CLIENT_ID` 설정, 폰은 서버에서 공개 설정을 조회한다. 실제 Google 동의는 사용자 브라우저에서 수행한다.

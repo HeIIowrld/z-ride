@@ -26,6 +26,7 @@ test('vehicle screen generates a decodable QR and manually approves the same pho
   });
   const api=async(path,body,token)=>{const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});const data=await r.json();assert.ok(r.ok,JSON.stringify(data));return data;};
   try{
+    await until(()=>!element('host-create').disabled);
     element('host-key').value='fixture-key';element('host-name').value='TEST MOCK CAR';element('host-gear').value='P';
     element('host-form').handlers.submit({preventDefault(){}});await until(()=>events.some(e=>e.type==='mock:invite')).catch(e=>{throw new Error(element('host-error').textContent+' '+element('host-log').children.map(r=>r.textContent).join(';'),{cause:e});});
     assert.equal(element('host-key').value,'');

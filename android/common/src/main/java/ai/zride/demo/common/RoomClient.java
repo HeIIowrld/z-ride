@@ -110,6 +110,16 @@ public final class RoomClient {
         if(path==null||!path.startsWith("/api/")||path.contains("://")){callback.onError("Invalid API path");return;}
         io.execute(()->{try{if(token==null||base==null)throw new IOException("Connect and obtain server approval first");callback.onResponse(post(path,body,true));}catch(ApiException e){callback.onErrorResponse(e.status,e.body);}catch(Exception e){callback.onError(e.getMessage());}});
     }
+    public void getPublicConfig(String origin,ApiCallback callback){
+        io.execute(()->{try{
+            HttpUrl parsed=HttpUrl.parse(origin.replaceAll("/+$","")+"/api/client-config");
+            if(parsed==null||!(parsed.scheme().equals("http")||parsed.scheme().equals("https")))throw new IOException("Invalid HTTP server URL");
+            try(Response response=http.newCall(new Request.Builder().url(parsed).get().build()).execute()){
+                if(!response.isSuccessful()||response.body()==null)throw new IOException("Configuration unavailable");
+                callback.onResponse(new JSONObject(response.body().string()));
+            }
+        }catch(Exception e){callback.onError("Configuration unavailable");}});
+    }
     public boolean send(JSONObject message) { return socket != null && !closed && socket.send(message.toString()); }
     public String getSessionId() { return sessionId; }
     public void close() {
