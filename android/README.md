@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | carapp | `ai.zride.demo.car` | CarUxRestrictions·기어·EV 속성·착석 진단, 방 생성·참가 승인, 라운드 시작·지원 펄스 |
 | phoneapp | `ai.zride.demo.phone` | 코드 참가·좌석 선택, 서울 실지도·폰 위치·서버 지점 수집, 차량 상대각 사격 |
+| thiefcar | `ai.zride.thief` | 충전 게임 "전기 도둑"의 Pleos 앱: 실제 배터리·기어를 게임에 넘기고 무드등·설정 온도를 바꾼다. [설명](../games/electric-thief/README.md) |
 | common | 라이브러리 | HTTPS/디버그 HTTP·표준 WebSocket 클라이언트, native Canvas 부채꼴·좀비 표적·HP |
 
 운전자는 사격하지 않고 지원 펄스로 동승자의 피해를 돕는다. 앞 동승석은 -45..90°, 뒷좌석 좌측은 -180..-45°, 우측은 45..180°다. 0°는 차량 전방, 양수는 오른쪽이다. 이는 게임 규칙이며 실제 차량의 사격·창문 제어와 무관하다. 서버가 승인·좌석·각도·현재 라운드·주차 상태를 검사한다.
