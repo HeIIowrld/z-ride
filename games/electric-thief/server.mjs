@@ -131,7 +131,8 @@ export function createThiefServer({ publicOrigin = '', now = Date.now } = {}) {
       else if (message.type === 'soc') game.setSoc(message.value, message.source === 'CAR' ? 'CAR' : 'DEMO');
       else if (message.type === 'kick') game.removePlayer(message.playerId);
       else throw new Error('BAD_MESSAGE');
-    } else if (message.type === 'play') game.play(ws.playerId, message);
+    } else if (message.type === 'ready') game.confirm(ws.playerId);
+    else if (message.type === 'play') game.play(ws.playerId, message);
     else if (message.type === 'vote') game.vote(ws.playerId, message.suspect);
     else throw new Error('BAD_MESSAGE');
     publish(room);

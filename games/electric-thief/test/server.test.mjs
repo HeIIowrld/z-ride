@@ -41,13 +41,15 @@ test('3명 한 판: 도둑이 큰 화면에 새지 않고, 잡으면 끝나며 �
   await host.until(c => c.state.players.filter(p => p.connected).length === 3);
 
   host.send({ type: 'start' });
+  await Promise.all(phones.map(p => p.until(c => c.state?.phase === 'BRIEFING')));
+  for (const p of phones) p.send({ type: 'ready' });
   await host.until(c => c.state.phase === 'CHARGING');
   host.send({ type: 'soc', value: 35, source: 'CAR' });
   await Promise.all(phones.map(p => p.until(c => c.state.phase === 'CASE')));
   assert.equal(host.state.socSource, 'CAR');
   const thief = phones.find(p => p.state.role === 'THIEF');
   assert.equal(phones.filter(p => p.state.role === 'THIEF').length, 1);
-  for (const p of phones) p.send({ type: 'play', card: 0, inspect: p === thief ? 'LIGHT' : 'BATTERY' });
+  for (const p of phones) p.send({ type: 'play', card: 0, prank: p === thief ? 'LIGHT' : 'NONE' });
   await host.until(c => c.state.phase === 'RESULT');
   assert.equal(host.state.cabin.light === 'RED' || host.state.cabin.light === 'OFF', true);
   host.send({ type: 'next' });

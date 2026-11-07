@@ -1,7 +1,7 @@
 'use strict';
 // 큰 화면. 공개 정보만 보여 준다. 차가 있으면 같은 cabin 값을 Pleos 앱이 실내에 적용한다.
 (() => {
-  const { h, connect, post, store, secondsLeft } = window.Relay;
+  const { h, connect, post, store, secondsLeft, rulesList } = window.Relay;
   const KEY = 'thief.host';
   const $ = id => document.getElementById(id);
   const stage = $('stage');
@@ -18,6 +18,8 @@
     const blocked = !!car && !signal?.parked;
     document.body.classList.toggle('driving', blocked);
     $('cover').hidden = !blocked;
+    // 앱이 첫 신호를 보내기 전에는 주행 중인지 아직 모른다
+    $('cover').firstElementChild.innerHTML = signal ? '주행 중에는 게임을 가려요.<br>P에 두면 다시 보여요.' : '차량 상태를 확인하는 중…';
   }
 
   const button = (text, className, onClick) => { const b = h('button', className, text); b.type = 'button'; b.onclick = onClick; return b; };
@@ -77,6 +79,16 @@
 
   const views = {
     LOBBY: lobby,
+    BRIEFING() {
+      const wrap = h('section', 'brief card');
+      wrap.append(h('h2', 'brief-title', '게임 방법'), rulesList(state.solo));
+      const foot = h('div', 'brief-foot');
+      const list = h('ul', 'done-list');
+      for (const p of state.players) { const li = h('li', p.done ? 'done' : ''); li.append(h('b', '', p.name), h('span', '', p.done ? '이해했어요' : p.connected ? '읽는 중' : '끊김')); list.append(li); }
+      foot.append(list, button('바로 시작', 'primary', next));
+      wrap.append(foot);
+      return wrap;
+    },
     CHARGING() {
       const left = Math.max(0, state.nextAt - state.soc);
       return panel(`사건 ${state.caseNo} / ${state.cases} 끝`, '충전 중…', `배터리가 ${state.nextAt}%가 되면 다음 사건이 터져요. 앞으로 ${left}%`);
