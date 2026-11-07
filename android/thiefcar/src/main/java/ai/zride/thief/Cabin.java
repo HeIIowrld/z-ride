@@ -10,7 +10,7 @@ import ai.pleos.playground.vehicle.api.model.area.SeatArea;
 import ai.pleos.playground.vehicle.constant.unit.TemperatureUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Map;
 import kotlin.Unit;
@@ -33,8 +33,8 @@ final class Cabin {
     private final Handler car;
     private final SharedPreferences saved;
     private int climateRun;
-    private final Map<SeatArea, Integer> brightness = new HashMap<>(), color = new HashMap<>();
-    private final Map<SeatArea, Float> temperature = new HashMap<>();
+    private final Map<SeatArea, Integer> brightness = new ConcurrentHashMap<>(), color = new ConcurrentHashMap<>();
+    private final Map<SeatArea, Float> temperature = new ConcurrentHashMap<>();
     private String lightMode = "NORMAL", climateMode = "NORMAL";
 
     Cabin(Vehicle vehicle, int alertColor, Handler car, SharedPreferences saved) {
@@ -42,22 +42,43 @@ final class Cabin {
         this.alertColor = alertColor; this.car = car; this.saved = saved;
     }
 
+    private boolean recoverChecked;
+
     /** 게임을 바꾸기 전 원래 값을 읽어 둔다. */
     void remember() {
         if (!lightMode.equals("NORMAL") || !climateMode.equals("NORMAL")) return; // 바뀐 값을 원래 값으로 착각하지 않는다
+        read(false);
+    }
+
+    /**
+     * onlyMissing이면 아직 못 읽은 좌석만 읽는다. 못 읽은 좌석은 게임이 건드리지 않았으므로
+     * 게임 중에 읽어도 원래 값이다.
+     */
+    private void read(boolean onlyMissing) {
         light.checkAmbientLightBrightnessCapabilities((cap, ranges) -> {
-            for (SeatArea area : ranges.keySet()) light.getAmbientLightBrightness(area, v -> { brightness.put(area, saved.getInt(key("b", area), v)); return Unit.INSTANCE; }, this::failed);
+            for (SeatArea area : ranges.keySet()) if (!onlyMissing || !has(brightness, area)) light.getAmbientLightBrightness(area, v -> { put(brightness, area, saved.getInt(key("b", area), v)); return Unit.INSTANCE; }, this::failed);
             return Unit.INSTANCE;
         }, this::failed);
         light.checkAmbientLightBrightnessColorCapabilities((cap, areas) -> {
-            for (SeatArea area : areas) light.getAmbientLightBrightnessColor(area, v -> { color.put(area, saved.getInt(key("c", area), v)); return Unit.INSTANCE; }, this::failed);
+            for (SeatArea area : areas) if (!onlyMissing || !has(color, area)) light.getAmbientLightBrightnessColor(area, v -> { put(color, area, saved.getInt(key("c", area), v)); return Unit.INSTANCE; }, this::failed);
             return Unit.INSTANCE;
         }, this::failed);
         hvac.checkHvacTemperatureCapabilities((cap, ranges, conversion) -> {
-            for (SeatArea area : ranges.keySet()) hvac.getHvacTemperature(area, TemperatureUnit.CELSIUS, v -> { temperature.put(area, saved.getFloat(key("t", area), v)); return Unit.INSTANCE; }, this::failed);
+            for (SeatArea area : ranges.keySet()) if (!onlyMissing || !has(temperature, area)) hvac.getHvacTemperature(area, TemperatureUnit.CELSIUS, v -> { put(temperature, area, saved.getFloat(key("t", area), v)); return Unit.INSTANCE; }, this::failed);
             return Unit.INSTANCE;
         }, this::failed);
-        if (saved.getBoolean("dirty", false)) car.postDelayed(this::recover, 1500);
+        if (!recoverChecked && saved.getBoolean("dirty", false)) car.postDelayed(this::recover, 1500);
+        recoverChecked = true;
+    }
+
+    /**
+     * 2초마다 부른다. 게임이 차를 건드리지 않은 동안에는 사용자가 바꾼 값을 원래 값으로 계속 따라가고,
+     * 건드린 뒤에는 처음에 못 읽은 좌석(공조가 꺼져 있던 경우 등)만 채운다.
+     */
+    void refresh() {
+        boolean normal = "NORMAL".equals(lightMode) && "NORMAL".equals(climateMode);
+        if (normal && !saved.getBoolean("dirty", false)) read(false);
+        else if (temperature.isEmpty() || brightness.isEmpty() || color.isEmpty()) read(true);
     }
 
     /** 지난번에 복구하지 못하고 끝났으면 저장한 값으로 되돌린다. */
@@ -67,12 +88,12 @@ final class Cabin {
         applyLight(); applyClimate();
     }
 
+    /** 바꾸기 전 값을 저장한다. 처음엔 못 읽었던 좌석도 나중에 읽히면 그때 채운다(이미 저장한 값은 덮지 않는다). */
     private void keepOriginals() {
-        if (saved.getBoolean("dirty", false)) return;
         SharedPreferences.Editor edit = saved.edit().putBoolean("dirty", true);
-        brightness.forEach((area, v) -> edit.putInt(key("b", area), v));
-        color.forEach((area, v) -> edit.putInt(key("c", area), v));
-        temperature.forEach((area, v) -> edit.putFloat(key("t", area), v));
+        brightness.forEach((area, v) -> { if (!saved.contains(key("b", area))) edit.putInt(key("b", area), v); });
+        color.forEach((area, v) -> { if (!saved.contains(key("c", area))) edit.putInt(key("c", area), v); });
+        temperature.forEach((area, v) -> { if (!saved.contains(key("t", area))) edit.putFloat(key("t", area), v); });
         edit.commit();
     }
 
@@ -122,6 +143,17 @@ final class Cabin {
             });
             return Unit.INSTANCE;
         }, this::failed);
+    }
+
+    /** SeatArea는 같은 좌석이어도 객체가 달라서, 같은 좌석 값을 지우고 넣는다. */
+    private static <T> void put(Map<SeatArea, T> map, SeatArea area, T value) {
+        map.keySet().removeIf(known -> Arrays.equals(known.getValues(), area.getValues()));
+        map.put(area, value);
+    }
+
+    private static boolean has(Map<SeatArea, ?> map, SeatArea area) {
+        for (SeatArea known : map.keySet()) if (Arrays.equals(known.getValues(), area.getValues())) return true;
+        return false;
     }
 
     /** SeatArea의 hashCode는 실행마다 달라서 좌석 값으로 저장 키를 만든다. */

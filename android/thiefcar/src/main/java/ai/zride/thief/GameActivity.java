@@ -10,7 +10,12 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -38,6 +43,11 @@ public final class GameActivity extends Activity implements DrivingGate.Listener
     private Handler car;
     private volatile boolean starting;
     private WebView web;
+    private View offline;
+    private String server;
+    private boolean pageFailed;
+    // 서버가 안 열려 있으면 안내 화면을 띄우고 5초마다 다시 붙어 본다
+    private final Runnable reload = () -> { if (pageFailed && web != null) { pageFailed = false; web.loadUrl(server); } };
     private DrivingGate gate;
     private Vehicle vehicle;
     private EvBattery battery;
@@ -47,7 +57,7 @@ public final class GameActivity extends Activity implements DrivingGate.Listener
     private Integer soc;
     private boolean foreground;
     // 차량 서비스 연결은 비동기라, 배터리가 읽힐 때까지 2초마다 다시 시도한다
-    private final Runnable heartbeat = new Runnable() { public void run() { if (soc == null && !starting) { starting = true; car.post(GameActivity.this::startBattery); } signal(); main.postDelayed(this, 2000); } };
+    private final Runnable heartbeat = new Runnable() { public void run() { if (soc == null && !starting) { starting = true; car.post(GameActivity.this::startBattery); } else if (cabin != null) car.post(cabin::refresh); signal(); main.postDelayed(this, 2000); } };
 
     /** 페이지가 부르는 유일한 창구. 게임 서버 페이지에만 노출한다. */
     private final class Bridge {
@@ -66,7 +76,7 @@ public final class GameActivity extends Activity implements DrivingGate.Listener
         super.onCreate(state);
         boolean debug = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         String extra = debug ? getIntent().getStringExtra("serverUrl") : null;
-        String server = extra != null ? extra : DEFAULT_SERVER;
+        server = extra != null ? extra : DEFAULT_SERVER;
         Uri uri = Uri.parse(server);
         origin = uri.getScheme() + "://" + uri.getAuthority();
         carThread.start();
@@ -81,18 +91,59 @@ public final class GameActivity extends Activity implements DrivingGate.Listener
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return !request.getUrl().toString().startsWith(origin + "/"); // 게임 서버 밖으로 나가지 않는다
             }
-            @Override public void onPageFinished(WebView view, String url) { Log.i(TAG, "page loaded"); signal(); }
-            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) { Log.w(TAG, "page error " + error.getErrorCode() + " " + error.getDescription()); }
+            @Override public void onPageFinished(WebView view, String url) {
+                Log.i(TAG, pageFailed ? "page failed" : "page loaded");
+                offline.setVisibility(pageFailed ? View.VISIBLE : View.GONE);
+                if (pageFailed) { main.removeCallbacks(reload); main.postDelayed(reload, 5000); }
+                signal();
+            }
+            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                Log.w(TAG, "page error " + error.getErrorCode() + " " + error.getDescription());
+                if (request.isForMainFrame()) pageFailed = true;
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onConsoleMessage(ConsoleMessage m) { Log.i(TAG, "js: " + m.message()); return true; }
         });
-        setContentView(web);
+        offline = offlineView();
+        FrameLayout root = new FrameLayout(this);
+        root.addView(web);
+        root.addView(offline);
+        setContentView(root);
         web.loadUrl(server);
         vehicle = new Vehicle(getApplicationContext());
         vehicle.initialize();
         gate = new DrivingGate(this, this);
         gate.start();
+    }
+
+    /** 게임 서버에 못 붙었을 때. 빈 화면이나 브라우저 오류 대신 무엇을 하면 되는지 보여 준다. */
+    private View offlineView() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.setBackgroundColor(Color.rgb(16, 21, 31));
+        box.setVisibility(View.GONE);
+        box.setClickable(true);
+        TextView title = new TextView(this);
+        title.setText("게임 서버에 연결할 수 없어요");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(30);
+        title.setGravity(Gravity.CENTER);
+        TextView hint = new TextView(this);
+        hint.setText("서버가 켜져 있는지 확인해 주세요. 5초마다 다시 연결해요.");
+        hint.setTextColor(Color.rgb(160, 170, 185));
+        hint.setTextSize(18);
+        hint.setGravity(Gravity.CENTER);
+        hint.setPadding(0, 16, 0, 32);
+        Button retry = new Button(this);
+        retry.setText("지금 다시 연결");
+        retry.setTextSize(20);
+        retry.setOnClickListener(v -> { main.removeCallbacks(reload); pageFailed = true; reload.run(); });
+        box.addView(title);
+        box.addView(hint);
+        box.addView(retry, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        return box;
     }
 
     private void startBattery() {
