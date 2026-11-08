@@ -8,7 +8,7 @@
 ```text
 [Pleos 차 화면]  Z-RIDE 게임 앱 (허브)
    게임 목록 → 고른 게임의 "차 화면 URL"을 WebView로 연다
-   └ zride-car.js ← 차 신호(배터리·기어·속도·주차)   → 실내 요청(무드등·공조)
+   └ zride-car.js ← 차 신호(배터리·기어·속도·주차)   → 실내 요청(무드등·바람·공조)
         │ WebSocket 등(게임마다 자유)
 [게임 서버]  각자 만든 서버 (Node 등)
         │
@@ -37,7 +37,7 @@ car.on('signal', s => {
 });
 
 // 실내 연출 요청. 적용됐으면 true, 주차 중이 아니면 false(요청은 기억했다가 다시 주차되면 적용)
-car.setCabin({ light: 'RED', climate: 'COLD' });
+car.setCabin({ light: 'RED', air: 'GUST' });
 car.pulse('RED', 800);                 // 무드등을 잠깐만 바꿨다가 원래 요청으로(최대 5초)
 car.reset();                           // 게임이 끝나면 원래대로
 car.exit();                            // 허브 게임 목록으로
@@ -49,7 +49,7 @@ car.exit();                            // 허브 게임 목록으로
 | `car.mocked` | `?mockcar` 가짜 차 패널을 쓰는 중인지 |
 | `car.state` | 마지막 신호. 차가 없으면 `null` |
 | `car.cabin` | 마지막으로 요청한 실내 상태 |
-| `car.info` | `{version, app, gameId, lights, climates}` |
+| `car.info` | `{version, app, gameId, lights, climates, airs}` |
 
 ### 신호 필드
 
@@ -67,9 +67,12 @@ car.exit();                            // 허브 게임 목록으로
 | 항목 | 값 |
 |---|---|
 | `light` | `NORMAL`(원래 값) `OFF` `RED` `BLUE` `GREEN` `YELLOW` `PURPLE` |
-| `climate` | `NORMAL`(원래 값) `COLD`(16°C) `WARM`(28°C) |
+| `air` | `NORMAL`(원래 세기) `LOW`(가장 약하게, 정전 느낌) `GUST`(가장 세게 4초 뒤 원래 세기로, 과부하·피격 느낌) |
+| `climate` | `NORMAL`(원래 값) `COLD`(원래보다 3°C 낮게) `WARM`(원래보다 3°C 높게) |
 
-허브는 바꾸기 전 원래 무드등·온도를 저장해 두고, `NORMAL` 요청·주행 시작·게임 닫기·앱 종료 시 되돌린다. 앱이 강제로 죽어도 다음 실행 때 되돌린다.
+**바람(`air`)을 먼저 쓰자.** 온도는 몇 초 바꿔서는 거의 느껴지지 않고 충전 중 전력만 더 쓴다. 바람세기는 바로 소리·바람으로 느껴지고 팬 전력은 작다. 바람과 온도는 공조가 켜져 있을 때만 바뀌고, 허브가 공조를 새로 켜지 않는다.
+
+허브는 바꾸기 전 원래 무드등·바람세기(오토 여부 포함)·온도를 저장해 두고, `NORMAL` 요청·주행 시작·게임 닫기·앱 종료 시 되돌린다. 앱이 강제로 죽어도 다음 실행 때 되돌린다.
 
 ## 2. 차 없이 개발하기 (`?mockcar`)
 
@@ -105,7 +108,7 @@ adb shell am start -n ai.zride.hub/.HubActivity --es url.parking-escape http://1
 - 실내 연출은 `parked`일 때만 적용된다. 그 밖의 요청은 무시하고 `false`를 돌려준다.
 - D단 등 주행 UX 제한이 걸리면 허브가 즉시 원래 값으로 되돌린다. Pleos도 허브 화면을 시스템 차단 화면으로 덮는다.
 - 게임 페이지는 등록한 주소의 출처(scheme+host+port) 밖으로 이동할 수 없다. 브리지는 열린 게임 페이지에만 답한다.
-- 차 설정은 무드등 밝기·색과 좌석 설정 온도만 건드린다. 창문·도어·주행 관련 값은 다루지 않는다.
+- 차 설정은 무드등 밝기·색, 바람세기, 설정 온도(±3°C)만 건드린다. 창문·도어·주행 관련 값은 다루지 않는다.
 
 ### 이동 중 게임(DRIVING)에 대해
 
@@ -130,7 +133,7 @@ adb shell pm grant ai.zride.hub android.car.permission.CAR_SPEED
 adb forward tcp:8088 tcp:8088
 ```
 
-Virtual Console(http://127.0.0.1:8088)에서 Battery SOC, Gear Selection, Climate Power, 온도를 바꿔 가며 본다. 공조가 꺼져 있으면 온도 변화가 안 보인다.
+Virtual Console(http://127.0.0.1:8088)에서 Battery SOC, Gear Selection, HVAC Power, Fan Speed를 바꿔 가며 본다. 공조가 꺼져 있으면 바람·온도는 바뀌지 않는다. 허브 로그(`adb logcat -s ZRideHub`)에 `air LOW`, `fan [...] -> 1` 같은 줄이 찍힌다.
 
 ## 6. 체크리스트 (게임 담당)
 

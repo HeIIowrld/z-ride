@@ -23,6 +23,7 @@ input { width: 100%; min-height: 54px; padding: 10px 14px; border: var(--line); 
 .primary:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #05070b; }
 .big { width: 100%; min-height: 64px; font-size: 22px; }
 .ghost { background: transparent; }
+.danger { background: var(--coral); border-color: var(--coral); color: #1a0505; margin-bottom: 10px; }
 .small { min-height: 40px; padding: 6px 10px; font-size: 14px; }
 .chip { background: transparent; }
 .chip.on { background: var(--teal); border-color: var(--teal); color: #06201c; }
@@ -126,10 +127,11 @@ input { width: 100%; min-height: 54px; padding: 10px 14px; border: var(--line); 
 
 /* 전기 도둑 */
 .alarm { color: var(--coral); font-size: 24px; font-weight: 800; }
-.hand { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.hand { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .cardbtn { min-height: 118px; font-size: 40px; font-weight: 800; background: #0d121b; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .cardbtn small { font-size: 14px; font-weight: 600; color: var(--muted); }
 .cardbtn.minus { color: var(--coral); }
+.hand.peek .cardbtn { min-height: 70px; font-size: 28px; }
 .cardbtn.on { border-color: var(--volt); box-shadow: 0 0 0 3px var(--volt); }
 .role { width: 100%; min-height: 72px; margin-top: 8px; color: var(--muted); background: #0d121b; border-style: dashed; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
 .role.open { border-style: solid; color: #06201c; }
@@ -142,7 +144,9 @@ input { width: 100%; min-height: 54px; padding: 10px 14px; border: var(--line); 
 body::after { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s; }
 body[data-light="RED"]::after { opacity: 1; background: rgba(255, 40, 40, .22); }
 body[data-light="OFF"]::after { opacity: 1; background: rgba(0, 0, 0, .62); }
-body[data-climate="COLD"] #stage { box-shadow: inset 0 0 90px rgba(120, 190, 255, .45); border-radius: 20px; }
+body[data-air="GUST"] #stage { animation: gust .5s ease-in-out 6; }
+body[data-air="LOW"] #stage { filter: saturate(.6); }
+@keyframes gust { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-6px); } 70% { transform: translateX(6px); } }
 .cover { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: var(--paper); font-size: 30px; font-weight: 800; text-align: center; line-height: 1.5; }
 .cover[hidden] { display: none; }
 

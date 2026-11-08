@@ -7,8 +7,19 @@
     NO_ROOM: '방을 찾을 수 없어요. 코드를 다시 확인해 주세요.', ROOM_FULL: '네 자리가 모두 찼어요.',
     GAME_STARTED: '이미 게임이 시작됐어요. 다음 판에 같이 해요.', NAME_REQUIRED: '이름을 적어 주세요.', NETWORK: '서버에 연결할 수 없어요.',
   };
-  const PRANKS = [['NONE', '안 해요'], ['LIGHT', '조명 빨갛게'], ['CLIMATE', '에어컨 차갑게']];
-  const cardLabel = v => v > 0 ? '전기 충전' : v < 0 ? '전기 훔치기' : '빈 카드';
+  const PRANKS = [['NONE', '안 해요'], ['LIGHT', '조명 빨갛게'], ['WIND', '바람 훅']];
+  const cardLabel = v => v > 0 ? '충전' : v < 0 ? '방전' : '빈 카드';
+  const signed = v => (v > 0 ? '+' : '') + v;
+  const OUTCOME = { OK: '성공!', LOW: '정전!', HIGH: '과부하!' };
+  const resultTitle = r => r.saved ? '차단기로 막았어요!' : OUTCOME[r.outcome];
+
+  /** 판 내내 들고 있는 손패. 사건이 아닐 때도 보며 어떤 카드를 아낄지 생각한다. */
+  function handPeek() {
+    const box = h('div', 'hand peek');
+    for (const v of state.hand) { const c = h('div', 'cardbtn' + (v < 0 ? ' minus' : '')); c.append(h('b', '', signed(v))); box.append(c); }
+    const wrap = h('div'); wrap.append(h('p', 'hint', '내 손패'), box);
+    return wrap;
+  }
   const app = document.getElementById('app'), toast = document.getElementById('toast');
   let session = store.get(KEY), net = null, state = null, viewKey = '', timerEl = null;
   let choice = { card: null, watch: null, prank: 'NONE' };
@@ -46,9 +57,9 @@
     card.textContent = hidden;
     const show = event => {
       event.preventDefault();
-      const [title, todo] = thief ? ['당신은 전기 도둑!', '마이너스 카드로 전기를 훔치고, 몰래 장난으로 차를 건드려요. 가족인 척하세요.']
-        : state.solo ? ['우리는 한 팀!', '큰 숫자 카드를 내서 목표를 채워요.']
-        : ['당신은 가족!', '큰 숫자 카드를 내요. 한 명을 살펴보면 그 사람 카드가 보일 수 있어요. 말로 나누고 도둑을 찾으세요.'];
+      const [title, todo] = thief ? ['당신은 전기 도둑!', '합계가 구간을 벗어나게 몰래 크게 또는 작게 내요. 몰래 장난으로 차를 건드릴 수도 있어요. 가족인 척하세요.']
+        : state.solo ? ['우리는 한 팀!', '차가 몰래 −2~+2를 더해요. 둘이 숫자를 맞춰 구간에 넣어요.']
+        : ['당신은 가족!', '다 같이 합계를 구간에 맞춰요. 누가 몇을 낼지 말로 맞추고, 한 명을 살펴보며 도둑을 찾으세요.'];
       card.replaceChildren(h('b', '', title), h('span', '', todo));
       card.classList.add('open', thief ? 'bad' : 'good');
     };
@@ -91,13 +102,13 @@
     if (done) { const w = wait('냈어요!', '다른 가족을 기다리는 중이에요.'); w.append(roleCard()); return w; }
     const wrap = h('section', 'task');
     const head = h('div', 'task-head');
-    const title = h('p', 'prompt'); title.append(h('small', '', `사건 ${state.caseNo} / ${state.cases}`), h('b', '', `전기 ${state.target}칸 모으기`));
+    const title = h('p', 'prompt'); title.append(h('small', '', `사건 ${state.caseNo} / ${state.cases}`), h('b', '', `합계를 ${state.range.lo}~${state.range.hi} 사이로`));
     timerEl = h('span', 'timer small-timer'); head.append(title, timerEl); wrap.append(head);
-    wrap.append(h('p', 'hint', '카드 한 장'));
+    wrap.append(h('p', 'hint', '카드 한 장 (낸 카드는 없어지고, 다음 사건 전에 한 장 뽑아요)'));
     const hand = h('div', 'hand');
     const cards = state.hand.map((value, i) => {
       const b = button('', 'cardbtn' + (value < 0 ? ' minus' : '') + (choice.card === i ? ' on' : ''), () => { choice.card = i; cards.forEach((x, j) => x.classList.toggle('on', j === i)); ready(); });
-      b.append(h('b', '', (value > 0 ? '+' : '') + value), h('small', '', cardLabel(value)));
+      b.append(h('b', '', signed(value)), h('small', '', cardLabel(value)));
       return b;
     });
     hand.append(...cards); wrap.append(hand);
@@ -142,10 +153,10 @@
   const views = {
     LOBBY: () => { const w = wait('곧 시작해요', '큰 화면에서 시작을 눌러 주세요.'); const list = h('ul', 'done-list'); for (const p of state.players) { const li = h('li'); li.append(h('b', '', p.name + (p.id === state.me ? ' (나)' : '')), h('span', '', p.connected ? '접속 중' : '끊김')); list.append(li); } w.append(list); return w; },
     BRIEFING: briefView,
-    CHARGING: () => { const w = wait('충전 중…', `배터리 ${state.nextAt}%에 다음 사건이 터져요.`); w.append(roleCard(), rulesFold()); return w; },
+    CHARGING: () => { const w = wait('충전 중…', `배터리 ${state.nextAt}%에 다음 사건이 터져요.`); w.append(handPeek(), roleCard(), rulesFold()); return w; },
     CASE: caseView,
-    RESULT: () => { const w = wait(state.result.success ? '성공!' : '정전!', `모인 전기 ${state.result.sum} / ${state.result.target}`); w.append(clueBox()); return w; },
-    TALK: () => { const w = wait('토론 시간', '내 단서를 말해도 되고, 거짓말해도 돼요.'); w.append(clueBox(), roleCard(), rulesFold()); return w; },
+    RESULT: () => { const r = state.result; const w = wait(resultTitle(r), `모인 전기 ${r.sum} / 구간 ${r.lo}~${r.hi}` + (r.carNoise ? ` · 차가 몰래 ${signed(r.carNoise)}` : '')); w.append(clueBox()); return w; },
+    TALK: () => { const w = wait('토론 시간', '내 단서를 말해도 되고, 거짓말해도 돼요.'); w.append(clueBox(), handPeek(), roleCard(), rulesFold()); return w; },
     VOTE: voteView,
     VERDICT: () => wait(state.verdict.arrested ? `${state.verdict.arrested} 체포!` : '체포 없음', '큰 화면을 봐요.'),
     END: () => wait({ FAMILY: '가족 승리!', THIEF: '도둑 승리!', CAR: '차가 이겼어요' }[state.winner], state.thief ? `도둑은 ${state.thief}이었어요.` : ''),
@@ -153,7 +164,7 @@
 
   function render() {
     if (!state) return;
-    const key = [state.phase, state.caseNo, state.nextAt, state.players.find(p => p.id === state.me)?.done, state.phase === 'LOBBY' ? JSON.stringify(state.players.map(p => [p.name, p.connected])) : ''].join('|');
+    const key = [state.phase, state.caseNo, state.nextAt, state.players.find(p => p.id === state.me)?.done, state.result?.saved, state.phase === 'LOBBY' ? JSON.stringify(state.players.map(p => [p.name, p.connected])) : ''].join('|');
     if (key === viewKey) return;
     if (state.phase === 'CASE' && !viewKey.startsWith('CASE|' + state.caseNo)) choice = { card: null, watch: null, prank: 'NONE' };
     viewKey = key; timerEl = null; say('');

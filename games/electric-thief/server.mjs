@@ -128,6 +128,7 @@ export function createThiefServer({ publicOrigin = '', now = Date.now } = {}) {
     if (ws.role === 'HOST') {
       if (message.type === 'start') game.start();
       else if (message.type === 'next') game.next();
+      else if (message.type === 'breaker') game.breaker();
       else if (message.type === 'soc') game.setSoc(message.value, message.source === 'CAR' ? 'CAR' : 'DEMO');
       else if (message.type === 'kick') game.removePlayer(message.playerId);
       else throw new Error('BAD_MESSAGE');

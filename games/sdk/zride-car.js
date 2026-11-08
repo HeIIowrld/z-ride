@@ -5,7 +5,7 @@
  *   <script src="/zride-car.js"></script>
  *   const car = ZRide.car;
  *   car.on('signal', s => { ... s.soc, s.gear, s.parked, s.speedKmh ... });
- *   car.setCabin({ light: 'RED', climate: 'COLD' });
+ *   car.setCabin({ light: 'RED', air: 'GUST' });
  *   car.pulse('RED', 800);
  *
  * - Pleos 허브 앱 안에서 열리면 실제 차 신호가 온다(car.inCar === true).
@@ -19,15 +19,18 @@
   const VERSION = 1;
   const LIGHTS = ['NORMAL', 'OFF', 'RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE'];
   const CLIMATES = ['NORMAL', 'COLD', 'WARM'];
+  const AIRS = ['NORMAL', 'LOW', 'GUST'];
+  const NORMAL = { light: 'NORMAL', climate: 'NORMAL', air: 'NORMAL' };
+  const isNormal = c => c.light === 'NORMAL' && c.climate === 'NORMAL' && c.air === 'NORMAL';
   const native = window.ZRideCar ?? null;
   const listeners = new Set();
-  let state = null, wanted = { light: 'NORMAL', climate: 'NORMAL' }, pulseTimer = null, mock = null;
+  let state = null, wanted = { ...NORMAL }, pulseTimer = null, mock = null;
 
   function emit(next) {
     const wasParked = state?.parked;
     state = Object.freeze({ ...next });
     // 주차가 풀렸다가 다시 되면 앱은 원래 값으로 돌아가 있다. 마지막 요청을 다시 보낸다.
-    if (state.parked && !wasParked && (wanted.light !== 'NORMAL' || wanted.climate !== 'NORMAL')) send(wanted);
+    if (state.parked && !wasParked && !isNormal(wanted)) send(wanted);
     for (const fn of listeners) { try { fn(state); } catch (e) { console.error(e); } }
   }
   // 네이티브 앱이 부르는 입구. 직접 부르지 않는다.
@@ -41,7 +44,7 @@
 
   const car = {
     version: VERSION,
-    lights: LIGHTS, climates: CLIMATES,
+    lights: LIGHTS, climates: CLIMATES, airs: AIRS,
     /** Pleos 허브 앱 안인지. */
     get inCar() { return !!native; },
     /** 가짜 차 패널을 쓰는 중인지. */
@@ -50,7 +53,7 @@
     get state() { return state; },
     /** 마지막으로 요청한 실내 상태. */
     get cabin() { return { ...wanted }; },
-    get info() { try { return native ? JSON.parse(native.info()) : { version: VERSION, app: null, gameId: null, lights: LIGHTS, climates: CLIMATES }; } catch { return null; } },
+    get info() { try { return native ? JSON.parse(native.info()) : { version: VERSION, app: null, gameId: null, lights: LIGHTS, climates: CLIMATES, airs: AIRS }; } catch { return null; } },
     /** on('signal', fn): 차 신호가 바뀔 때마다. 이미 신호가 있으면 바로 한 번 부른다. 해제 함수를 돌려준다. */
     on(type, fn) {
       if (type !== 'signal') throw new Error('unknown event ' + type);
@@ -63,23 +66,24 @@
      * 실내 상태 요청. 빠진 값은 지금 요청을 유지한다. NORMAL은 원래 값으로.
      * 지금 적용됐으면 true, 주차 중이 아니거나 차가 없으면 false(요청은 기억했다가 주차되면 적용).
      */
-    setCabin({ light = wanted.light, climate = wanted.climate } = {}) {
+    setCabin({ light = wanted.light, climate = wanted.climate, air = wanted.air } = {}) {
       if (!LIGHTS.includes(light)) throw new Error('light must be one of ' + LIGHTS.join(','));
       if (!CLIMATES.includes(climate)) throw new Error('climate must be one of ' + CLIMATES.join(','));
+      if (!AIRS.includes(air)) throw new Error('air must be one of ' + AIRS.join(','));
       clearTimeout(pulseTimer); pulseTimer = null;
-      wanted = { light, climate };
+      wanted = { light, climate, air };
       return send(wanted);
     },
     /** 무드등을 잠깐(최대 5초) 바꿨다가 요청 상태로 돌아간다. 피격·경고 같은 짧은 신호용. */
     pulse(light = 'RED', ms = 800) {
       if (!LIGHTS.includes(light)) throw new Error('light must be one of ' + LIGHTS.join(','));
       clearTimeout(pulseTimer);
-      const ok = send({ light, climate: wanted.climate });
+      const ok = send({ ...wanted, light });
       pulseTimer = setTimeout(() => { pulseTimer = null; send(wanted); }, Math.max(100, Math.min(5000, ms)));
       return ok;
     },
     /** 실내를 원래대로. 게임이 끝날 때 부른다. */
-    reset() { return car.setCabin({ light: 'NORMAL', climate: 'NORMAL' }); },
+    reset() { return car.setCabin(NORMAL); },
     /** 허브 게임 목록으로 돌아간다(차 밖에서는 아무 일 없음). */
     exit() { if (native) native.exit(); },
   };
@@ -125,10 +129,10 @@
     shadow.append(box);
     socIn.oninput = () => { sim.soc = Number(socIn.value); update(); };
     speedIn.oninput = () => { sim.speedKmh = Number(speedIn.value); if (sim.speedKmh > 0 && sim.gear === 'P') sim.gear = 'D'; update(); };
-    const view = { light: 'NORMAL', climate: 'NORMAL' };
+    const view = { ...NORMAL };
     function paint() {
       dot.style.background = COLORS[view.light]; // CSSOM 대입은 CSP에 막히지 않는다
-      cabinText.textContent = `실내 ${view.light} · ${view.climate}`;
+      cabinText.textContent = `실내 ${view.light} · 바람 ${view.air} · 온도 ${view.climate}`;
     }
     function update() {
       const parked = sim.gear === 'P';
@@ -136,7 +140,7 @@
       speedText.textContent = `속도 ${sim.speedKmh} km/h`;
       speedIn.value = sim.speedKmh;
       gearButtons.forEach(b => b.classList.toggle('on', b.textContent === sim.gear));
-      if (!parked) { view.light = 'NORMAL'; view.climate = 'NORMAL'; paint(); } // 앱처럼 주차가 풀리면 원래대로
+      if (!parked) { Object.assign(view, NORMAL); paint(); } // 앱처럼 주차가 풀리면 원래대로
       emit({ v: VERSION, soc: sim.soc, gear: sim.gear, ux: parked ? 'ALLOWED' : 'RESTRICTED', speedKmh: sim.speedKmh, visible: true, parked });
     }
     mock = { show(cabin) { if (!state?.parked) return; Object.assign(view, cabin); paint(); } };

@@ -89,24 +89,26 @@ public final class HubActivity extends Activity implements DrivingGate.Listener 
                     .put("app", BuildConfig.VERSION_NAME)
                     .put("gameId", game == null ? JSONObject.NULL : game.optString("id"))
                     .put("lights", new JSONArray(Cabin.LIGHTS))
-                    .put("climates", new JSONArray(Cabin.CLIMATES));
+                    .put("climates", new JSONArray(Cabin.CLIMATES))
+                    .put("airs", new JSONArray(Cabin.AIRS));
                 return value.toString();
             } catch (Exception e) { return "{}"; }
         }
 
-        /** {"light":"RED","climate":"COLD"}. 주차 중이 아니면 적용하지 않고 false. */
+        /** {"light":"RED","climate":"COLD","air":"GUST"}. 빠진 값은 NORMAL. 주차 중이 아니면 적용하지 않고 false. */
         @JavascriptInterface public boolean setCabin(String json) {
             if (!fromGame()) return false;
-            String light, climate;
+            String light, climate, air;
             try {
                 JSONObject value = new JSONObject(json);
                 light = value.optString("light", "NORMAL");
                 climate = value.optString("climate", "NORMAL");
+                air = value.optString("air", "NORMAL");
             } catch (Exception e) { Log.w(TAG, "bad cabin"); return false; }
-            if (!Cabin.LIGHTS.contains(light) || !Cabin.CLIMATES.contains(climate)) return false;
+            if (!Cabin.LIGHTS.contains(light) || !Cabin.CLIMATES.contains(climate) || !Cabin.AIRS.contains(air)) return false;
             if (!allowed() || cabin == null) return false;
             final Cabin target = cabin;
-            car.post(() -> target.apply(light, climate));
+            car.post(() -> target.apply(light, climate, air));
             return true;
         }
 

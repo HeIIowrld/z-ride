@@ -30,9 +30,9 @@
   function top() {
     $('gauge-fill').style.width = state.soc + '%';
     $('gauge-text').textContent = `배터리 ${state.soc}%` + (state.socSource === 'CAR' ? '' : ' (시연)');
-    $('fuses').textContent = state.phase === 'LOBBY' ? '' : '퓨즈 ' + '●'.repeat(state.maxBlackouts - state.blackouts) + '○'.repeat(Math.min(state.blackouts, state.maxBlackouts));
+    $('fuses').textContent = state.phase === 'LOBBY' ? '' : '퓨즈 ' + '●'.repeat(state.maxBlackouts - state.blackouts) + '○'.repeat(Math.min(state.blackouts, state.maxBlackouts)) + ` · 차단기 ${state.breakers}`;
     document.body.dataset.light = state.cabin.light;
-    document.body.dataset.climate = state.cabin.climate;
+    document.body.dataset.air = state.cabin.air;
     const cabin = JSON.stringify(state.cabin);
     if (withCar && cabin !== lastCabin) { lastCabin = cabin; car.setCabin(state.cabin); }
   }
@@ -54,8 +54,8 @@
     }
     side.append(seats);
     side.append(h('p', 'hint', state.players.length === 2
-      ? '2명이면 차가 방해꾼이 돼요. 정전 3번 전에 사건을 모두 넘기면 승리!'
-      : '이 중 한 명은 전기 도둑이에요. 배터리가 5% 오를 때마다 사건이 터져요. 충전이 끝나기 전에 도둑을 잡으세요.'));
+      ? '2명이면 차가 방해꾼이 돼요. 퓨즈 3개가 나가기 전에 사건을 모두 넘기면 승리!'
+      : '이 중 한 명은 전기 도둑이에요. 배터리가 5% 오를 때마다 전기를 구간에 맞추는 사건이 터져요. 충전이 끝나기 전에 도둑을 잡으세요.'));
     const full = state.soc >= 95;
     const start = button(full ? '배터리가 거의 다 차서 시작할 수 없어요' : state.players.length < 2 ? '2명부터 시작할 수 있어요' : '시작하기', 'primary big', () => send({ type: 'start' }));
     start.disabled = full || state.players.length < 2;
@@ -95,12 +95,19 @@
       return panel(`사건 ${state.caseNo} / ${state.cases} 끝`, '충전 중…', `배터리가 ${state.nextAt}%가 되면 다음 사건이 터져요. 앞으로 ${left}%`);
     },
     CASE() {
-      const wrap = panel(`사건 ${state.caseNo} / ${state.cases}`, `전기 ${state.target}칸을 모아라`, state.solo ? '차가 몰래 전기를 빼 가요. 폰에서 카드를 내세요.' : '폰에서 몰래 카드를 내세요. 차는 합계만 알려 줘요.');
+      const { lo, hi } = state.range;
+      const wrap = panel(`사건 ${state.caseNo} / ${state.cases}`, `전기를 ${lo}~${hi} 사이로 맞춰라`,
+        (state.solo ? '차가 몰래 −2~+2를 더해요. ' : '차는 합계만 알려 줘요. ') + '모자라면 정전, 넘치면 과부하!');
       waiting(wrap); return wrap;
     },
     RESULT() {
-      const r = state.result, wrap = panel(`사건 ${state.caseNo} 결과`, r.success ? '성공!' : '정전!', `모인 전기 ${r.sum} / 필요한 전기 ${r.target}` + (r.carPenalty ? ` · 차가 ${r.carPenalty}칸 빼 갔어요` : ''));
+      const r = state.result;
+      const title = r.saved ? '차단기로 막았어요!' : { OK: '성공!', LOW: '정전!', HIGH: '과부하!' }[r.outcome];
+      const noise = r.carNoise ? ` · 차가 몰래 ${r.carNoise > 0 ? '+' : ''}${r.carNoise}` : '';
+      const wrap = panel(`사건 ${state.caseNo} 결과`, title, `모인 전기 ${r.sum} / 구간 ${r.lo}~${r.hi}${noise}`);
       if (state.tampered) wrap.append(h('p', 'alarm', '누군가 몰래 차를 건드렸어요!'));
+      // 운전석 비상 차단기: 방금 난 피해를 취소한다
+      if (!r.success && !r.saved && state.breakers > 0) wrap.append(button(`비상 차단기 (남은 ${state.breakers}번)`, 'big danger', () => send({ type: 'breaker' })));
       wrap.append(button('다음', 'primary big', next));
       return wrap;
     },
@@ -132,7 +139,7 @@
     if (!state) return;
     top();
     const key = state.phase + state.caseNo + (state.phase === 'CHARGING' ? state.nextAt - state.soc : '') + (state.soc >= 95)
-      + JSON.stringify(state.players.map(p => [p.name, p.done, p.connected])) + state.tampered;
+      + JSON.stringify(state.players.map(p => [p.name, p.done, p.connected])) + state.tampered + state.result?.saved;
     if (key === viewKey) return;
     viewKey = key; timerEl = null;
     stage.replaceChildren(views[state.phase]());

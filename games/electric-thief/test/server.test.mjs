@@ -52,6 +52,12 @@ test('3명 한 판: 도둑이 큰 화면에 새지 않고, 잡으면 끝나며 �
   for (const p of phones) p.send({ type: 'play', card: 0, prank: p === thief ? 'LIGHT' : 'NONE' });
   await host.until(c => c.state.phase === 'RESULT');
   assert.equal(host.state.cabin.light === 'RED' || host.state.cabin.light === 'OFF', true);
+  if (!host.state.result.success) { // 정전·과부하였다면 차 화면의 비상 차단기로 되돌린다
+    host.send({ type: 'breaker' });
+    await host.until(c => c.state.result.saved);
+    assert.deepEqual(host.state.cabin, { light: 'NORMAL', air: 'NORMAL' });
+    assert.equal(host.state.breakers, 1);
+  }
   host.send({ type: 'next' });
   await host.until(c => c.state.phase === 'TALK');
   host.send({ type: 'next' });
@@ -62,7 +68,7 @@ test('3명 한 판: 도둑이 큰 화면에 새지 않고, 잡으면 끝나며 �
   host.send({ type: 'next' });
   await host.until(c => c.state.phase === 'END');
   assert.equal(host.state.winner, 'FAMILY');
-  assert.deepEqual(host.state.cabin, { light: 'NORMAL', climate: 'NORMAL' });
+  assert.deepEqual(host.state.cabin, { light: 'NORMAL', air: 'NORMAL' });
   assert.ok(!host.raw.slice(0, -1).join('').includes('THIEF"'), '끝나기 전 큰 화면에 역할이 가지 않는다');
 });
 
