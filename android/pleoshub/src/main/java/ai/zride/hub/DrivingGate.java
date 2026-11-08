@@ -1,4 +1,4 @@
-package ai.zride.thief;
+package ai.zride.hub;
 
 import android.car.Car;
 import android.car.VehicleGear;
@@ -18,7 +18,7 @@ import android.util.Log;
  */
 final class DrivingGate {
     interface Listener { void onDriving(String ux, String gear); }
-    private static final String TAG = "ZRideThief";
+    private static final String TAG = "ZRideHub";
     private final Context context;
     private final Listener listener;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -26,6 +26,7 @@ final class DrivingGate {
     private CarUxRestrictionsManager uxManager;
     private CarPropertyManager properties;
     private volatile String ux = "UNKNOWN", gear = "UNKNOWN";
+    private volatile Float speedMps; // 권한·속성이 없으면 null(모름)
     private boolean closed;
 
     DrivingGate(Context context, Listener listener) { this.context = context; this.listener = listener; }
@@ -33,6 +34,13 @@ final class DrivingGate {
     private final CarPropertyManager.CarPropertyEventCallback gearCallback = new CarPropertyManager.CarPropertyEventCallback() {
         @Override public void onChangeEvent(CarPropertyValue value) { setGear(value); }
         @Override public void onErrorEvent(int propertyId, int areaId) { gear = "UNKNOWN"; emit(); }
+    };
+    private final CarPropertyManager.CarPropertyEventCallback speedCallback = new CarPropertyManager.CarPropertyEventCallback() {
+        @Override public void onChangeEvent(CarPropertyValue value) {
+            Object raw = value.getValue();
+            speedMps = value.getStatus() == CarPropertyValue.STATUS_AVAILABLE && raw instanceof Float ? Math.abs((Float) raw) : null;
+        }
+        @Override public void onErrorEvent(int propertyId, int areaId) { speedMps = null; }
     };
 
     void start() {
@@ -51,6 +59,9 @@ final class DrivingGate {
                     properties.registerCallback(gearCallback, VehiclePropertyIds.GEAR_SELECTION, CarPropertyManager.SENSOR_RATE_ONCHANGE);
                     setGear(properties.getProperty(Integer.class, VehiclePropertyIds.GEAR_SELECTION, 0));
                 } catch (Exception e) { Log.w(TAG, "Gear unavailable", e); gear = "UNKNOWN"; emit(); }
+                try {
+                    properties.registerCallback(speedCallback, VehiclePropertyIds.PERF_VEHICLE_SPEED, CarPropertyManager.SENSOR_RATE_NORMAL);
+                } catch (Exception e) { Log.w(TAG, "Speed unavailable: " + e); speedMps = null; }
             });
         } catch (Throwable e) {
             // 차량 라이브러리가 없는 기기(일반 폰 등): 계속 잠금
@@ -68,6 +79,8 @@ final class DrivingGate {
 
     String ux() { return ux; }
     String gear() { return gear; }
+    /** km/h, 모르면 null. */
+    Float speedKmh() { Float v = speedMps; return v == null ? null : v * 3.6f; }
     boolean parkedAndAllowed() { return "ALLOWED".equals(ux) && "P".equals(gear); }
 
     private void setUx(CarUxRestrictions value) {
@@ -92,7 +105,7 @@ final class DrivingGate {
     void close() {
         closed = true;
         try { if (uxManager != null) uxManager.unregisterListener(); } catch (Exception ignored) {}
-        try { if (properties != null) properties.unregisterCallback(gearCallback); } catch (Exception ignored) {}
+        try { if (properties != null) { properties.unregisterCallback(gearCallback); properties.unregisterCallback(speedCallback); } } catch (Exception ignored) {}
         try { if (car != null) car.disconnect(); } catch (Exception ignored) {}
     }
 }

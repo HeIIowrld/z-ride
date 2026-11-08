@@ -1,4 +1,4 @@
-package ai.zride.thief;
+package ai.zride.hub;
 
 import android.content.SharedPreferences;
 import android.os.Handler;
@@ -23,13 +23,16 @@ import kotlin.Unit;
  * 게임 중 앱이 죽어도 사용자 설정을 잃지 않게 처음 값을 저장해 두고, 다음 실행 때 되돌린다.
  */
 final class Cabin {
-    private static final String TAG = "ZRideThief";
+    private static final String TAG = "ZRideHub";
     private static final int ALERT_BRIGHTNESS = 100;
-    private static final float COLD_CELSIUS = 16f;
+    private static final float COLD_CELSIUS = 16f, WARM_CELSIUS = 28f;
+    /** 게임이 고를 수 있는 무드등 색(RGB). NORMAL은 원래 값, OFF는 밝기 0. */
+    static final Map<String, Integer> COLORS = Map.of("RED", 0xFF2020, "BLUE", 0x2060FF, "GREEN", 0x20E060, "YELLOW", 0xFFD020, "PURPLE", 0xA040FF);
+    static final List<String> LIGHTS = List.of("NORMAL", "OFF", "RED", "BLUE", "GREEN", "YELLOW", "PURPLE");
+    static final List<String> CLIMATES = List.of("NORMAL", "COLD", "WARM");
     private static final int STEP_MS = 400, MAX_TRIES = 6;
     private final Light light;
     private final HVAC hvac;
-    private final int alertColor;
     private final Handler car;
     private final SharedPreferences saved;
     private int climateRun;
@@ -37,9 +40,9 @@ final class Cabin {
     private final Map<SeatArea, Float> temperature = new ConcurrentHashMap<>();
     private String lightMode = "NORMAL", climateMode = "NORMAL";
 
-    Cabin(Vehicle vehicle, int alertColor, Handler car, SharedPreferences saved) {
+    Cabin(Vehicle vehicle, Handler car, SharedPreferences saved) {
         light = vehicle.getLight(); hvac = vehicle.getHVAC();
-        this.alertColor = alertColor; this.car = car; this.saved = saved;
+        this.car = car; this.saved = saved;
     }
 
     private boolean recoverChecked;
@@ -108,16 +111,17 @@ final class Cabin {
     private void applyLight() {
         Log.i(TAG, "light " + lightMode);
         for (Map.Entry<SeatArea, Integer> e : brightness.entrySet()) {
-            int value = "OFF".equals(lightMode) ? 0 : "RED".equals(lightMode) ? ALERT_BRIGHTNESS : e.getValue();
+            int value = "OFF".equals(lightMode) ? 0 : COLORS.containsKey(lightMode) ? ALERT_BRIGHTNESS : e.getValue();
             light.setAmbientLightBrightness(e.getKey(), value, (a, v) -> Unit.INSTANCE, this::failed);
         }
         for (Map.Entry<SeatArea, Integer> e : color.entrySet()) {
-            int value = "RED".equals(lightMode) ? alertColor : e.getValue();
+            Integer preset = COLORS.get(lightMode);
+            int value = preset != null ? preset : e.getValue();
             light.setAmbientLightBrightnessColor(e.getKey(), value, (a, v) -> Unit.INSTANCE, this::failed);
         }
     }
 
-    private float climateTarget(float original) { return "COLD".equals(climateMode) ? COLD_CELSIUS : original; }
+    private float climateTarget(float original) { return "COLD".equals(climateMode) ? COLD_CELSIUS : "WARM".equals(climateMode) ? WARM_CELSIUS : original; }
 
     private void applyClimate() {
         Log.i(TAG, "climate " + climateMode);

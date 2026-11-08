@@ -6,16 +6,17 @@
   const $ = id => document.getElementById(id);
   const stage = $('stage');
   let session = null, net = null, state = null, viewKey = '', timerEl = null;
-  // Pleos 앱 안에서 열리면 window.PleosCar가 있고, 앱이 onCarSignal로 실제 차 값을 넣어 준다
-  const car = window.PleosCar ?? null;
+  // Z-RIDE 차량 SDK(/zride-car.js). Pleos 허브 앱 안이면 실제 차 신호가 오고, ?mockcar면 가짜 차 패널이 뜬다
+  const car = ZRide.car;
+  const withCar = car.inCar || car.mocked;
   let signal = null, lastCabin = '';
-  window.onCarSignal = value => {
+  car.on('signal', value => {
     signal = value;
     if (value.parked && value.soc != null) send({ type: 'soc', value: value.soc, source: 'CAR' });
     cover();
-  };
+  });
   function cover() {
-    const blocked = !!car && !signal?.parked;
+    const blocked = withCar && !signal?.parked;
     document.body.classList.toggle('driving', blocked);
     $('cover').hidden = !blocked;
     // 앱이 첫 신호를 보내기 전에는 주행 중인지 아직 모른다
@@ -33,7 +34,7 @@
     document.body.dataset.light = state.cabin.light;
     document.body.dataset.climate = state.cabin.climate;
     const cabin = JSON.stringify(state.cabin);
-    if (car && cabin !== lastCabin) { lastCabin = cabin; car.applyCabin(cabin); }
+    if (withCar && cabin !== lastCabin) { lastCabin = cabin; car.setCabin(state.cabin); }
   }
 
   function lobby() {
@@ -144,7 +145,9 @@
   }
   setInterval(tick, 250);
   // 차가 배터리를 보내지 않으면 시연용으로 천천히 올린다
-  setInterval(() => { if (!car && state?.phase === 'CHARGING' && state.socSource !== 'CAR' && state.soc < 100) send({ type: 'soc', value: state.soc + 1 }); }, 1500);
+  // 서버 연결보다 차 신호가 먼저 왔거나 놓쳤으면 맞춘다
+  setInterval(() => { if (withCar && signal?.parked && signal.soc != null && state && (state.soc !== signal.soc || state.socSource !== 'CAR')) send({ type: 'soc', value: signal.soc, source: 'CAR' }); }, 2000);
+  setInterval(() => { if (!withCar && state?.phase === 'CHARGING' && state.socSource !== 'CAR' && state.soc < 100) send({ type: 'soc', value: state.soc + 1 }); }, 1500);
 
   function link(value) { $('link').textContent = value === 'LIVE' ? '' : value === 'RETRYING' ? '다시 연결 중…' : '연결 중…'; }
   async function open(fresh) {

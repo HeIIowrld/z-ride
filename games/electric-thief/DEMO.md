@@ -29,11 +29,11 @@
 2. 에뮬레이터 켜기(`Pleos_Connect_34`) → 앱 설치·실행
 
    ```bash
-   ~/Library/Android/sdk/platform-tools/adb install -r ~/dev/z-ride/android/thiefcar/build/outputs/apk/debug/thiefcar-debug.apk
+   ~/Library/Android/sdk/platform-tools/adb install -r ~/dev/z-ride/android/pleoshub/build/outputs/apk/debug/pleoshub-debug.apk
    ```
 
    ```bash
-   ~/Library/Android/sdk/platform-tools/adb shell am start -n ai.zride.thief/.GameActivity
+   ~/Library/Android/sdk/platform-tools/adb shell am start -n ai.zride.hub/.HubActivity --es game electric-thief
    ```
 
 3. Virtual Console 열기: `adb forward tcp:8088 tcp:8088` 후 http://127.0.0.1:8088

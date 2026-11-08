@@ -9,7 +9,7 @@ import { Game } from './game.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), 'public');
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' };
-const FILES = { '/': 'host.html', '/p': 'phone.html', '/host.js': 'host.js', '/phone.js': 'phone.js', '/shared.js': 'shared.js', '/qr.js': 'qr.js', '/style.css': 'style.css' };
+const FILES = { '/': 'host.html', '/p': 'phone.html', '/host.js': 'host.js', '/phone.js': 'phone.js', '/shared.js': 'shared.js', '/qr.js': 'qr.js', '/style.css': 'style.css', '/zride-car.js': '../../sdk/zride-car.js' };
 const STATIC = Object.fromEntries(Object.entries(FILES).map(([path, file]) => [path, { body: readFileSync(join(root, file)), type: TYPES[file.split('.').pop()] }]));
 const HEADERS = {
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; base-uri 'none'; frame-ancestors 'self'",

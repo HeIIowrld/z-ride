@@ -39,7 +39,7 @@ npm test
 
 ## Pleos 앱
 
-`android/thiefcar`(`ai.zride.thief`)가 차량 쪽 앱이다. 큰 화면은 게임 서버의 웹 페이지를 앱 안 WebView로 그대로 띄우고, 앱은 차와 페이지를 잇는 일만 한다.
+Z-RIDE 게임 허브 `android/pleoshub`(`ai.zride.hub`)가 차량 쪽 앱이다. 허브 목록에서 "전기 도둑"을 고르면 큰 화면 웹 페이지를 WebView로 띄우고, 페이지는 공통 SDK `/zride-car.js`(`games/sdk`)로 차와 이어진다. 연동 규칙은 [연동 가이드](../sdk/README.md)를 본다. 차 없이 개발할 때는 `http://localhost:8210/?mockcar`.
 
 - 차 → 게임: Pleos `EvBattery`의 실제 SOC와 표준 AAOS의 UX 제한·기어를 페이지로 넘긴다. 페이지가 `{ "type": "soc", "value": 42, "source": "CAR" }`를 서버로 보내고, 이때부터 시연 충전은 멈춘다.
 - 게임 → 차: 상태의 `cabin`(`light`: `NORMAL`·`RED`·`OFF`, `climate`: `NORMAL`·`COLD`)을 받아 무드등과 설정 온도를 바꾼다.
@@ -52,9 +52,9 @@ npm test
 - SDK 호출은 서비스가 붙을 때까지 멈출 수 있어 별도 스레드에서 부른다. 에뮬레이터 GPU에서는 WebView를 소프트웨어 렌더링으로 그린다.
 
 ```sh
-cd android && ./gradlew :thiefcar:assembleDebug
-adb install -r thiefcar/build/outputs/apk/debug/thiefcar-debug.apk
-adb shell am start -n ai.zride.thief/.GameActivity --es serverUrl http://10.0.2.2:8210/
+cd android && ./gradlew :pleoshub:assembleDebug
+adb install -r pleoshub/build/outputs/apk/debug/pleoshub-debug.apk
+adb shell am start -n ai.zride.hub/.HubActivity --es game electric-thief
 adb forward tcp:8088 tcp:8088   # Virtual Console: http://127.0.0.1:8088/ 에서 배터리·기어 조작
 ```
 
