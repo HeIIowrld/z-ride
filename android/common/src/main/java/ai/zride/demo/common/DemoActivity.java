@@ -149,7 +149,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             masthead.setOrientation(LinearLayout.VERTICAL);
             masthead.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START);
             masthead.setMinimumHeight(dp(380));
-            masthead.setPadding(dp(36), dp(24), dp(24), dp(24));
+            masthead.setPadding(dp(52), dp(24), dp(32), dp(24));
             masthead.setBackground(vehicleCover());
             scroll.addOnLayoutChangeListener((view,left,top,right,bottom,oldLeft,oldTop,oldRight,oldBottom)->{
                 int height = Math.max(dp(380), bottom - top - root.getPaddingTop()
@@ -157,12 +157,9 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
                 if (masthead.getMinimumHeight() != height) masthead.setMinimumHeight(height);
             });
             title.setTypeface(android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.ITALIC));
-            title.setTextSize(92);
+            title.setTextSize(78);
             title.setTextColor(0xfff5f7ff);
             masthead.addView(title);
-            TextView companion = text("차 안에서 함께하는 로드트립 게임", 23);
-            companion.setTextColor(0xffe1edf2);
-            masthead.addView(companion);
             vehicleMasthead = masthead;
             root.addView(masthead);
         } else {
@@ -180,16 +177,29 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         if (cleanVehicleUi()) {
             partyWelcome = new LinearLayout(this);
             partyWelcome.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams menu = new LinearLayout.LayoutParams(dp(225), -2);
-            menu.topMargin = dp(16);
+            LinearLayout.LayoutParams menu = new LinearLayout.LayoutParams(dp(384), -2);
+            menu.topMargin = dp(22);
             ((LinearLayout) vehicleMasthead).addView(partyWelcome, menu);
+            vehicleMasthead.addOnLayoutChangeListener((view, left, top, right, bottom,
+                                                       oldLeft, oldTop, oldRight, oldBottom) -> {
+                int width = Math.min(dp(384), right - left - view.getPaddingLeft() - view.getPaddingRight());
+                if (width > 0 && menu.width != width) {
+                    menu.width = width;
+                    partyWelcome.setLayoutParams(menu);
+                }
+            });
             addVehicleWelcomeActions(partyWelcome);
             parkedHint = text("주차하면 파티를 시작할 수 있어요", 26);
             parkedHint.setTypeface(null, android.graphics.Typeface.BOLD);
             root.addView(parkedHint);
         }
         connectButton=button(cleanVehicleUi()?"여정 시작  ›":isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->{inviteAfterJourneyStart=cleanVehicleUi();connectRoom();});
-        (partyWelcome == null ? root : partyWelcome).addView(connectButton);
+        if (partyWelcome == null) root.addView(connectButton);
+        else {
+            LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(-1, dp(62));
+            action.topMargin = dp(12);
+            partyWelcome.addView(connectButton, action);
+        }
         status=text(cleanVehicleUi()?"":"연결 전",16);root.addView(status);
         roomLabel=text(cleanVehicleUi()?"동승자 합류":"ROOM —",cleanVehicleUi()?30:18);root.addView(roomLabel);
         if (cleanVehicleUi()) roomLabel.setTypeface(null, android.graphics.Typeface.BOLD);
