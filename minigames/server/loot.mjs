@@ -1,0 +1,7 @@
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createLootEngine} from '../shared/loot-engine.js';import {regionAt} from './regions.mjs';import {db,addInventory,saveTick,stateFor} from './db.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),items=JSON.parse(fs.readFileSync(path.join(root,'data/items.json'),'utf8')),tables=JSON.parse(fs.readFileSync(path.join(root,'data/loot_tables.json'),'utf8')),points=JSON.parse(fs.readFileSync(path.join(root,'data/points.json'),'utf8'));
+const engine=createLootEngine({items,tables,points});
+export function tick(input){const region=regionAt(Number(input.lat),Number(input.lng)),out=engine.tick({...input,region});const s=engine.state(input.partyId);saveTick(input.partyId,s,out,input);return out;}
+export function minigame(input){const current=stateFor(input.partyId),out=engine.minigame({...input,region:current?.region||null});for(const item of out.items){addInventory(input.partyId,item.id);db.prepare('INSERT INTO loot_log(party_id,item_id,at,region,source) VALUES(?,?,?,?,?)').run(String(input.partyId||'default'),item.id,new Date().toISOString(),current?.region||null,input.gameId);}return out;}
+export function award(itemId,qty,party='default',source='game'){addInventory(party,itemId,qty);for(let i=0;i<qty;i++)db.prepare('INSERT INTO loot_log(party_id,item_id,at,region,source) VALUES(?,?,?,?,?)').run(String(party),itemId,new Date().toISOString(),stateFor(party)?.region||null,source);}
+export function allItems(){return items;}

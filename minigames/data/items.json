@@ -1,0 +1,702 @@
+[
+  {
+    "id": "blade",
+    "name": "골목 레일 블레이드",
+    "category": "weapon",
+    "rarity": "uncommon",
+    "region": "seoul",
+    "conditions": [],
+    "stats": {
+      "attack": 3
+    },
+    "description": "도심에서 착안한 근접 무기.",
+    "icon": "blade",
+    "roadType": null,
+    "deadzone": {
+      "startWeapon": "shotgun"
+    }
+  },
+  {
+    "id": "neon-shield",
+    "name": "네온 방패",
+    "category": "weapon",
+    "rarity": "regional",
+    "region": "seoul",
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "defense": 3
+    },
+    "description": "도심 빛을 본뜬 방패.",
+    "icon": "shield",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "shieldBonus": 25
+      },
+      "nightMods": {
+        "shieldBonus": 10
+      }
+    }
+  },
+  {
+    "id": "rail-spear",
+    "name": "지하 레일 창",
+    "category": "weapon",
+    "rarity": "rare",
+    "region": "seoul",
+    "conditions": [],
+    "stats": {
+      "attack": 4
+    },
+    "description": "긴 사거리 창.",
+    "icon": "spear",
+    "roadType": null,
+    "deadzone": {
+      "startWeapon": "rail",
+      "mods": {
+        "pierce": 1
+      }
+    }
+  },
+  {
+    "id": "arc-bow",
+    "name": "접이식 활",
+    "category": "weapon",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "attack": 2
+    },
+    "description": "휴대용 원거리 무기.",
+    "icon": "bow",
+    "roadType": null,
+    "deadzone": {
+      "startWeapon": "arc"
+    }
+  },
+  {
+    "id": "signal-dart",
+    "name": "신호 다트",
+    "category": "weapon",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "attack": 1,
+      "detection": 1
+    },
+    "description": "표식을 남기는 투척 장비.",
+    "icon": "dart",
+    "roadType": null,
+    "deadzone": {
+      "startWeapon": "launcher"
+    }
+  },
+  {
+    "id": "coil-launcher",
+    "name": "코일 발사기",
+    "category": "weapon",
+    "rarity": "rare",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "attack": 5
+    },
+    "description": "충전식 설치 무기.",
+    "icon": "launcher",
+    "roadType": null,
+    "deadzone": {
+      "startWeapon": "launcher"
+    }
+  },
+  {
+    "id": "harbor-hook",
+    "name": "항만 크레인 훅",
+    "category": "weapon",
+    "rarity": "regional",
+    "region": "incheon",
+    "conditions": [],
+    "stats": {
+      "attack": 4,
+      "escape": 1
+    },
+    "description": "항만 구조물에서 착안.",
+    "icon": "hook",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "knock": 1.35
+      }
+    }
+  },
+  {
+    "id": "ridge-staff",
+    "name": "능선 지팡이",
+    "category": "weapon",
+    "rarity": "uncommon",
+    "region": "gangwon",
+    "conditions": [],
+    "stats": {
+      "attack": 2,
+      "defense": 1
+    },
+    "description": "산길 균형을 돕는 지팡이.",
+    "icon": "staff",
+    "roadType": null,
+    "deadzone": {
+      "startWeapon": "shotgun"
+    }
+  },
+  {
+    "id": "battery-cell",
+    "name": "배터리 셀",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "기본 전력 부품.",
+    "icon": "battery",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "cable",
+    "name": "전력 케이블",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "rain"
+    ],
+    "stats": {},
+    "description": "절연 연결선.",
+    "icon": "cable",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "circuit-board",
+    "name": "회로 기판",
+    "category": "part",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "정밀 회로 부품.",
+    "icon": "circuit",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "coolant-cell",
+    "name": "냉각수 셀",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "rain"
+    ],
+    "stats": {},
+    "description": "열을 낮추는 셀.",
+    "icon": "cell",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "fuel-can",
+    "name": "연료 팩",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "예비 동력 팩.",
+    "icon": "can",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "supply",
+    "name": "보급품",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "기본 보급 재료.",
+    "icon": "box",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "part",
+    "name": "정비 부품",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "다용도 정비 부품.",
+    "icon": "gear",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "ammo",
+    "name": "탄약 상자",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "기본 탄약 보급.",
+    "icon": "box",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "medkit",
+    "name": "의료 키트",
+    "category": "part",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "응급 처치용 보급.",
+    "icon": "cross",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "turret",
+    "name": "보조 포탑",
+    "category": "part",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "attack": 1
+    },
+    "description": "기존 게임 호환 포탑 부품.",
+    "icon": "turret",
+    "roadType": null,
+    "deadzone": {
+      "startAbility": "turret"
+    }
+  },
+  {
+    "id": "gear-bumper-a",
+    "name": "완충 범퍼",
+    "category": "gear",
+    "slot": "bumper",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "defense": 2
+    },
+    "description": "충격을 줄이는 앞 범퍼.",
+    "icon": "bumper",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "thorns": 10
+      }
+    }
+  },
+  {
+    "id": "gear-bumper-b",
+    "name": "강화 범퍼",
+    "category": "gear",
+    "slot": "bumper",
+    "rarity": "rare",
+    "region": "gyeonggi",
+    "conditions": [],
+    "stats": {
+      "defense": 4
+    },
+    "description": "보강된 충격 흡수 범퍼.",
+    "icon": "bumper",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "thorns": 20,
+        "knock": 1.15
+      }
+    }
+  },
+  {
+    "id": "gear-armor-a",
+    "name": "차체 장갑판",
+    "category": "gear",
+    "slot": "armor",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "defense": 3
+    },
+    "description": "차체 보호 장갑.",
+    "icon": "armor",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "shieldBonus": 10
+      }
+    }
+  },
+  {
+    "id": "gear-armor-b",
+    "name": "물류 컨테이너 장갑",
+    "category": "gear",
+    "slot": "armor",
+    "rarity": "regional",
+    "region": "incheon",
+    "conditions": [
+      "rain"
+    ],
+    "stats": {
+      "defense": 5
+    },
+    "description": "컨테이너 구조에서 착안.",
+    "icon": "armor",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "shieldBonus": 40,
+        "moveSpeed": 0.95
+      }
+    }
+  },
+  {
+    "id": "gear-tires-a",
+    "name": "노면 타이어",
+    "category": "gear",
+    "slot": "tires",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "rain"
+    ],
+    "stats": {
+      "escape": 2
+    },
+    "description": "젖은 노면 접지력 향상.",
+    "icon": "tire",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "moveSpeed": 1.04
+      }
+    }
+  },
+  {
+    "id": "gear-tires-b",
+    "name": "스노체인 타이어",
+    "category": "gear",
+    "slot": "tires",
+    "rarity": "regional",
+    "region": "gangwon",
+    "conditions": [],
+    "stats": {
+      "escape": 4
+    },
+    "description": "눈길 이동용 체인 타이어.",
+    "icon": "tire",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "dashExtra": 1
+      },
+      "rainMods": {
+        "moveSpeed": 1.08
+      }
+    }
+  },
+  {
+    "id": "gear-lights-a",
+    "name": "탐조등",
+    "category": "gear",
+    "slot": "lights",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "detection": 2
+    },
+    "description": "시야를 넓히는 보조등.",
+    "icon": "light",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "magnet": 1.2
+      }
+    }
+  },
+  {
+    "id": "gear-lights-b",
+    "name": "산악 탐조등",
+    "category": "gear",
+    "slot": "lights",
+    "rarity": "regional",
+    "region": "gangwon",
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "detection": 4
+    },
+    "description": "산악 지형용 넓은 빛.",
+    "icon": "light",
+    "roadType": null,
+    "deadzone": {
+      "mods": {
+        "magnet": 1.5,
+        "slowAura": 5
+      }
+    }
+  },
+  {
+    "id": "gear-roof-a",
+    "name": "루프 랙",
+    "category": "gear",
+    "slot": "roof",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "detection": 1
+    },
+    "description": "탐색 장비용 지붕 랙.",
+    "icon": "roof",
+    "roadType": null,
+    "deadzone": {
+      "startAbility": "turret"
+    }
+  },
+  {
+    "id": "gear-roof-b",
+    "name": "공항 레이더 돔",
+    "category": "gear",
+    "slot": "roof",
+    "rarity": "regional",
+    "region": "incheon",
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "detection": 4
+    },
+    "description": "레이더 돔에서 착안한 장비.",
+    "icon": "radar",
+    "roadType": null,
+    "deadzone": {
+      "startAbility": "chain"
+    }
+  },
+  {
+    "id": "gear-paint-a",
+    "name": "빗길 도색",
+    "category": "gear",
+    "slot": "paint",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "rain"
+    ],
+    "stats": {
+      "escape": 1
+    },
+    "description": "빗길 패턴 도색.",
+    "icon": "paint",
+    "roadType": null,
+    "deadzone": {
+      "skin": "paint_rain_pattern"
+    }
+  },
+  {
+    "id": "gear-paint-b",
+    "name": "도심 반사 도색",
+    "category": "gear",
+    "slot": "paint",
+    "rarity": "rare",
+    "region": "seoul",
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "detection": 2,
+      "escape": 2
+    },
+    "description": "야간 시인성 패턴.",
+    "icon": "paint",
+    "roadType": null,
+    "deadzone": {
+      "skin": "paint_neon_grid"
+    }
+  },
+  {
+    "id": "smoke",
+    "name": "연막 캔",
+    "category": "consumable",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "escape": 1
+    },
+    "description": "탈출 보조 소모품.",
+    "icon": "can",
+    "roadType": null,
+    "deadzone": {
+      "kind": "bubble"
+    }
+  },
+  {
+    "id": "repair-kit",
+    "name": "수리 키트",
+    "category": "consumable",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "defense": 1
+    },
+    "description": "간단한 현장 수리 도구.",
+    "icon": "tool",
+    "roadType": null,
+    "deadzone": {
+      "kind": "shieldRefill"
+    }
+  },
+  {
+    "id": "med-pack",
+    "name": "응급 파우치",
+    "category": "consumable",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "defense": 1
+    },
+    "description": "휴대용 응급 키트.",
+    "icon": "cross",
+    "roadType": null,
+    "deadzone": {
+      "kind": "medkit"
+    }
+  },
+  {
+    "id": "flare",
+    "name": "신호 조명탄",
+    "category": "consumable",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [
+      "night"
+    ],
+    "stats": {
+      "detection": 1
+    },
+    "description": "위치를 알리는 조명탄.",
+    "icon": "flare",
+    "roadType": null,
+    "deadzone": {
+      "kind": "bubble"
+    }
+  },
+  {
+    "id": "ammo-crate",
+    "name": "탄약 보급 상자",
+    "category": "consumable",
+    "rarity": "common",
+    "region": null,
+    "conditions": [],
+    "stats": {
+      "attack": 1
+    },
+    "description": "휴대용 탄약 상자.",
+    "icon": "box",
+    "roadType": null,
+    "deadzone": {
+      "kind": "surge"
+    }
+  },
+  {
+    "id": "coolant",
+    "name": "냉각수",
+    "category": "consumable",
+    "rarity": "common",
+    "region": null,
+    "conditions": [
+      "rain"
+    ],
+    "stats": {},
+    "description": "기존 게임과 호환되는 냉각수.",
+    "icon": "cell",
+    "roadType": null,
+    "deadzone": {
+      "kind": "shieldRefill"
+    }
+  },
+  {
+    "id": "badge-seoul",
+    "name": "서울 길 배지",
+    "category": "souvenir",
+    "rarity": "regional",
+    "region": "seoul",
+    "conditions": [],
+    "stats": {},
+    "description": "서울 지역 한정 기념 배지.",
+    "icon": "badge",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "postcard-incheon",
+    "name": "인천 바람 엽서",
+    "category": "souvenir",
+    "rarity": "regional",
+    "region": "incheon",
+    "conditions": [],
+    "stats": {},
+    "description": "인천 지역 한정 기념 엽서.",
+    "icon": "postcard",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "badge-gyeonggi",
+    "name": "경기 들판 배지",
+    "category": "souvenir",
+    "rarity": "regional",
+    "region": "gyeonggi",
+    "conditions": [],
+    "stats": {},
+    "description": "경기 지역 한정 기념 배지.",
+    "icon": "badge",
+    "roadType": null,
+    "deadzone": {}
+  },
+  {
+    "id": "postcard-gangwon",
+    "name": "강원 산길 엽서",
+    "category": "souvenir",
+    "rarity": "regional",
+    "region": "gangwon",
+    "conditions": [],
+    "stats": {},
+    "description": "강원 지역 한정 기념 엽서.",
+    "icon": "postcard",
+    "roadType": null,
+    "deadzone": {}
+  }
+]
