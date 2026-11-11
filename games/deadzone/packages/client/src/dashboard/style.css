@@ -8,13 +8,3 @@
 }
 /* QRCode writes inline dimensions; keep the code inside its responsive frame. */
 .qr-box canvas{width:100%!important;height:100%!important;padding:6px;object-fit:contain}
-
-.defense-status{display:grid;grid-template-columns:1fr 1.5fr 1fr 1.3fr;align-items:center;gap:12px;margin:12px 0 0;padding:10px 14px;border:1px solid #b9c5aa;border-radius:9px;background:#e1ead3;color:#23342a}
-.defense-status[hidden]{display:none}
-.defense-status span,.defense-status b{display:block}
-.defense-status span{font-size:10px;color:#4e674d}
-.defense-status b,.defense-status strong{font-size:13px;font-variant-numeric:tabular-nums}
-.defense-meter div{height:5px;border-radius:4px;overflow:hidden;background:#cad8bc}
-.defense-meter i{display:block;height:100%;background:#5b802d}
-.defense-meter i.critical{background:#bb5239}
-@media(max-width:500px){.defense-status{grid-template-columns:1fr 1fr}}

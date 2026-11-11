@@ -93,19 +93,21 @@ export class CameraRig {
       * (1 + crowd * T.camera.densityPull + speedN * 0.06)
       * (s.zoom || 1);
     this.targetDist = clamp(this.targetDist, T.camera.minDist, T.camera.maxDist);
+    if (s.vehicle) this.targetDist = 11 + crowd * 2;
     this.dist = damp(this.dist, this.targetDist, 1.9, dt);
 
     // --- pitch: lies down at speed, stands up when crowded ------------
     this.targetPitch = T.camera.pitch - speedN * T.camera.pitchRelax + crowd * 0.10;
     this.targetPitch = clamp(this.targetPitch, T.camera.minPitch, T.camera.maxPitch);
+    if (s.vehicle) this.targetPitch = .96;
     this.pitch = damp(this.pitch, this.targetPitch, 2.4, dt);
 
     // --- planar target: follow + aim lead + shoulder ------------------
     const lead = T.camera.aimLead * this.dist * 0.5;
     const shoulder = T.camera.shoulder;
     const ax = Math.cos(s.aimA || 0), az = Math.sin(s.aimA || 0);
-    const tx = s.x + ax * lead - az * shoulder;
-    const tz = s.z + az * lead + ax * shoulder;
+    const tx = s.vehicle ? s.vehicle.x + ax * 1.4 : s.x + ax * lead - az * shoulder;
+    const tz = s.vehicle ? s.vehicle.z + az * 1.4 : s.z + az * lead + ax * shoulder;
     this.x = damp(this.x, tx, T.camera.follow, dt);
     this.z = damp(this.z, tz, T.camera.follow, dt);
 
@@ -125,7 +127,8 @@ export class CameraRig {
     this.roll = damp(this.roll, Math.sin(now * 39.1) * t2 * 0.035 * this.shakeScale, 14, dt);
 
     // --- place the camera --------------------------------------------
-    const yaw = this.userYaw;
+    const yaw = s.vehicle ? this.userYaw - s.vehicle.angle + s.seat.camera : this.userYaw;
+    this.yaw = yaw;
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
     const dirX = Math.sin(yaw) * cp;
     const dirZ = Math.cos(yaw) * cp;
@@ -158,6 +161,12 @@ export class CameraRig {
     out.y = (-this._tmp.y * 0.5 + 0.5) * window.innerHeight;
     out.behind = this._tmp.z > 1;
     return out;
+  }
+
+  screenDirection(x, down) {
+    const yaw = this.yaw ?? 0;
+    const cos = Math.cos(yaw), sin = Math.sin(yaw);
+    return { x: cos * x + sin * down, z: -sin * x + cos * down };
   }
 
   /** Ground point under a screen position — how a mouse aims.

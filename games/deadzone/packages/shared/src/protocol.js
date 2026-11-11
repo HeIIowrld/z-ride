@@ -47,7 +47,6 @@ export const MSG = {
   CHAT: 4,
   PICK: 5,        // upgrade choice
   READY: 6,
-  VEHICLE_ACTION: 7,
   // server -> client
   WELCOME: 128,
   SNAPSHOT: 129,
@@ -152,7 +151,7 @@ export function decodeInput(r) {
 /* --------------------------------------------------------------- SNAPSHOT */
 
 const ENEMY_KEY_INDEX = ['rusher', 'shard', 'bruiser', 'spitter', 'splitter', 'stalker', 'sapper', 'warden', 'elite', 'boss'];
-const PICKUP_KEY_INDEX = ['score', 'health', 'ammo', 'surge', 'fuse'];
+const PICKUP_KEY_INDEX = ['score', 'health', 'ammo', 'surge'];
 
 export function encodeSnapshot(s, opts = {}) {
   const w = new Writer(8192);
@@ -231,12 +230,8 @@ export function encodeSnapshot(s, opts = {}) {
 
   w.u8(s.over ? 1 : 0);
   if (s.over) { w.u8(s.over.winner ?? 255); w.str(s.over.reason || ''); }
-  // Optional trailer. Older readers stop at the match result.
-  if (s.defense) {
-    const d = s.defense;
-    w.u8(d.hp).u8(d.maxHp).u8(d.fuses).u8(Math.round(d.flash * 10)).u8(d.carriers.length);
-    for (const id of d.carriers) w.u16(id);
-  }
+  // Optional trailer. Older match frames have no chassis values.
+  if (s.vehicle) { w.u16(s.vehicle.hp); w.u16(s.vehicle.maxHp); }
   return w.bytes();
 }
 
@@ -316,14 +311,7 @@ export function decodeSnapshot(r) {
 
   s.over = r.u8() ? { winner: r.u8(), reason: r.str() } : null;
   if (s.over && s.over.winner === 255) s.over.winner = null;
-  s.defense = null;
-  if (r.left >= 5) {
-    const hp = r.u8(), maxHp = r.u8(), fuses = r.u8(), flash = r.u8() / 10, count = r.u8();
-    if (r.left >= count * 2) {
-      const carriers = Array.from({ length: count }, () => r.u16());
-      s.defense = { hp, maxHp, fuses, flash, carriers };
-    }
-  }
+  if (r.left >= 4) s.vehicle = { hp: r.u16(), maxHp: r.u16() };
   return s;
 }
 

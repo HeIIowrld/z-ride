@@ -1,0 +1,17 @@
+{
+  "name": "zride-charge-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "충전소에서 가족 2~4명이 폰으로 그리고 맞히는 그림 전달 게임",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "ws": "8.22.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

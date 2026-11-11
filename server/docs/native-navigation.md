@@ -1,6 +1,6 @@
 # 실제 Pleos 내비 SDK 연결
 
-2026-11-04 Asia/Seoul. 참조 차량 앱은 공식 Maven의 NaviHelper3.0.5/navi-data3.0.4를 사용한다. `requestRoute`, `requestReRoute`, `cancelRoute`, `getCurrentLocationInfo`, `getDestinationInfo`, `getRouteStateInfo`와 공개 `NaviHelperEventListener`만 호출한다. InternalApi·리플렉션·숨겨진 차량 API는 사용하지 않는다.
+2026-11-04 Asia/Seoul. 참조 차량 앱은 공식 Maven의 NaviHelper3.0.5/navi-data3.0.4를 사용한다. `requestRoute`, `requestReRoute`, `cancelRoute`, `getCurrentLocationInfo`, `getDestinationInfo`, `getRouteStateInfo`, `requestNavigationScreen`과 공개 `NaviHelperEventListener`만 호출한다. InternalApi·리플렉션·숨겨진 차량 API는 사용하지 않는다.
 
 ## 통신 흐름
 
@@ -30,12 +30,34 @@ Activity가 내려가면 vehicle.report.foreground=false이며 UX 제한·P 조�
 
 NaviHelper3.0.5의 TripSummary.routePoints는 POI/경유 지점 요약이며 전체 도로 폴리라인이 아니다. 이 점들을 직선으로 이어 `PLEOS_ROUTE`라고 등록하지 않는다. SDK 모드 진입은 이전 DEMO_ROUTE geometry를 해제하고 `snapshot.navigation.geometryAvailable=false`를 전달한다. 실제 내비 도로 형상으로 경로 주변 스팟을 계산하는 부분은 공인 도로 형상을 공급받기 전까지 활성화하지 않는다. 외부 라우팅을 연결할 경우에도 출처를 구분해야 한다.
 
-‘GPS 다음 시험 지점’은 여의도 합성 좌표 재생이며 SDK가 계산한 도로를 따라 운전하는 기능이 아니다. OEM 내비는 이 위치를 실제 입력으로 받아 상태를 갱신할 수 있다. 실물 폰 GPS·개인 위치 증명·아이템 획득 권한/보상을 변경하지 않는다. 내비 거리·시간은 SDK가 준 값이며 서버가 임의로 계산한 값이 아니다.
+‘GPS 다음 시험 지점’은 여의도 합성 좌표를 Android GNSS에 보낸다. Pleos 2.1.0 차량 이미지에서는 체크섬을 수정해 Android 위치가 바뀌어도 순정 내비가 보고하는 위치와 남은 거리가 고정되는 것을 확인했다. 내비 거리·시간은 SDK 응답을 표시한다.
 
 AVD 시험에서 `getCurrentLocationInfo`가 GNSS 변경을 즉시 따라가지 않는 경우를 확인했다. 차량 위치는 위치 권한이 허용되면 Android GNSS를 우선 읽고 `positionSource=ANDROID_GNSS`로 표시한다. NaviHelper 위치만 있는 경우에는 `PLEOS_NAVI_HELPER`로 구분한다. Android GNSS 업데이트를 SDK 경로/재탐색 완료 callback이라고 간주하지 않는다. foreground service는 위치 권한이 있을 때만 location 유형과 GPS 구독을 활성화하며, 권한이 없으면 SDK 목적지 상태 연결만 유지한다. 실물 차량/아이폰 검증과 실제 도로 재생은 별도다.
+
+`DEMO_ROUTE`를 재생할 때는 경로를 설정할 당시 Virtual Console이 보고한 주행 가능 거리에서 재생한 거리를 빼서 계기판에 보낸다. 예를 들어 콘솔에서 99 km로 시작하고 1 km를 재생하면 98 km가 된다. 시작값이 없거나 0이면 그대로 두며, 일시 정지 중에는 차감하지 않는다. 순정 내비의 목적지까지 남은 거리는 NaviHelper 응답을 표시한다.
+
+## 순정 내비 모의주행과 계기판 동시 녹화
+
+1. 로컬 Pleos 2.1.0 시험 인스턴스에서 Z‑RIDE Car Probe를 실행하고 순정 내비로 판교 시험 경로 안내를 시작한다.
+2. 순정 내비의 시작 화면에서 길게 누르기 동작으로 Developer Menu를 연다. 검증에서는 Android UiAutomation이 시작 화면의 `long-clickable` 노드에 `ACTION_LONG_CLICK`을 보냈다. 재시작 확인이 뜨면 ‘계속 안내’를 선택한다.
+3. `Developer Menu → TAS Test → onSimulatedDriveRequestTest`에서 순정 내비 자체 모의주행을 시작한다. 아래 녹화 명령을 먼저 실행한 경우 명령이 화면의 Test 버튼을 누르고 메뉴를 닫는다. 좌표는 2560×1440 시험 화면 기준이다.
+
+```sh
+python tools/verify-native-drive.py --serial emulator-5560 \
+  --start-button 1344 607 --close-menu 1450 200 --range-m 99000 --seconds 54 --video native-drive.mp4
+```
+
+녹화 도구는 같은 목적지와 경로에서 NaviHelper의 순정 경로 인덱스가 증가하고 남은 거리가 줄어들 때 계기판의 시연용 주행 가능 거리에서 같은 양을 차감한다. 첫 구간의 시작값은 `--range-m`으로 정하고, 이어지는 구간에서는 이 옵션을 생략해 Virtual Console의 현재 주행 가능 거리를 이어받는다. 주행 기어와 속도는 Virtual Console에서 설정한다. 판교 시험에서 순정 내비 1,200 → 590 m, 계기판 신호 99,000 → 98,390 m, 계기판 표시 99 → 98 km를 확인했다.
+
+디버그 앱의 로컬 목적지 명령에 `waypoint` 객체(`latitude`, `longitude`, `name`)를 넣으면 SDK의 `requestRouteWithWaypoints`로 경유지와 목적지를 한 번에 요청한다. 경유지 목록과 도착 이벤트는 Pleos 앱에서 읽는다. 녹화에서 경유지 및 최종 도착 이벤트까지 검증하려면 `--require-waypoint --require-arrival`을 지정한다.
 
 ## 검증과 출처
 
 서버 테스트는 HOST 권한·승인된 폰 전파·역순/위조 거절·DEMO geometry 해제·freshness·영속 저장 제외를 검사한다. 실제 SDK 서비스 연결, 약관 동의 상태, 목적지 요청 후 ROUTE_DRIVE·목적지·남은 거리/시간 응답을 AVD에서 확인했다. 이동/재탐색·폰 최종 결과는 별도 실제 검증 기록으로 구분한다.
 
 [공식 SDK 가져오기](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/importing-sdk) · [목적지](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/destinations) · [재탐색](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/routes) · [callback](https://document.pleos.ai/en/api-reference/connect-sdk-pleos/NaviHelper/event-listeners) · [3.0.5 좌표 인자 변경](https://document.pleos.ai/en/docs/pleos-only/release-note/sdk-261015).
+## 목적지 설정
+
+Pleos 차량을 P에 두고 Z-RIDE 시작 화면의 **목적지 설정**을 누른다. 파티가 이미 열려 있으면 상단 차량 메뉴에서 같은 버튼을 쓸 수 있다. 장소명이나 주소를 입력하면 NaviHelper가 그 검색어로 순정 내비 검색 화면을 연다. 순정 내비의 결과에서 목적지나 경유지를 선택하고 경로를 확인한다. 이후 안내 상태는 기존 차량 SDK 경로로 파티에 전달된다.
+
+검색 화면 요청에는 `NAVI_CUSTOM_MAP` 권한을 사용한다. 이 입력은 Z-RIDE 파티 가입이나 게임 시작 요청을 만들지 않는다.

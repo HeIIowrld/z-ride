@@ -1,3 +1,5 @@
+import { Game as ElectricThief } from './venue-electric-thief.mjs';
+import { Game as ChargeRelay } from './venue-charge-relay.mjs';
 import http from 'node:http';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -55,6 +57,17 @@ export function createDemoServer(options = {}) {
   const pairingTtlMs = options.pairingTtlMs ?? 120000;
   const maxReceipts = options.maxReceiptsPerMember ?? 10000;
   const world = createWorldService({ clock: options.worldClock ?? Date.now, maxReceipts, respawnMs:options.pickupRespawnMs??300000 });
+  const deadzoneOrigin = options.deadzoneOrigin ? new URL(options.deadzoneOrigin).origin : null;
+  const deadzonePending = new Set();
+  const supplyChallenges = new WeakMap();
+  const venueGames = new WeakMap();
+  function deadzoneScope(room) {
+    return JSON.stringify([places.partySpot(room.roomId), room.game.missionRunId]);
+  }
+  function linkedDeadzone(room) {
+    const match = room.deadzoneMatch;
+    return match?.scope === deadzoneScope(room) ? match : null;
+  }
   const effects = createEffectsService({ clock: options.effectsClock ?? Date.now });
   const gameState = createGameStateService({ clock: options.gameClock ?? Date.now });
   const cabin = createCabinService({ clock: options.cabinClock ?? Date.now });
@@ -86,7 +99,7 @@ export function createDemoServer(options = {}) {
         state: room.state, pauseReason: room.pauseReason, joinCode: room.joinCode,
         joinExpiresAt: room.joinExpiresAt, joinUsed: room.joinUsed,
         emptyLocks: [...room.emptyLocks], stats: room.stats, zombies: room.zombies,
-        collection: room.collection, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
+        collection: room.collection, deadzoneMatch: room.deadzoneMatch, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
         partyWorldClaims:[...(room.partyWorldClaims??[])],partyPickupClaims:[...(room.partyPickupClaims??[])],collectionRevision:room.collectionRevision??0,
         partyPickupRespawns:[...(room.partyPickupRespawns??[])],
         departedMembers: [...(room.departedMembers ?? new Map()).values()].map(m => ({ ...m, socket: undefined, receipts: [...m.receipts], collectedPickups: [...(m.collectedPickups??[])], worldClaims: [...(m.worldClaims??[])], worldReceipts: [...(m.worldReceipts??[])], gameReceipts: [...(m.gameReceipts??[])] })),
@@ -215,12 +228,145 @@ export function createDemoServer(options = {}) {
     if (v.gear !== 'P') reasons.push(v.gear === 'UNKNOWN' ? 'GEAR_UNKNOWN' : 'GEAR_NOT_P');
     return { allowed: reasons.length === 0, reasons };
   }
+  function venueStop(room) {
+    const charge = room.vehicle.charge;
+    if (!gate(room).allowed || charge.state !== 'CHARGING' || charge.portConnection !== 'CONNECTED') return null;
+    return places.arrivedCharger(navigationSnapshot(room).position);
+  }
+
+  function routeSupplyContext(room) {
+    const now = Date.now();
+    if (room.vehicle.gear !== 'D' || !room.vehicle.receivedAt ||
+        now - room.vehicle.receivedAt > leaseMs) return null;
+    const nav = navigationSnapshot(room, now);
+    if (!nav.position) return null;
+    if (nav.status === 'ROUTE_DRIVE') {
+      return { key: 'native:' + nav.nativeRouteRevision, position: nav.position, native: true };
+    }
+    if (nav.owned) return null;
+    const route = places.routeInfo(room.roomId);
+    return route.active ? { key: 'external:' + route.routeRevision, position: nav.position, native: false } : null;
+  }
+
+  function availableRouteSupply(room, context, member) {
+    return context && places.routeSupplySpot(room.roomId, context.position,
+      id => Object.hasOwn(room.collection.routeClaims ?? {}, id) ||
+        room.collection.routeAttempts?.[member.memberId]?.includes(id), context.native);
+  }
+
+  function routeSupplyView(room, viewer) {
+    const spot = viewer.approved && passengerSeat(viewer.seat) && seatEvidence(room, viewer.seat) !== 'EMPTY'
+      ? availableRouteSupply(room, routeSupplyContext(room), viewer) : null;
+    return {
+      routeSupplyAvailable: Boolean(spot),
+      routeSupplySpot: spot ? { placeId: spot.placeId, name: spot.name, latitude: spot.latitude, longitude: spot.longitude } : null,
+    };
+  }
+
+  function venueView(room, member) {
+    const session = venueGames.get(room);
+    const stop = venueStop(room);
+    if (!session) return { stop, game: null };
+    if (session.stop.placeId !== stop?.placeId) return { stop, game: null, paused: true };
+    const { engine, kind, itemUsed } = session;
+    const state = engine.players.some(player => player.id === member.memberId) && member.role !== 'CAR_HOST'
+      ? engine.playerView(member.memberId) : engine.publicView();
+    return { stop, kind, game: state, supplies: room.collection.inventory.supplies,
+      canUseItem: itemUsed !== (kind === 'thief' ? engine.caseNo : engine.round) &&
+        (kind === 'thief' ? engine.phase === 'RESULT' && engine.result?.success === false && !engine.result.saved : engine.phase === 'PLAY') };
+  }
+
+  function updateVenue(room) {
+    const session = venueGames.get(room);
+    if (!session || session.engine.phase === 'END') return;
+    const now = Date.now();
+    if (venueStop(room)?.placeId !== session.stop.placeId) {
+      session.pausedAt ??= now;
+      return;
+    }
+    const { engine } = session;
+    if (session.pausedAt && engine.deadline) engine.deadline += now - session.pausedAt;
+    session.pausedAt = null;
+    if (session.kind === 'thief' && Number.isFinite(room.vehicle.charge.socPercent))
+      engine.setSoc(room.vehicle.charge.socPercent, 'CAR');
+    if (engine.deadline && engine.deadline <= now) {
+      if (session.kind === 'thief') engine.next();
+      else if (engine.phase === 'PLAY') engine.expire();
+    }
+  }
+
+  function handleVenue(room, session, body) {
+    const member = memberFor(room, session);
+    const action = body.action;
+    if (action === 'status') return venueView(room, member);
+    const host = member.role === 'CAR_HOST';
+    const stop = venueStop(room);
+    if (!stop) throw fail('CHARGING_STOP_REQUIRED', 'Park and charge at an approved stop', 409);
+    let current = venueGames.get(room);
+    if (action === 'open') {
+      requireHost(room, session);
+      if (current && current.engine.phase !== 'END') return venueView(room, member);
+      if (linkedDeadzone(room)?.state === 'playing')
+        throw fail('GAME_ALREADY_ACTIVE', 'Finish DEADZONE before starting another game', 409);
+      if (!['thief', 'relay'].includes(body.kind)) throw fail('UNKNOWN_GAME', 'Choose a charging game');
+      const roster = [...room.members.values()].filter(p => p.approved && p.socket &&
+        passengerSeat(p.seat) && seatEvidence(room, p.seat) !== 'EMPTY');
+      if (roster.length < 2) throw fail('NEED_PLAYERS', 'At least two approved connected passengers required', 409);
+      const engine = body.kind === 'thief' ? new ElectricThief() : new ChargeRelay();
+      for (const rider of roster) {
+        engine.addPlayer(rider.memberId, rider.nickname);
+        engine.setConnected(rider.memberId, true);
+      }
+      if (body.kind === 'thief') {
+        if (!Number.isFinite(room.vehicle.charge.socPercent)) throw fail('SOC_REQUIRED', 'Vehicle battery unavailable', 409);
+        engine.setSoc(room.vehicle.charge.socPercent, 'CAR');
+        if (engine.soc > 95) throw fail('BATTERY_FULL', 'Battery needs room for another 5 percent', 409);
+      }
+      current = { stop, kind: body.kind, engine, itemUsed: -1 };
+      venueGames.set(room, current);
+      return venueView(room, member);
+    }
+    if (!current || current.stop.placeId !== stop.placeId)
+      throw fail('NO_VENUE_GAME', 'No charging game at this stop', 409);
+    const { engine, kind } = current;
+    if (!host && (!engine.players.some(player => player.id === member.memberId) || seatEvidence(room, member.seat) === 'EMPTY'))
+      throw fail('ROLE_FORBIDDEN', 'This seat is not in the game', 403);
+    updateVenue(room);
+    try {
+      if (host && action === 'start') engine.start(kind === 'relay' ? 2 : undefined);
+      else if (host && action === 'next' && engine.phase !== 'END') engine.next();
+      else if (host && action === 'item') {
+        if (!venueView(room, member).canUseItem) throw new Error('ITEM_NOT_READY');
+        if (room.collection.inventory.supplies < 1) throw new Error('SUPPLY_REQUIRED');
+        if (kind === 'thief') {
+          engine.blackouts = Math.max(0, engine.blackouts - 1);
+          engine.result = { ...engine.result, saved: true };
+          engine.cabin = { light: 'NORMAL', air: 'NORMAL' };
+        } else engine.deadline += 15000;
+        current.itemUsed = kind === 'thief' ? engine.caseNo : engine.round;
+        room.collection.inventory.supplies--;
+        collectionChanged(room);
+      } else if (!host && kind === 'thief' && action === 'ready') engine.confirm(member.memberId);
+      else if (!host && kind === 'thief' && action === 'play') engine.play(member.memberId, body);
+      else if (!host && kind === 'thief' && action === 'vote') engine.vote(member.memberId, body.suspect);
+      else if (!host && kind === 'relay' && action === 'submit') engine.submit(member.memberId, body);
+      else throw new Error('INVALID_VENUE_ACTION');
+    } catch (error) {
+      if (/^[A-Z_]+$/.test(error.message)) throw fail(error.message, 'Action unavailable in the current game phase', 409);
+      throw error;
+    }
+    return venueView(room, member);
+  }
+
   function effectHost(room) { return [...room.members.values()].find(member => member.role === 'CAR_HOST'); }
-  function effectContext(room, actor = effectHost(room)) {
+  function effectContext(room, actor = effectHost(room), deadzonePlaying = false) {
     const host = effectHost(room); const socket = host?.socket;
     const live = socket?.readyState === WebSocket.OPEN && socket.effectExpiresAt > Date.now();
     const g = gate(room);
-    return { roomId: room.roomId, roomEpoch: room.roomEpoch, state: room.state,
+    const match = linkedDeadzone(room);
+    const deadzoneScene = match && effects.snapshot(room.roomId).sceneId === 'deadzone-' + match.code;
+    return { roomId: room.roomId, roomEpoch: room.roomEpoch,
+      state: deadzonePlaying || (deadzoneScene && match.state === 'playing') ? 'PLAYING' : room.state,
       role: actor?.role, connectionId: live ? socket.effectConnectionId : null,
       gate: live ? g : { allowed: false, reasons: [...g.reasons, 'CAR_DISCONNECTED'] } };
   }
@@ -292,6 +438,8 @@ export function createDemoServer(options = {}) {
       vehicle: {
         ux: room.vehicle.ux, gear: room.vehicle.gear, foreground: room.vehicle.foreground, seats: room.vehicle.seats,
         charge: room.vehicle.charge, source: room.vehicle.source,
+        speedMps: room.vehicle.hostConnected && Date.now() - room.vehicle.receivedAt <= leaseMs
+          ? room.vehicle.speedMps ?? null : null,
         reportAgeMs: room.vehicle.receivedAt ? Date.now() - room.vehicle.receivedAt : null,
         playAllowed: g.allowed, gateReasons: g.reasons,
       },
@@ -306,11 +454,17 @@ export function createDemoServer(options = {}) {
       },
       zombies: room.zombies.map(z => ({ ...z })),
       effects: effects.snapshot(room.roomId),
+      ...(viewer.approved && !room.closedAt && linkedDeadzone(room)?.state !== 'ended' && linkedDeadzone(room) &&
+          (!linkedDeadzone(room).partySeats || linkedDeadzone(room).partySeats[viewer.memberId]) ? {
+        deadzoneJoinUrl: deadzoneOrigin + '/j/' + linkedDeadzone(room).code +
+          (linkedDeadzone(room).partySeats ? '#party=' + linkedDeadzone(room).partySeats[viewer.memberId] : '')
+      } : {}),
       game: gameState.snapshot(room.game, gameContext(room, viewer)),
       missionLedger:places.events.projection(room),
       cabin: cabin.snapshot(cabinContext(room, viewer)),
       party: { partyId: room.roomId, status: room.closedAt ? 'DISBANDED' : 'ACTIVE', route: places.routeInfo(room.roomId) },
       navigation: navigationSnapshot(room),
+      ...routeSupplyView(room, viewer),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
       serverTime: Date.now(),
@@ -406,6 +560,157 @@ export function createDemoServer(options = {}) {
   const displayName=options.displayName??'Z-RIDE';
   if(typeof displayName!=='string'||!displayName.trim()||displayName.length>64||/[\u0000-\u001f]/.test(displayName))throw new Error('Invalid display name');
   const accountApi=createAccountApi({accounts,partyApi,rooms,sessions,places,isSecure:requestPolicy.isSecure,accountTlsRequired:publicOrigin.startsWith('https://'),roomFor,snapshot,pause,change,closeSocket,clientConfig:{displayName,apiOrigin:publicOrigin,phoneJoinUrl:options.phonePublicUrl??(publicOrigin?publicOrigin+'/play':''),sessionAccessKeyRequired:!!testAccessDigest,auth:accounts.describe()}});
+  async function deadzoneRequest(path, init) {
+    try {
+      const response = await fetch(new URL(path, deadzoneOrigin), {
+        ...init, redirect: 'error', signal: AbortSignal.timeout(3500)
+      });
+      if (!response.ok) throw new Error('upstream status');
+      return await response.json();
+    } catch {
+      throw fail('DEADZONE_UNAVAILABLE', 'Game server did not respond', 502);
+    }
+  }
+
+  async function handleDeadzone(req, res, roomId, body) {
+    if (!deadzoneOrigin) throw fail('DEADZONE_DISABLED', 'Game integration is disabled', 404);
+    const session = authenticate(req);
+    const room = roomFor(roomId);
+    const member = requireHost(room, session);
+    const venue = venueGames.get(room);
+    if (venue && venue.engine.phase !== 'END') throw fail('GAME_ALREADY_ACTIVE', 'Finish the charging game first', 409);
+    if (!gate(room).allowed) throw fail('DEADZONE_PARK_REQUIRED', 'Park and open the vehicle app first', 409);
+    if (deadzonePending.has(roomId)) throw fail('DEADZONE_BUSY', 'Game sync already in progress', 409);
+    const epoch = room.roomEpoch;
+    const scope = deadzoneScope(room);
+    const socket = member.socket;
+    deadzonePending.add(roomId);
+    try {
+      let match = linkedDeadzone(room);
+      if (body.create === true && !room.collection.pendingRepair && (!match || match.state === 'ended')) {
+        const riders = [...room.members.values()].filter(item => item.approved && passengerSeat(item.seat) &&
+          seatEvidence(room, item.seat) !== 'EMPTY');
+        const players = riders.length;
+        const partySeats = riders.map(rider => ({ memberId: rider.memberId, seat: rider.seat, name: rider.nickname, ticket: randomUUID() }));
+        if (!players || players > 4) throw fail('DEADZONE_PLAYERS', 'Approve one to four phones first', 409);
+        const game = await deadzoneRequest('/api/zride/rooms', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ players, hostName: session.nickname, sharedVehicle: true, partySeats })
+        });
+        if (!/^[A-Z2-9]{6}$/.test(game.code) || !asText(game.dashboardToken, 128))
+          throw fail('DEADZONE_BAD_ROOM', 'Invalid upstream room', 502);
+        match = { code: game.code, dashboardToken: game.dashboardToken, cleared: 0, state: 'lobby', scope,
+          ...(game.partySeatsRequired ? { partySeats: Object.fromEntries(partySeats.map(rider => [rider.memberId, rider.ticket])) } : {}) };
+      }
+      if (!match) return result(res, 200, { match: null });
+      // The Worker can discard its room listing and return an empty lobby
+      // after a finished game. Keep the result and let the host open a new room.
+      let observed = match.finalObservation ?? await deadzoneRequest('/api/zride/rooms/' + match.code + '/status', {
+        headers: { 'x-dashboard-token': match.dashboardToken }
+      });
+      if (observed.schema !== 'zride.dashboard.v1' || observed.roomCode !== match.code ||
+          !Array.isArray(observed.players) || !Number.isSafeInteger(observed.wave))
+        throw fail('DEADZONE_BAD_STATE', 'Invalid game snapshot', 502);
+      if (match.state === 'ended' && observed.state !== 'ended') {
+        observed = { ...observed, state: 'ended', wave: Math.max(match.cleared, observed.wave) };
+      }
+      if (storageFailed) throw unavailable();
+      if (roomFor(roomId) !== room || memberFor(room, session) !== member || member.socket !== socket ||
+          room.roomEpoch !== epoch || deadzoneScope(room) !== scope || !gate(room).allowed)
+        throw fail('DEADZONE_STALE', 'Vehicle state changed during game sync', 409);
+
+      if (body.repair === true) {
+        const pending = room.collection.pendingRepair;
+        if (!pending && (observed.state !== 'playing' || !['valley','choice'].includes(observed.phase) ||
+            !observed.runId || !observed.vehicle || !(observed.vehicle.hp > 0 && observed.vehicle.hp < observed.vehicle.maxHp) ||
+            observed.vehicle.repairedWave === observed.wave))
+          throw fail('REPAIR_NOT_READY', 'Repair is available between waves on a damaged vehicle', 409);
+        if (pending && pending.code !== match.code) throw fail('REPAIR_PENDING', 'Previous repair is awaiting confirmation', 409);
+        if (!pending && room.collection.inventory.supplies < 1) throw fail('SUPPLY_REQUIRED', 'Collect a supply first', 409);
+        const repair = pending ?? { code: match.code, runId: observed.runId, wave: observed.wave };
+        if (!pending) atomic(() => {
+          room.collection.inventory.supplies--;
+          room.collection.pendingRepair = repair;
+          room.deadzoneMatch = match;
+          collectionChanged(room);
+        });
+        const outcome = await deadzoneRequest('/api/zride/rooms/' + match.code + '/repair', {
+          method: 'POST', headers: { 'x-dashboard-token': match.dashboardToken, 'content-type': 'application/json' },
+          body: JSON.stringify(repair)
+        });
+        if (typeof outcome.applied !== 'boolean') throw fail('DEADZONE_BAD_STATE', 'Invalid repair receipt', 502);
+        atomic(() => {
+          if (!outcome.applied) room.collection.inventory.supplies++;
+          delete room.collection.pendingRepair;
+          collectionChanged(room);
+        });
+        if (!outcome.applied) throw fail('REPAIR_NOT_READY', 'Repair window has closed', 409);
+        observed = await deadzoneRequest('/api/zride/rooms/' + match.code + '/status', {
+          headers: { 'x-dashboard-token': match.dashboardToken }
+        });
+      }
+
+      const cleared = observed.phase === 'valley' || observed.phase === 'choice' ? observed.wave : 0;
+      const finalObservation = observed.state === 'ended' ? {
+        schema: observed.schema,
+        roomCode: observed.roomCode,
+        state: observed.state,
+        wave: observed.wave,
+        teamScore: observed.teamScore,
+        vehicle: observed.vehicle,
+        players: observed.players.slice(0, 4).map(({ name, score, kills }) => ({ name, score, kills })),
+      } : undefined;
+      const next = { ...match, state: observed.state, cleared: Math.max(match.cleared, cleared), finalObservation };
+      const previous = room.deadzoneMatch;
+      atomic(() => {
+        room.deadzoneMatch = next;
+        const playing = observed.state === 'playing';
+        const context = effectContext(room, member, playing);
+        let fx = effects.snapshot(roomId);
+        if (fx.sceneId === 'deadzone-' + match.code && (!playing || body.enableAmbient !== true)) {
+          applyEffects(room, effects.stop(context, playing ? 'USER_STOP' : 'MATCH_ENDED'));
+          fx = effects.snapshot(roomId);
+        }
+        if (body.enableAmbient === true && !fx.enabled && playing && context.gate.allowed) {
+          const enabled = effects.session(context, {
+            commandId: randomUUID(), enabled: true, locallyEnabled: true,
+            vehicleConnectionId: context.connectionId, expectedControlVersion: fx.controlVersion,
+            channels: ['AMBIENT'], maxIntensity01: 0.25
+          });
+          fx = effects.snapshot(roomId);
+          const scene = effects.scene(context, {
+            commandId: randomUUID(), effectSessionId: fx.effectSessionId,
+            sceneId: 'deadzone-' + match.code, virtualSpeedMps: 0
+          });
+          queueEffectEvents(room, enabled);
+          applyEffects(room, scene);
+          fx = effects.snapshot(roomId);
+        }
+        if (body.enableAmbient === true && playing && cleared > match.cleared && fx.enabled && fx.sceneId === 'deadzone-' + match.code &&
+            fx.channels.includes('AMBIENT')) {
+          applyEffects(room, effects.cue(context, {
+            commandId: 'deadzone-' + match.code + '-' + cleared,
+            effectSessionId: fx.effectSessionId, sceneId: fx.sceneId,
+            cue: 'ESCAPE', intensity01: 0.25, durationMs: 2500
+          }));
+        }
+        if (previous?.code !== next.code || (previous.state !== 'ended' && next.state === 'ended')) change(room);
+      });
+      return result(res, 200, { match: {
+        state: observed.state, wave: observed.wave, cleared: next.cleared,
+        score: observed.teamScore,
+        vehicle: Number.isFinite(observed.vehicle?.hp) ? { hp: observed.vehicle.hp, maxHp: observed.vehicle.maxHp } : null,
+        supplies: room.collection.inventory.supplies,
+        repairAvailable: !!room.collection.pendingRepair || (room.collection.inventory.supplies > 0 &&
+          observed.state === 'playing' && ['valley','choice'].includes(observed.phase) &&
+          observed.vehicle?.hp > 0 && observed.vehicle.hp < observed.vehicle.maxHp && observed.vehicle.repairedWave !== observed.wave),
+        players: observed.players.slice(0, 4).map(({ name, score, kills }) => ({ name, score, kills }))
+      } });
+    } finally {
+      deadzonePending.delete(roomId);
+    }
+  }
+
   const server = http.createServer(async (req, res) => {
     try {
       rateLimit('http:' + requestPolicy.clientAddress(req));
@@ -421,6 +726,15 @@ export function createDemoServer(options = {}) {
         const plan=atomic(()=>accounts.beginGoogle(body,accountApi.token(req)));
         const verified=await accounts.verifyGoogle(body.credential,plan);
         return atomic(()=>result(res,200,accounts.finishGoogle(plan,verified)));
+      }
+      const deadzoneRoute = path.match(/^\/api\/rooms\/([^/]+)\/deadzone$/);
+      if (deadzoneRoute && req.method === 'POST') return await handleDeadzone(req, res, deadzoneRoute[1], body);
+      const venueRoute = path.match(/^\/api\/rooms\/([^/]+)\/venue-game$/);
+      if (venueRoute && req.method === 'POST') {
+        const session = authenticate(req);
+        const room = roomFor(venueRoute[1]);
+        const apply = () => handleVenue(room, session, body);
+        return result(res, 200, body.action === 'status' ? apply() : atomic(apply));
       }
       return atomic(() => {
       const accountResponse=accountApi.handle(req,path,body);if(accountResponse)return result(res,accountResponse.status,accountResponse.data);
@@ -446,6 +760,46 @@ export function createDemoServer(options = {}) {
         if (!passengerSeat(member.seat) || member.role === 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Approved passenger role required', 403);
         if (req.method !== 'POST') throw fail('METHOD_NOT_ALLOWED', 'Use authenticated POST JSON; coordinates do not belong in URL queries', 405);
         rateLimit('world:' + session.sessionId, 30);
+        if (path === '/api/world/route-supply') {
+          if (body.passengerConfirmed !== true || seatEvidence(room, member.seat) === 'EMPTY')
+            throw fail('PASSENGER_CONFIRMATION_REQUIRED', 'Approved occupied or unverified passenger seat required', 403);
+          const route = routeSupplyContext(room);
+          if (!route)
+            throw fail('ROUTE_SUPPLY_UNAVAILABLE', 'A fresh moving vehicle and active route are required', 409);
+          const claimed = room.collection.routeClaims ??= {};
+          if (body.challengeId !== undefined) {
+            if (typeof body.challengeId !== 'string' || !/^[0-9a-f-]{36}$/.test(body.challengeId))
+              throw fail('ROUTE_CHALLENGE_INVALID', 'Invalid challenge ID', 400);
+            const challenge = supplyChallenges.get(member);
+            if (claimed[body.challengeId] === member.memberId) return result(res, 200, { supplies: room.collection.inventory.supplies, replayed: true });
+            if (!challenge || challenge.id !== body.challengeId || challenge.routeKey !== route.key ||
+                challenge.expiresAt < Date.now())
+              throw fail('ROUTE_CHALLENGE_INVALID', 'The attempt is closed. Continue to the next spot', 409);
+            supplyChallenges.delete(member);
+            if (challenge.sequence !== body.sequence)
+              return result(res, 200, { outcome: 'MISSED', supplies: room.collection.inventory.supplies });
+            if (Object.hasOwn(claimed, challenge.spotId)) throw fail('ALREADY_CLAIMED', 'Party already collected at this spot', 409);
+            claimed[challenge.spotId] = challenge.id;
+            claimed[challenge.id] = member.memberId;
+            room.collection.inventory.supplies++;
+            collectionChanged(room);
+            return result(res, 200, { supplies: room.collection.inventory.supplies });
+          }
+          const activeChallenge = supplyChallenges.get(member);
+          if (activeChallenge?.routeKey === route.key && activeChallenge.expiresAt >= Date.now())
+            throw fail('ROUTE_CHALLENGE_IN_PROGRESS', 'Finish the current attempt first', 409);
+          const spot = availableRouteSupply(room, route, member);
+          if (!spot || (body.placeId !== undefined && body.placeId !== spot.placeId))
+            throw fail('ROUTE_SUPPLY_UNAVAILABLE', 'This spot is no longer available', 409);
+          const challenge = { id: randomUUID(), spotId: spot.placeId, routeKey: route.key,
+            sequence: Array.from({length: 4}, () => Math.floor(Math.random()*3)+1).join(''),
+            expiresAt: Date.now()+30000 };
+          supplyChallenges.set(member, challenge);
+          const attempts = room.collection.routeAttempts ??= {};
+          (attempts[member.memberId] ??= []).push(spot.placeId);
+          broadcast(room);
+          return result(res, 200, { challengeId: challenge.id, sequence: challenge.sequence, placeName: spot.name });
+        }
         if (path === '/api/world/nearby') return result(res, 200, world.nearby(room,member, body));
         if (path === '/api/world/location') return result(res, 200, world.observe(member, body));
         if (path === '/api/world/claim') {
@@ -594,6 +948,8 @@ export function createDemoServer(options = {}) {
       if (member.role !== 'CAR_HOST') throw fail('ROLE_FORBIDDEN', 'Only vehicle can report state', 403);
       if (!UX.includes(message.ux) || !GEARS.includes(message.gear)) throw fail('INVALID_REPORT', 'Explicit UX and gear required');
       if (message.foreground != null && typeof message.foreground !== 'boolean') throw fail('INVALID_REPORT', 'foreground must be boolean');
+      if (message.speedMps != null && (!Number.isFinite(message.speedMps) || message.speedMps < 0 || message.speedMps > 120))
+        throw fail('INVALID_REPORT', 'speedMps must be within 0–120 m/s');
       if (message.reportSeq != null && (!Number.isSafeInteger(message.reportSeq) || message.reportSeq <= (member.lastReportSeq ?? 0))) throw fail('STALE_REPORT', 'reportSeq must increase on this connection', 409);
       if (message.seats != null && (!Array.isArray(message.seats) || message.seats.length > 4)) throw fail('INVALID_REPORT', 'At most four seat reports');
       const seats = (message.seats ?? []).map(s => {
@@ -607,8 +963,12 @@ export function createDemoServer(options = {}) {
       }
       if (message.reportSeq != null) member.lastReportSeq = message.reportSeq;
       room.vehicle = { ux: message.ux, gear: message.gear, foreground: message.foreground ?? true, seats,
-        charge: { state: String(message.charge?.state ?? 'UNKNOWN').slice(0, 32), portConnection: String(message.charge?.portConnection ?? 'UNKNOWN').slice(0, 32), source: String(message.charge?.source ?? 'NONE').slice(0, 32) },
+        speedMps: message.speedMps ?? null,
+        charge: { state: String(message.charge?.state ?? 'UNKNOWN').slice(0, 32), portConnection: String(message.charge?.portConnection ?? 'UNKNOWN').slice(0, 32), source: String(message.charge?.source ?? 'NONE').slice(0, 32),
+          ...(Number.isFinite(message.charge?.socPercent) && message.charge.socPercent >= 0 && message.charge.socPercent <= 100
+            ? { socPercent: message.charge.socPercent } : {}) },
         source: String(message.source ?? 'CLIENT_REPORT').slice(0, 64), receivedAt: Date.now(), hostConnected: true };
+      updateVenue(room);
       const g = gate(room);
       if (!g.allowed) pause(room, g.reasons.join(','));
       else if (room.state === 'LOBBY') room.state = 'READY';
@@ -800,6 +1160,7 @@ export function createDemoServer(options = {}) {
     }
     if (!storageFailed) for (const room of rooms.values()) {
       try {
+        updateVenue(room);
         const motion = gameState.tick(room.game, gameContext(room));
         const observations = cabin.tick(cabinContext(room));
         const fx = effects.snapshot(room.roomId), last = autoEffects.get(room.roomId);
@@ -842,7 +1203,7 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ ...deploymentOptions(), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN });
+  const app = createDemoServer({ ...deploymentOptions(), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
   console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 10, persistence: app.persistence, exposure: (process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY) ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });

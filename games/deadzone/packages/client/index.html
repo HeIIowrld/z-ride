@@ -29,18 +29,12 @@
     <div id="intensity"><div id="intensityFill"></div></div>
   </div>
 
-  <section id="vehicleHud" hidden aria-label="우리 차 방어">
-    <div class="vehicle-hud-status"><b>우리 차</b><span id="vehicleWave"></span><strong id="vehicleHp"></strong></div>
-    <div class="vehicle-health"><i id="vehicleHpFill"></i></div>
-    <div id="vehicleHint"></div>
-    <div class="vehicle-actions">
-      <button id="vehicleRepair" type="button">수리 <kbd>R</kbd></button>
-      <button id="vehicleLights" type="button">헤드라이트 <kbd>T</kbd></button>
-    </div>
-  </section>
-
   <!-- top centre, PvP: the score that matters -->
   <div id="teamScores" class="hidden"></div>
+  <div id="seatAim" hidden>
+    <div id="seatDial" aria-hidden="true"><i></i></div>
+    <div><strong id="seatAimTitle"></strong><span id="seatAimStatus"></span></div>
+  </div>
 
   <a id="hudDashboard" href="/dashboard" target="_blank" rel="noopener" style="position:absolute;right:70px;top:22px;pointer-events:auto;font:11px system-ui;color:#edf2dc;background:#172d25cc;border:1px solid #9ab87966;border-radius:8px;padding:10px;text-decoration:none">차량 대시보드 ↗</a>
   <div id="pauseBtn" class="tapzone">❚❚</div>

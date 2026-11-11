@@ -1,8 +1,7 @@
 // Z-RIDE dashboard adapter, 2026-11-06. Apache-2.0.
 import QRCode from 'qrcode';
-import { DEFENSE_WAVES, VEHICLE_HALF_WIDTH, VEHICLE_HALF_LENGTH } from '@overrun/shared/vehicle-defense.js';
 const $ = id => document.getElementById(id);
-const embeddedVehicle=window.parent!==window||(/Android/.test(navigator.userAgent)&&/wv/.test(navigator.userAgent));
+const embeddedVehicle=/Android/.test(navigator.userAgent)&&/wv/.test(navigator.userAgent);
 let fitting=false;
 let fittedRoster=null;
 if(embeddedVehicle)document.body.style.zoom='1';
@@ -49,48 +48,11 @@ function radar(data) {
  for(let row of [-1,1])for(let col=-4;col<=4;col++){const x=cx+col*69,y=cy+row*175;g.strokeRect(x-27,y-52,54,104);g.fillStyle='#9dae8c44';g.font='13px monospace';g.fillText('P'+(col+5),x-12,y+6);}
  g.setLineDash([10,14]);g.strokeStyle='#c9dc7d55';g.beginPath();g.moveTo(cx-345,cy);g.lineTo(cx+345,cy);g.stroke();g.setLineDash([]);
  g.strokeStyle='#d6ef7760';g.beginPath();g.arc(cx,cy,r*scale,0,Math.PI*2);g.stroke();
- if (data?.defense) {
-   const d = data.defense, w = VEHICLE_HALF_WIDTH * scale, l = VEHICLE_HALF_LENGTH * scale;
-   if (d.flash > 0) {
-     g.fillStyle = '#a4e8fa44'; g.beginPath();
-     g.moveTo(cx-w,cy-l); g.lineTo(cx-11.5*scale,cy-l-15*scale);
-     g.lineTo(cx+11.5*scale,cy-l-15*scale); g.lineTo(cx+w,cy-l); g.fill();
-   }
-   g.fillStyle = d.hp / d.maxHp <= 0.35 ? '#ef966c' : '#d5ef77';
-   g.fillRect(cx-w,cy-l,w*2,l*2);
-   g.fillStyle = '#223c39'; g.fillRect(cx-w*.65,cy-l*.58,w*1.3,l*1.05);
-   g.fillStyle = '#e8f3cc'; g.font = 'bold 12px system-ui';
-   g.fillText('우리 차',cx+w+5,cy+l+9);
-   for (const p of data.pickups) {
-     if (p.k !== 'fuse') continue;
-     g.fillStyle = '#60ffe1';
-     g.fillRect(cx+p.x*scale-3,cy+p.z*scale-3,6,6);
-   }
- }
  for(const e of data?.enemies||[]){g.fillStyle='#ed8a6b';g.beginPath();g.arc(cx+e.x*scale,cy+e.z*scale,3.5,0,Math.PI*2);g.fill();}
  for(const [i,p] of (data?.players||[]).entries()){
   const x=cx+p.x*scale,y=cy+p.z*scale;g.fillStyle=colors[i%4]+'20';g.beginPath();g.arc(x,y,19,0,Math.PI*2);g.fill();g.fillStyle=colors[i%4];g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();g.fillStyle='#eef1de';g.font='bold 13px system-ui';g.fillText(p.name.slice(0,12),x+12,y+5);
  }
 }
-function renderDefense(s) {
- const d = s.defense;
- $('defenseStatus').hidden = !d || s.state === 'lobby' || s.state === 'countdown';
- if ($('defenseStatus').hidden) return;
- $('defenseHp').textContent = d.hp + ' / ' + d.maxHp;
- $('defenseFill').style.width = (100 * d.hp / d.maxHp) + '%';
- $('defenseFill').classList.toggle('critical', d.hp / d.maxHp <= 0.35);
- $('defenseFuses').textContent = d.fuses + '개' + (d.flash > 0 ? ' · 라이트 켜짐' : '');
- const directions = { '앞': 0, '뒤': 0, '왼쪽': 0, '오른쪽': 0 };
- for (const e of s.enemies) {
-   if (Math.hypot(e.x, e.z) > 25) continue;
-   const direction = Math.abs(e.x) > Math.abs(e.z)
-     ? (e.x > 0 ? '오른쪽' : '왼쪽') : (e.z > 0 ? '뒤' : '앞');
-   directions[direction]++;
- }
- const [direction, count] = Object.entries(directions).sort((a,b) => b[1] - a[1])[0];
- $('defenseDirection').textContent = count ? direction + ' · ' + count + '마리' : '주변 이상 없음';
-}
-
 function render(s) {
  lastState=s;lastUpdate=Date.now();$('alert').hidden=true;
  $('sourceChip').textContent=practice?'AI 동료 체험 중':'실시간 연결';$('sourceChip').classList.add('connected');
@@ -98,12 +60,7 @@ function render(s) {
  const labels={lobby:'TEAM STANDBY',countdown:'GET READY',playing:'SURVIVE TOGETHER',ended:'MISSION COMPLETE',practice:'PRACTICE MODE',paused:'PRACTICE PAUSED'};
  $('stateLabel').textContent=labels[s.state]||s.state;
  $('mapNote').textContent=s.state==='lobby'?'팀원 모두 폰에서 준비를 완료하면 시작합니다.':s.state==='ended'?'이번 경기 결과입니다. 다음 도전을 준비하세요.':'팀원의 위치와 좀비 접근을 확인하세요.';
- if (s.state === 'ended' && s.outcome) {
-   const result = { vehicle_defended: '차량 방어 성공', vehicle_destroyed: '차량 파괴', wipe: '팀 전투 불능' }[s.outcome];
-   if (result) $('stateLabel').textContent = result;
- }
- renderDefense(s);
- $('wave').textContent=String(s.wave).padStart(2,'0')+(s.defense && s.wave ? ' / '+DEFENSE_WAVES : '');$('phase').textContent=s.phase==='choice'?'보급품 업그레이드 선택 중':s.state==='playing'?'좀비 웨이브 진행 중':'팀 상태: '+({lobby:'참가 대기',countdown:'시작 카운트다운',ended:'경기 종료',practice:'AI 동료 체험',paused:'체험 일시정지'}[s.state]||s.state);
+ $('wave').textContent=String(s.wave).padStart(2,'0');$('phase').textContent=s.phase==='choice'?'보급품 업그레이드 선택 중':s.state==='playing'?'좀비 웨이브 진행 중':'팀 상태: '+({lobby:'참가 대기',countdown:'시작 카운트다운',ended:'경기 종료',practice:'AI 동료 체험',paused:'체험 일시정지'}[s.state]||s.state);
  $('headcount').replaceChildren(document.createTextNode(String(s.players.filter(p=>p.alive!==false&&p.connected).length)+' '));const total=document.createElement('em');total.textContent='/ '+s.targetPlayers;$('headcount').append(total);
  $('difficulty').textContent=`${s.difficulty.label} · 출현량 ×${s.difficulty.spawnMultiplier.toFixed(2)}`;
  $('score').textContent=s.teamScore.toLocaleString();$('kills').textContent='좀비 처치 '+s.kills;

@@ -13,7 +13,7 @@ $taskNode = 'C:\Users\jeff4\.cache\codex-runtimes\codex-primary-runtime\dependen
 $taskPython = 'C:\Users\jeff4\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
 switch ($Component) {
     'Server' { & $taskNode (Join-Path $taskRoot 'server\server.mjs') }
-    'Car' { if (-not $taskSdk) { throw 'Android SDK not found.' }; & (Join-Path $taskSdk 'emulator\emulator.exe') -avd ZRide_Pleos_34 -port 5554 -no-window -no-snapshot -gpu host -memory 4096 -no-boot-anim -no-audio -feature '-Vulkan' }
+    'Car' { if (-not $taskSdk) { throw 'Android SDK not found.' }; & (Join-Path $taskSdk 'emulator\emulator.exe') -avd ZRide_Pleos_34 -port 5554 -no-window -no-snapshot -gpu host -memory 4096 -no-boot-anim -no-audio -feature Wifi -feature '-Vulkan' }
     'Phone' { if (-not $taskSdk) { throw 'Android SDK not found.' }; & (Join-Path $taskSdk 'emulator\emulator.exe') -avd ZRide_Phone_34 -port 5556 -no-window -no-snapshot -gpu host -memory 2048 -no-boot-anim -no-audio -feature '-Vulkan' }
     'Verify' { & $taskPython (Join-Path $PSScriptRoot 'verify-demo.py') }
 }

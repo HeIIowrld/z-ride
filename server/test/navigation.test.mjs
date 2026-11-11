@@ -13,7 +13,11 @@ test('SDK navigation projection drops stale coordinates and rejects invalid repo
 });
 test('native navigation broadcasts only to approved party members, revokes demo geometry and rejects phone/stale reports',async t=>{
  let saved;const stateStore={load:()=>null,save:value=>{saved=structuredClone(value);},close(){}};
- const app=createDemoServer({leaseMs:60000,stateStore}),address=await app.listen(0),clients=[];
+ const spot={placeId:'native-spot',name:'Native route parking',category:'PARKING',latitude:37.5,longitude:126.9,
+  navigationDestination:{latitude:37.5,longitude:126.9},drivingAssessment:{networkRoundTrip:true}};
+ const nextSpot={...spot,placeId:'next-spot',name:'Next parking',latitude:37.504,
+  navigationDestination:{latitude:37.504,longitude:126.9}};
+ const app=createDemoServer({leaseMs:60000,stateStore,placesCatalog:{version:'native-test',places:[spot,nextSpot]}}),address=await app.listen(0),clients=[];
  t.after(async()=>{for(const c of clients)c.ws.terminate();await app.close();});
  const api=async(path,body,token)=>{const r=await fetch(`http://127.0.0.1:${address.port}`+path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});assert.ok(r.ok,'API '+r.status);return r.json();};
  async function until(fn){for(let i=0;i<200;i++){const result=fn();if(result)return result;await new Promise(r=>setTimeout(r,10));}throw Error('No WS update');}
@@ -33,4 +37,35 @@ test('native navigation broadcasts only to approved party members, revokes demo 
  assert.equal((await car.send({type:'navigation.report',reportSeq:2,navigation:{...sample,latitude:99}})).error.code,'INVALID_NAVIGATION_REPORT');
  assert.equal((await car.send({type:'navigation.report',reportSeq:2,navigation:{...sample,routeRevision:4,status:'CANCELLED',destination:null}})).ok,true);
  await until(()=>p.room.navigation?.nativeRouteRevision===4);assert.equal(p.room.navigation.destination,null);
+ await car.send({type:'vehicle.report',reportSeq:2,gear:'D',ux:'RESTRICTED',foreground:false,speedMps:7});
+ await car.send({type:'navigation.report',reportSeq:3,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE'}});
+ await until(()=>p.room.routeSupplyAvailable);
+ assert.equal(p.room.routeSupplySpot.placeId,spot.placeId);
+ assert.equal(p.room.vehicle.speedMps,7);
+ assert.equal(p.room.collection.inventory.supplies,0);
+ await car.send({type:'navigation.report',reportSeq:4,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE',latitude:37.51}});
+ await until(()=>p.room.routeSupplyAvailable===false);
+ assert.equal(p.room.collection.inventory.supplies,0);
+ await car.send({type:'navigation.report',reportSeq:5,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE'}});
+ await until(()=>p.room.routeSupplySpot?.placeId===spot.placeId);
+ const supply=await api('/api/world/route-supply',{passengerConfirmed:true},phone.token);
+ assert.equal(supply.placeName,spot.name);
+ const missed=await api('/api/world/route-supply',{passengerConfirmed:true,challengeId:supply.challengeId,sequence:'0000'},phone.token);
+ assert.deepEqual(missed,{outcome:'MISSED',supplies:0});
+ await until(()=>p.room.routeSupplyAvailable===false);
+ const rejected=await fetch(`http://127.0.0.1:${address.port}/api/world/route-supply`,{
+  method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+phone.token},
+  body:JSON.stringify({passengerConfirmed:true,placeId:spot.placeId})});
+ assert.equal(rejected.status,409);
+ await car.send({type:'navigation.report',reportSeq:6,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE',latitude:nextSpot.latitude}});
+ await until(()=>p.room.routeSupplySpot?.placeId===nextSpot.placeId);
+ assert.equal(p.room.navigation.position.latitude,nextSpot.latitude);
+ const next=await api('/api/world/route-supply',{passengerConfirmed:true,placeId:nextSpot.placeId},phone.token);
+ const collected=await api('/api/world/route-supply',{passengerConfirmed:true,challengeId:next.challengeId,sequence:next.sequence},phone.token);
+ assert.equal(collected.supplies,1);
+ await until(()=>p.room.routeSupplyAvailable===false);
+ assert.equal(p.room.routeSupplySpot,null);
+ await car.send({type:'navigation.report',reportSeq:7,navigation:{...sample,routeRevision:6,status:'ROUTE_DRIVE'}});
+ await until(()=>p.room.navigation.nativeRouteRevision===6);
+ assert.equal(p.room.routeSupplySpot,null);
 });

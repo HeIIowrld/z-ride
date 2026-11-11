@@ -12,7 +12,7 @@ import kotlin.jvm.functions.Function1;
 import org.json.*;
 import java.util.*;
 
-/** Explicit read-only normal-permission cabin diagnostics, separate from game telemetry. */
+/** Read-only Pleos cabin state, separate from game telemetry. */
 final class CabinProbe {
     interface Listener {void onState(JSONObject state);void onLog(JSONObject event);}
     private final Vehicle vehicle;
@@ -34,12 +34,66 @@ final class CabinProbe {
             hvac.checkHvacTemperatureCurrentCapabilities((cap,areas)->{capability("hvac.currentCelsius",cap,areas);if(readable(cap))for(SeatArea area:areas)hvac.getHvacTemperatureCurrent(area,v->value("hvac.currentCelsius",key(area),"read",v),e->error("hvac.currentCelsius",key(area),e));return Unit.INSTANCE;},e->error("hvac.currentCelsius","capability",e));
             hvac.checkHvacTemperatureCapabilities((cap,ranges,conversion)->{capability("hvac.targetCelsius",cap,ranges.keySet());if(readable(cap))for(SeatArea area:ranges.keySet())hvac.getHvacTemperature(area,TemperatureUnit.CELSIUS,v->value("hvac.targetCelsius",key(area),"read",v),e->error("hvac.targetCelsius",key(area),e));return Unit.INSTANCE;},e->error("hvac.targetCelsius","capability",e));
         }catch(Exception e){error("hvac","initialize",e);}
-        try{Door doors=vehicle.getDoor();doors.checkDoorPositionCapabilities((cap,ranges)->{capability("door.position",cap,ranges.keySet());if(readable(cap))for(DoorArea area:ranges.keySet())doors.getCurrentDoorPosition(area,v->value("door.position",key(area),"read",v),e->error("door.position",key(area),e));return Unit.INSTANCE;},e->error("door.position","capability",e));}catch(Exception e){error("door.position","initialize",e);}
-        try{Window windows=vehicle.getWindow();windows.checkWindowPositionCapabilities((cap,ranges)->{capability("window.position",cap,ranges.keySet());if(readable(cap))for(WindowArea area:ranges.keySet())windows.getCurrentWindowPosition(area,v->value("window.position",key(area),"read",v),e->error("window.position",key(area),e));return Unit.INSTANCE;},e->error("window.position","capability",e));}catch(Exception e){error("window.position","initialize",e);}
+        inspectOpenings();
         try{Light lights=vehicle.getLight();
-            lights.checkAmbientLightBrightnessCapabilities((cap,ranges)->{capability("ambient.brightness",cap,ranges.keySet());if(readable(cap))for(SeatArea area:ranges.keySet())lights.getAmbientLightBrightness(area,v->value("ambient.brightness",key(area),"read",v),e->error("ambient.brightness",key(area),e));return Unit.INSTANCE;},e->error("ambient.brightness","capability",e));
+            lights.checkAmbientLightBrightnessCapabilities((cap,ranges)->{
+                capability("ambient.brightness",cap,ranges.keySet());
+                if(readable(cap))for(SeatArea area:ranges.keySet()){
+                    String key=key(area);
+                    lights.getAmbientLightBrightness(area,v->value("ambient.brightness",key,"read",v),e->error("ambient.brightness",key,e));
+                    subscribe("ambient.brightness"+key,()->{
+                        AmbientLightBrightnessListener watcher=new AmbientLightBrightnessListener(){
+                            public void onBrightnessUpdated(Integer v){value("ambient.brightness",key,"callback",v);}
+                            public void onFailed(Exception e){error("ambient.brightness",key,e);}
+                        };
+                        lights.registerAmbientLightBrightnessListener(area,watcher);
+                        return ()->lights.unregisterAmbientLightBrightnessListener(area,watcher);
+                    });
+                }
+                return Unit.INSTANCE;
+            },e->error("ambient.brightness","capability",e));
             lights.checkAmbientLightBrightnessColorCapabilities((cap,areas)->{capability("ambient.color",cap,areas);if(readable(cap))for(SeatArea area:areas)lights.getAmbientLightBrightnessColor(area,v->value("ambient.color",key(area),"read",v),e->error("ambient.color",key(area),e));return Unit.INSTANCE;},e->error("ambient.color","capability",e));
         }catch(Exception e){error("ambient","initialize",e);}
+    }
+    private void inspectOpenings(){
+        try {
+            Door doors=vehicle.getDoor();
+            doors.checkDoorPositionCapabilities((cap,ranges)->{
+                capability("door.position",cap,ranges.keySet());
+                if(readable(cap))for(DoorArea area:ranges.keySet()){
+                    String key=key(area);
+                    doors.getCurrentDoorPosition(area,v->value("door.position",key,"read",v),e->error("door.position",key,e));
+                    subscribe("door.position"+key,()->{
+                        DoorPositionListener watcher=new DoorPositionListener(){
+                            public void onPositionUpdated(Integer v){value("door.position",key,"callback",v);}
+                            public void onFailed(Exception e){error("door.position",key,e);}
+                        };
+                        doors.registerDoorPosition(area,watcher);
+                        return ()->doors.unregisterDoorPosition(area,watcher);
+                    });
+                }
+                return Unit.INSTANCE;
+            },e->error("door.position","capability",e));
+        }catch(Exception e){error("door.position","initialize",e);}
+        try {
+            Window windows=vehicle.getWindow();
+            windows.checkWindowPositionCapabilities((cap,ranges)->{
+                capability("window.position",cap,ranges.keySet());
+                if(readable(cap))for(WindowArea area:ranges.keySet()){
+                    String key=key(area);
+                    windows.getCurrentWindowPosition(area,v->value("window.position",key,"read",v),e->error("window.position",key,e));
+                    subscribe("window.position"+key,()->{
+                        WindowPositionListener watcher=new WindowPositionListener(){
+                            public void onWindowPositionUpdated(Integer v){value("window.position",key,"callback",v);}
+                            public void onFailed(Exception e){error("window.position",key,e);}
+                        };
+                        windows.registerWindowPosition(area,watcher);
+                        return ()->windows.unregisterWindowPosition(area,watcher);
+                    });
+                }
+                return Unit.INSTANCE;
+            },e->error("window.position","capability",e));
+        }catch(Exception e){error("window.position","initialize",e);}
     }
     private boolean readable(CapabilityConfig cap){return cap!=null&&(cap.getAccessType()==AccessType.READ||cap.getAccessType()==AccessType.READ_WRITE);}
     private void capability(String name,CapabilityConfig cap,Collection<?> areas){value(name,"capability","capability",(cap==null?"UNKNOWN":cap.getAccessType())+" areas="+areas.size());}

@@ -10,18 +10,36 @@ body{background:#0b1414}button,a,input{font:inherit}button,a{-webkit-tap-highlig
 }
 /* Infection warnings replace the original neon-magenta arena accent. */
 :root{--rose:#e66b43}
-
-#vehicleHud{position:absolute;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(305px,43vw);padding:8px 11px;border:1px solid #87a88075;border-radius:10px;background:#11251fee;color:#f3f5de;font:11px system-ui;z-index:2}
-#vehicleHud[hidden]{display:none}
-.vehicle-hud-status{display:flex;align-items:center;justify-content:space-between;gap:7px}
-.vehicle-hud-status b{color:#d5f28d}
-.vehicle-hud-status strong{font-variant-numeric:tabular-nums}
-.vehicle-health{height:4px;border-radius:3px;background:#385048;overflow:hidden;margin:5px 0}
-.vehicle-health i{display:block;height:100%;background:#c5ed79}
-.vehicle-health i.critical{background:#f48967}
-#vehicleHint{color:#d7ead5;font-size:10px}
-.vehicle-actions{display:flex;gap:6px;margin-top:5px}
-.vehicle-actions button{pointer-events:auto;flex:1;min-height:30px;border:1px solid #a8c879;border-radius:6px;background:#253e2d;color:#f0f5d7;font:600 11px system-ui;touch-action:manipulation;cursor:pointer}
-.vehicle-actions button:disabled{pointer-events:none;opacity:.46}
-.vehicle-actions kbd{margin-left:3px;color:#c4dd95}
-@media(pointer:coarse){.vehicle-actions button{min-height:40px}.vehicle-actions kbd{display:none}}
+#seatAim:not([hidden]) {
+  position: absolute;
+  top: calc(64px + var(--safe-t));
+  left: calc(12px + var(--safe-l));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid #608a81;
+  border-radius: 8px;
+  background: #101c26ed;
+  color: #e6f8f2;
+  font: 12px/1.4 system-ui, sans-serif;
+}
+#seatAimStatus { display: block; color: #86ecd1; }
+#seatAim:is([data-aim="outside"], [data-aim="blocked"]) #seatAimStatus { color: #ffcf86; }
+.mounted-combat #pads, .mounted-combat #vitals .sh { display: none; }
+#seatDial {
+  position: relative;
+  flex: 0 0 34px;
+  height: 34px;
+  border: 1px solid #608a81;
+  border-radius: 50%;
+  background: conic-gradient(from var(--sector-start), #338f80 0 var(--sector-width), #20303f 0);
+}
+#seatDial i {
+  position: absolute;
+  inset: 2px 15px 50%;
+  border-radius: 2px;
+  background: #fff;
+  transform-origin: 50% 100%;
+  transform: rotate(var(--aim, 0deg));
+}

@@ -187,13 +187,21 @@ async function api(request, env, url, path) {
     const stub = env.MATCH_ROOM.get(env.MATCH_ROOM.idFromName(room.code));
     const configured = await stub.fetch(new Request('https://internal/internal/zride/configure', {
       method:'POST', headers:{'content-type':'application/json'},
-      body:JSON.stringify({code:room.code,players,dashboardToken})
+      body:JSON.stringify({code:room.code,players,dashboardToken,sharedVehicle:body.sharedVehicle===true,partySeats:body.partySeats})
     }));
     if (!configured.ok) return json({error:'configuration_failed'},500);
     return json({code:room.code,mode:'coop',players,
-      joinPath:'/j/'+room.code, dashboardPath:'/dashboard#'+room.code+'.'+dashboardToken,
+      partySeatsRequired: Array.isArray(body.partySeats), joinPath:'/j/'+room.code, dashboardPath:'/dashboard#'+room.code+'.'+dashboardToken,
       dashboardToken},201,{'cache-control':'no-store'});
   }
+    const repair = path.match(/^\/api\/zride\/rooms\/([A-Z2-9]{6})\/repair$/);
+    if (repair && request.method === 'POST') {
+      const stub = env.MATCH_ROOM.get(env.MATCH_ROOM.idFromName(repair[1]));
+      return stub.fetch(new Request('https://internal/internal/zride/repair', {
+        method: 'POST', headers: { 'x-dashboard-token': request.headers.get('x-dashboard-token') || '' },
+        body: await request.text()
+      }));
+    }
   const statusMatch = path.match(/^\/api\/zride\/rooms\/([A-Z2-9]{6})\/status$/);
   if (statusMatch && request.method === 'GET') {
     const stub = env.MATCH_ROOM.get(env.MATCH_ROOM.idFromName(statusMatch[1]));

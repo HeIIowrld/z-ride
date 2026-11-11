@@ -209,12 +209,18 @@ export class Input {
       const st = this.aimStick;
       const dx = st.x - st.ox, dy = st.y - st.oy;
       const d = Math.hypot(dx, dy);
-      if (d > 10) { ax = dx / d; az = dy / d; }
+      if (d > 10) {
+        const direction = ctx.canAim ? ctx.rig.screenDirection(dx / d, dy / d) : { x: dx / d, z: dy / d };
+        ax = direction.x; az = direction.z;
+      }
       wantFire = true;
     } else if (gp && (Math.abs(gp.axes[2]) > 0.2 || Math.abs(gp.axes[3]) > 0.2)) {
       const [rx, ry] = radialDeadzone(gp.axes[2], gp.axes[3], 0.2);
       const l = Math.hypot(rx, ry);
-      if (l > 0.01) { ax = rx / l; az = ry / l; }
+      if (l > 0.01) {
+        const direction = ctx.canAim ? ctx.rig.screenDirection(rx / l, ry / l) : { x: rx / l, z: ry / l };
+        ax = direction.x; az = direction.z;
+      }
       wantFire = gp.buttons[7] && gp.buttons[7].value > 0.35;
     } else if (this.mouse.present && this.lastScheme === 'mouse') {
       const g = ctx.rig.screenToGround(this.mouse.x, this.mouse.y, TMPV);
@@ -225,7 +231,7 @@ export class Input {
     }
 
     // Moving without ever aiming should still point you where you are going.
-    if (ml > 0.1 && !this.aimStick && !this.mouse.present && !gp) { ax = mx; az = mz; }
+    if (!ctx.canAim && ml > 0.1 && !this.aimStick && !this.mouse.present && !gp) { ax = mx; az = mz; }
 
     // Touch autofire: if the player is not touching the right side at all,
     // the character still engages anything it is already facing. Holding a
@@ -267,6 +273,7 @@ export class Input {
       const dx = e.x - ctx.player.x, dz = e.z - ctx.player.z;
       const d = Math.hypot(dx, dz);
       if (d > 26 || d < 0.5) continue;
+      if (ctx.canAim && !ctx.canAim(dx / d, dz / d)) continue;
       if ((dx / d) * ax + (dz / d) * az > 0.72) return true;
     }
     return false;
@@ -287,6 +294,7 @@ export class Input {
       const dx = e.x - ctx.player.x, dz = e.z - ctx.player.z;
       const d = Math.hypot(dx, dz);
       if (d > range || d < 0.5) continue;
+      if (ctx.canAim && !ctx.canAim(dx / d, dz / d)) continue;
       const dot = (dx / d) * ax + (dz / d) * az;
       if (dot < 0.86) continue;
       // Prefer things that are closer, more dangerous, and more centred.
@@ -298,6 +306,7 @@ export class Input {
     const k = 0.55 * scale;
     const nx = lerp(ax, best.x, k), nz = lerp(az, best.z, k);
     const l = Math.hypot(nx, nz) || 1;
+    if (ctx.canAim && !ctx.canAim(nx / l, nz / l)) return { x: ax, z: az };
     return { x: nx / l, z: nz / l };
   }
 
