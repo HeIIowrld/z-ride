@@ -87,7 +87,7 @@ adb -s <carSerial> shell am broadcast -a ai.zride.demo.DEBUG_COMMAND -p ai.zride
 - API34의 AAOS SEAT_OCCUPANCY는 일반 sideload 앱에 권한이 없을 수 있다. 특권 권한을 얻으려 하거나 hidden API로 우회하지 않는다. **Pleos Vehicle Seat의 normal 권한**으로 capability·현재값·구독을 별도로 검사한다.
 - Pleos initialize는 비동기 서비스 연결이다. 초기 오류와 지원 없음은 구분해 기록하며 시작 1.5초·5초에 capability를 재시도한다. 좌석과 폰은 수동 승인으로 매칭하며 착석 센서가 사람을 식별하는 것은 아니다.
 - 센서 미상으로 수동 매칭한 참가자는 서버 `MANUAL_UNKNOWN`, 검증된 EMPTY는 사격 차단이다. UX·P 미상은 차량 전투 잠금이다. 독립 폰 수집은 이 전투 게이트와 구분한다.
-- Pleos Emulator 2.1.0/Vehicle2.3.2에서 Console 착석과 SDK Boolean 역전이 관찰됐다. SDK 원문은 raw 정수==1을 occupied로 바꾸는데 표준 enum은 VACANT1/OCCUPIED2라 의미 검증이 필요하다. 앱은 자동 반전하지 않고 `rawSdkSeatOccupied`를 그대로 남기며 `UNVERIFIED_SEMANTICS`를 표시한다. 검증된 AAOS 값이 없으면 서버에 `occupancy=UNKNOWN`으로 격리하고 좌석 역할은 수동 승인으로 시연한다.
+- Pleos Emulator 2.1.0/Vehicle 2.3.2에서 Virtual Console로 네 좌석을 각각 바꿔 SDK Boolean이 반대로 들어오는 것을 확인했다. 이 조합의 디버그 빌드에서만 차량 상태 화면의 착석 표기를 보정한다. 서버에는 `rawSdkSeatOccupied`를 그대로 전달하며, 검증된 AAOS 값이 없으면 `occupancy=UNKNOWN`을 사용한다. 게임 좌석은 기존 파티 승인으로 정한다.
 
 ## 벨트·공조·도어·창문·조명과 효과음 확장
 

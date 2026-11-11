@@ -98,6 +98,33 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
     candidates.sort((a,b)=>a.routeDistanceM-b.routeDistanceM || a.placeId.localeCompare(b.placeId));
     return { ...routeInfo(roomId), dataVersion: data.version, policyVersion: 'reviewed-corridor-v1', worldRevision: state.revision, places: candidates.slice(0,100), truncated: candidates.length>100 };
   }
+  function arrivedCharger(position) {
+    if (!position) return null;
+    for (const [placeId, review] of Object.entries(state.reviews)) {
+      const place = places.get(placeId);
+      if (place?.category === 'CHARGER' && eligible(review) &&
+          distanceMeters(position, review.playZone) <= review.playZone.radiusM)
+        return { placeId, name: place.name };
+    }
+    return null;
+  }
+  function routeSupplySpot(roomId, position, claimed, nativeGuidance = false) {
+    const route = routes.get(roomId);
+    if (!nativeGuidance && (!route || route.expiresAt <= clock())) return null;
+    let nearest = null, closest = 180;
+    for (const place of places.values()) {
+      if (!['CHARGER','FUEL_STATION','PARKING'].includes(place.category) || claimed(place.placeId)) continue;
+      const review = state.reviews[place.placeId];
+      if (review?.accessStatus === 'REJECTED') continue;
+      const point = review?.entrance ?? place.navigationDestination;
+      if (!point || (!review?.entrance && place.drivingAssessment?.networkRoundTrip !== true)) continue;
+      const distance = distanceMeters(position, point);
+      if (distance > closest || (!nativeGuidance && distanceToRoute(point, route.geometry) > 120)) continue;
+      nearest = place;
+      closest = distance;
+    }
+    return nearest;
+  }
   function setParty(roomId, body) {
     command(body); if (typeof body.visible !== 'boolean' || typeof body.name !== 'string' || body.name.length < 1 || body.name.length > 24) throw fail('INVALID_PARTY', 'visible and name 1..24 required');
     if (body.spotId != null) { const raw = places.get(body.spotId); if (!raw || !eligible(project(raw))) throw fail('SPOT_NOT_ELIGIBLE','Select verified enabled spot',409); }
@@ -127,5 +154,5 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
     return events.contribute(room,body,gateAllowed);
   }
   function closeParty(roomId) { delete state.parties[roomId]; routes.delete(roomId); state.revision++; }
-  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent, partyName:id=>state.parties[id]?.name??'차량 파티' };
+  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, routeSupplySpot, arrivedCharger, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent, partySpot:id=>state.parties[id]?.spotId??null, partyName:id=>state.parties[id]?.name??'차량 파티' };
 }

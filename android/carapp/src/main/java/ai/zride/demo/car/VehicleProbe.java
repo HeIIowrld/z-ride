@@ -37,6 +37,12 @@ final class VehicleProbe {
     private CarPropertyManager properties;
     private CarUxRestrictionsManager uxManager;
     private Vehicle pleos;
+    ai.pleos.playground.vehicle.api.Light ambientLight() {
+        return pleos == null ? null : pleos.getLight();
+    }
+    ai.pleos.playground.vehicle.api.HVAC hvac() {
+        return pleos == null ? null : pleos.getHVAC();
+    }
     private Seat pleosSeat;
     private EvBattery pleosBattery;
     private CabinProbe cabin;
@@ -44,6 +50,10 @@ final class VehicleProbe {
     private volatile Integer socPercent;
     private volatile boolean foreground=true,connected=false,closed=false;
     private volatile String ux="UNKNOWN",gear="UNKNOWN",chargeState="UNKNOWN",portConnection="UNKNOWN";
+    private volatile Float speedMps;
+    private volatile Float rangeMeters;
+    Float rangeMeters(){return rangeMeters;}
+    private long speedReportedAt;
     private final Map<String,String> seatValues=new LinkedHashMap<>();
     private final Map<String,Boolean> rawSdkSeatValues=new LinkedHashMap<>();
     private final Map<String,String> aaosSeatValues=new LinkedHashMap<>();
@@ -51,14 +61,22 @@ final class VehicleProbe {
     private final List<Integer> registered=new ArrayList<>();
     private final int[] ids={VehiclePropertyIds.GEAR_SELECTION,VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED,
         VehiclePropertyIds.EV_CHARGE_PORT_OPEN,VehiclePropertyIds.EV_CHARGE_STATE,VehiclePropertyIds.EV_CHARGE_SWITCH,
-        VehiclePropertyIds.EV_BATTERY_LEVEL,VehiclePropertyIds.SEAT_OCCUPANCY};
+        VehiclePropertyIds.EV_BATTERY_LEVEL,VehiclePropertyIds.SEAT_OCCUPANCY,VehiclePropertyIds.PERF_VEHICLE_SPEED,
+        VehiclePropertyIds.RANGE_REMAINING};
     VehicleProbe(Context context,Listener listener){this.context=context;this.listener=listener;for(String s:new String[]{"DRIVER","FRONT_PASSENGER","REAR_LEFT","REAR_RIGHT"})seatValues.put(s,"UNKNOWN");}
     void start(){
         emit();
         try {
             car=Car.createCar(context,null,Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT,(service,ready)->{
                 if(closed)return;connected=ready;diag("AAOS_SERVICE",0,0,"connection",ready?"CONNECTED":"DISCONNECTED",0);
-                if(!ready){ux="UNKNOWN";gear="UNKNOWN";registered.clear();emit();return;}
+                if(!ready){
+                    synchronized(this){
+                        ux="UNKNOWN";gear="UNKNOWN";speedMps=null;rangeMeters=null;
+                        aaosSeatValues.clear();
+                        seatValues.replaceAll((name,value)->"UNKNOWN");
+                    }
+                    registered.clear();emit();return;
+                }
                 try {
                     properties=(CarPropertyManager)service.getCarManager(Car.PROPERTY_SERVICE);
                     uxManager=(CarUxRestrictionsManager)service.getCarManager(Car.CAR_UX_RESTRICTION_SERVICE);
@@ -86,25 +104,54 @@ final class VehicleProbe {
                 diag("AAOS",id,0,"capability","access="+config.getAccess()+" areas="+Arrays.toString(config.getAreaIds()),0);
                 int[] areas=config.getAreaIds();if(areas.length==0)areas=new int[]{0};
                 for(int area:areas){try{onProperty(properties.getProperty(id,area));}catch(Exception e){diagError("AAOS_READ",id,area,e);}}
-                if(!registered.contains(id)){boolean accepted=properties.registerCallback(callback,id,CarPropertyManager.SENSOR_RATE_ONCHANGE);diag("AAOS",id,0,"subscribe",accepted,0);if(accepted)registered.add(id);}
+                if(!registered.contains(id)){
+                    float rate=id==VehiclePropertyIds.PERF_VEHICLE_SPEED?CarPropertyManager.SENSOR_RATE_NORMAL:CarPropertyManager.SENSOR_RATE_ONCHANGE;
+                    boolean accepted=properties.registerCallback(callback,id,rate);diag("AAOS",id,0,"subscribe",accepted,0);if(accepted)registered.add(id);
+                }
             }catch(Exception e){diagError("AAOS_CAPABILITY",id,0,e);}
         }
         emit();
     });}
     private final CarPropertyManager.CarPropertyEventCallback callback=new CarPropertyManager.CarPropertyEventCallback(){
         @Override public void onChangeEvent(CarPropertyValue value){onProperty(value);}
-        @Override public void onErrorEvent(int propertyId,int areaId){diag("AAOS",propertyId,areaId,"callback.error","UNKNOWN",0);if(propertyId==VehiclePropertyIds.GEAR_SELECTION)gear="UNKNOWN";if(propertyId==VehiclePropertyIds.EV_CHARGE_STATE)chargeState="UNKNOWN";if(propertyId==VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED)portConnection="UNKNOWN";emit();}
+        @Override public void onErrorEvent(int propertyId,int areaId){
+            diag("AAOS",propertyId,areaId,"callback.error","UNKNOWN",0);
+            if(propertyId==VehiclePropertyIds.GEAR_SELECTION)gear="UNKNOWN";
+            if(propertyId==VehiclePropertyIds.EV_CHARGE_STATE)chargeState="UNKNOWN";
+            if(propertyId==VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED)portConnection="UNKNOWN";
+            if(propertyId==VehiclePropertyIds.RANGE_REMAINING)rangeMeters=null;
+            if(propertyId==VehiclePropertyIds.SEAT_OCCUPANCY)updateAaosSeat(areaId,null);
+            emit();
+        }
     };
     private synchronized void onProperty(CarPropertyValue<?> value){
         if(value==null){diag("AAOS",0,0,"read",JSONObject.NULL,0);return;}
         int id=value.getPropertyId(),area=value.getAreaId();Object raw=value.getValue();
         diag("AAOS",id,area,"value.status="+value.getStatus(),raw,value.getTimestamp());
         boolean available=value.getStatus()==CarPropertyValue.STATUS_AVAILABLE;
+        if(id==VehiclePropertyIds.PERF_VEHICLE_SPEED){
+            speedMps=available&&raw instanceof Float&&Float.isFinite((Float)raw)?Math.abs((Float)raw):null;
+            long now=android.os.SystemClock.elapsedRealtime();
+            if(speedMps==null||now-speedReportedAt>=1000){
+                speedReportedAt=now;
+                emit();
+            }
+            return;
+        }
         if(id==VehiclePropertyIds.GEAR_SELECTION)gear=available&&raw instanceof Integer?gear((Integer)raw):"UNKNOWN";
+        if(id==VehiclePropertyIds.RANGE_REMAINING)
+            rangeMeters=available&&raw instanceof Float&&Float.isFinite((Float)raw)&&(Float)raw>=0?(Float)raw:null;
         if(id==VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED)portConnection=available&&raw instanceof Boolean?((Boolean)raw?"CONNECTED":"DISCONNECTED"):"UNKNOWN";
         if(id==VehiclePropertyIds.EV_CHARGE_STATE)chargeState=available&&raw instanceof Integer?charge((Integer)raw):"UNKNOWN";
-        if(id==VehiclePropertyIds.SEAT_OCCUPANCY&&raw instanceof Integer&&available){String seat=seat(area);if(seat!=null){String normalized=(Integer)raw==2?"OCCUPIED":((Integer)raw==1?"EMPTY":"UNKNOWN");aaosSeatValues.put(seat,normalized);seatValues.put(seat,normalized);}}
+        if(id==VehiclePropertyIds.SEAT_OCCUPANCY)updateAaosSeat(area,available&&raw instanceof Integer?(Integer)raw:null);
         emit();
+    }
+    private synchronized void updateAaosSeat(int area,Integer value){
+        String name=seat(area);
+        if(name==null)return;
+        String normalized=value==null?"UNKNOWN":value==2?"OCCUPIED":value==1?"EMPTY":"UNKNOWN";
+        aaosSeatValues.put(name,normalized);
+        seatValues.put(name,normalized);
     }
     private boolean seatListenersContain(String seat){for(SeatArea a:seatListeners.keySet())for(SeatValue s:a.getValues())if(Objects.equals(pleosSeatName(s),seat))return true;return false;}
     private synchronized void onUx(CarUxRestrictions value){ux=value==null?"UNKNOWN":(value.isRequiresDistractionOptimization()?"RESTRICTED":"ALLOWED");diag("AAOS_UX",0,0,"restrictions",value==null?"null":"requiresDO="+value.isRequiresDistractionOptimization()+" flags="+value.getActiveRestrictions(),0);emit();}
@@ -151,6 +198,8 @@ final class VehicleProbe {
         JSONObject value=new JSONObject().put("ux",connected?ux:"UNKNOWN").put("foreground",foreground).put("gear",gear).put("seats",seats).put("rawSdkSeatOccupied",rawSeats).put("sdkSeatSemantics","UNVERIFIED_SEMANTICS")
             .put("charge",new JSONObject().put("state",chargeState).put("portConnection",portConnection).put("source","AAOS").put("socPercent",socPercent==null?JSONObject.NULL:socPercent).put("socSource","PLEOS_VEHICLE"))
             .put("source","AAOS_AND_PLEOS");
+        value.put("speedMps",speedMps);
+        value.put("speedMeasuredElapsedMs",speedReportedAt);
         listener.onVehicle(value,foreground&&connected&&ux.equals("ALLOWED")&&gear.equals("P"));
     }catch(Exception ignored){}}
     private static String gear(int value){if(value==VehicleGear.GEAR_PARK)return"P";if(value==VehicleGear.GEAR_DRIVE)return"D";if(value==VehicleGear.GEAR_REVERSE)return"R";if(value==VehicleGear.GEAR_NEUTRAL)return"N";return"UNKNOWN";}

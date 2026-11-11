@@ -5,6 +5,34 @@
   "webSocketPath": "/ws",
   "http": [
     {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/venue-game",
+      "auth": "Approved member; host controls opening, start, progression and party supplies",
+      "body": {"action": "status/open/start/next/item/ready/play/vote/submit", "kind": "thief or relay for open"},
+      "response": {"stop": "approved charging venue or null", "game": "public host or private passenger view", "supplies": "party count"}
+    },
+    {
+      "method": "POST",
+      "path": "/api/world/route-supply",
+      "auth": "Approved passenger in Drive near an unclaimed spot, with fresh location and Pleos guidance or an explicit route",
+      "availability": "snapshot.room.routeSupplyAvailable and routeSupplySpot (placeId, name, latitude, longitude) are scoped to the approved passenger",
+      "body": {"passengerConfirmed": true, "challengeId": "optional", "sequence": "required to complete"},
+      "response": {"challenge": "challengeId, sequence, placeName", "completion": "supplies"}
+    },
+    {
+      "method": "POST",
+      "path": "/api/rooms/{roomId}/deadzone",
+      "auth": "CAR_HOST with fresh parked foreground vehicle",
+      "body": {
+        "create": "optional boolean",
+        "enableAmbient": "optional boolean, local user opt-in",
+        "repair": "optional boolean, spends one party supply between waves"
+      },
+      "response": {
+        "match": "null or state/wave/cleared/score/players leaderboard"
+      }
+    },
+    {
       "method": "GET",
       "path": "/healthz",
       "auth": false,
@@ -494,6 +522,7 @@
     "roomId": "uuid"
   },
   "vehicleReportExample": {
+    "speedMps": 0,
     "type": "vehicle.report",
     "commandId": "unique-string",
     "ux": "ALLOWED",

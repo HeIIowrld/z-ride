@@ -1455,6 +1455,23 @@
         }
       }
     },
+    "/api/world/route-supply": {
+      "post": {
+        "operationId": "playRouteSupply",
+        "summary": "Issue or complete a moving-party supply challenge",
+        "description": "Requires a fresh vehicle in Drive and fresh location. During Pleos guidance a nearby catalog spot is used because the SDK does not supply route geometry. With an explicit external route the spot must also match its corridor.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["passengerConfirmed"],
+          "properties": {"passengerConfirmed": {"const": true}, "placeId": {"type": "string"}, "challengeId": {"type": "string"}, "sequence": {"type": "string"}}
+        }}}},
+        "responses": {
+          "200": {"description": "Challenge ID, sequence and place name, or updated supply count. An incorrect sequence ends the spot attempt with outcome MISSED."},
+          "403": {"description": "Approved passenger required"},
+          "409": {"description": "Route, moving state or challenge is unavailable"},
+          "503": {"description": "Durable storage unavailable", "x-error-codes": ["STORAGE_UNAVAILABLE"]}
+        }
+      }
+    },
     "/api/world/nearby": {
       "post": {
         "operationId": "getNearbySpawns",
@@ -2209,6 +2226,137 @@
             "x-error-codes": [
               "STORAGE_UNAVAILABLE"
             ]
+          }
+        }
+      }
+    },
+    "/api/rooms/{roomId}/venue-game": {
+      "parameters": [
+        {"name": "roomId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}}
+      ],
+      "post": {
+        "operationId": "chargingVenueGame",
+        "summary": "Play Electric Thief or Charge Relay using the same approved vehicle party",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["action"], "properties": {
+            "action": {"enum": ["status","open","start","next","item","ready","play","vote","submit"]},
+            "kind": {"enum": ["thief","relay"]}, "card": {"type": "integer"},
+            "suspect": {"type": "string"}, "step": {"type": "integer"},
+            "text": {"type": "string"}, "drawing": {"type": "object"}
+          }
+        }}}},
+        "responses": {
+          "200": {"description": "Venue, game state projected for the current member, and available supplies"},
+          "403": {"description": "Party or seat authorization required"},
+          "409": {"description": "Vehicle state, venue, supplies or game phase prevents the action"},
+          "503": {"description": "Durable storage unavailable", "x-error-codes": ["STORAGE_UNAVAILABLE"]}
+        }
+      }
+    },
+    "/api/rooms/{roomId}/deadzone": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "syncDeadzoneMatch",
+        "summary": "Prepare or sync the current venue's DEADZONE match (parked vehicle host)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "create": {
+                    "type": "boolean"
+                  },
+                  "repair": {"type": "boolean"},
+                  "enableAmbient": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized game leaderboard, or null when no match is linked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "match"
+                  ],
+                  "properties": {
+                    "match": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "state": {
+                          "type": "string"
+                        },
+                        "wave": {
+                          "type": "integer"
+                        },
+                        "cleared": {
+                          "type": "integer"
+                        },
+                        "score": {
+                          "type": "integer"
+                        },
+                        "vehicle": {"type": ["object","null"], "properties": {"hp":{"type":"integer"},"maxHp":{"type":"integer"}}},
+                        "supplies": {"type": "integer"},
+                        "repairAvailable": {"type": "boolean"},
+                        "players": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "score": {
+                                "type": "integer"
+                              },
+                              "kills": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Vehicle host membership required"
+          },
+          "404": {
+            "description": "Room or integration unavailable"
+          },
+          "409": {
+            "description": "Vehicle gate, party size, or match sync conflict"
+          },
+          "502": {
+            "description": "DEADZONE server unavailable or invalid snapshot"
+          },
+          "503": {
+            "description": "Durable storage unavailable",
+            "x-error-codes": ["STORAGE_UNAVAILABLE"]
           }
         }
       }
@@ -10515,6 +10663,12 @@
           "charge": {
             "$ref": "#/components/schemas/Charge"
           },
+          "speedMps": {
+            "type": ["number", "null"],
+            "description": "Fresh vehicle speed in metres per second, when available to the approved party.",
+            "minimum": 0,
+            "maximum": 120
+          },
           "source": {
             "type": "string",
             "maxLength": 64
@@ -10854,6 +11008,23 @@
       "RoomSnapshot": {
         "type": "object",
         "properties": {
+          "routeSupplyAvailable": { "type": "boolean" },
+          "routeSupplySpot": {
+            "description": "Currently playable supply spot for the approved passenger.",
+            "type": ["object", "null"],
+            "required": ["placeId", "name", "latitude", "longitude"],
+            "properties": {
+              "placeId": { "type": "string" },
+              "name": { "type": "string" },
+              "latitude": { "type": "number" },
+              "longitude": { "type": "number" }
+            }
+          },
+          "deadzoneJoinUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional game link exposed to approved members of the matching party venue"
+          },
           "roomId": {
             "$ref": "#/components/schemas/Id"
           },
