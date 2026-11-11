@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
@@ -76,7 +77,8 @@ async function fixture(t, options = {}) {
   }
   async function start() { await report(); const current = await snapshot(); assert.equal((await car.send(command(current.roomEpoch, 'round.start'))).ok, true); }
   const enable = (fields = {}) => post('session', { enabled: true, locallyEnabled: true, channels: ['AIRFLOW', 'AMBIENT', 'AUDIO'], maxIntensity01: 0.6, ...fields });
-  await start();
+  if (options.startRound === false) await report();
+  else await start();
   return { host, phone, room, api, snapshot, effects, post, enable, report, start, connect,
     get passenger() { return passenger; },
     get car() { return car; },
@@ -287,4 +289,47 @@ test('previously unseen delayed enable, scene and cue requests cannot activate a
   assert.equal((await f.effects()).body.effects.sceneId, null);
   await pause(20);
   assert.equal(f.car.messages.filter(value => value.type === 'vehicle.effect.intent').length, before);
+});
+
+test('DEADZONE uses the approved party and emits only one ambient cue per cleared wave', async t => {
+  let phase = 'wave';
+  let state = 'playing';
+  let code;
+  let created = 0;
+  const upstream = createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    if (req.method === 'POST') {
+      code = ++created === 1 ? 'ABC234' : 'ABC235';
+      res.end(JSON.stringify({ code, dashboardToken: 'upstream-fixture' }));
+      return;
+    }
+    assert.equal(req.headers['x-dashboard-token'], 'upstream-fixture');
+    res.end(JSON.stringify({ schema: 'zride.dashboard.v1', roomCode: code, state,
+      phase, wave: 1, players: [{ name: 'Survivor', score: 20, kills: 4 }], teamScore: 20 }));
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  t.after(() => upstream.close());
+  const origin = 'http://127.0.0.1:' + upstream.address().port;
+  const f = await fixture(t, { deadzoneOrigin: origin, startRound: false });
+  const path = '/api/rooms/' + f.room.roomId + '/deadzone';
+  assert.equal((await f.api(path, { create: true }, f.phone.token)).status, 403);
+  assert.equal((await f.api(path, { create: true, enableAmbient: true }, f.host.token)).status, 200);
+  await f.passenger.wait(value => value.type === 'snapshot' && value.room.deadzoneJoinUrl === origin + '/j/ABC234');
+  phase = 'valley';
+  assert.equal((await f.api(path, { enableAmbient: true }, f.host.token)).body.match.cleared, 1);
+  const cue = await f.car.wait(value => value.type === 'vehicle.effect.intent');
+  assert.equal(cue.channel, 'AMBIENT');
+  assert.equal(cue.sceneId, 'deadzone-ABC234');
+  assert.equal((await f.api(path, { enableAmbient: true }, f.host.token)).status, 200);
+  assert.equal(f.car.messages.filter(value => value.type === 'vehicle.effect.intent').length, 1);
+  state = 'ended';
+  const finished = await f.api(path, {}, f.host.token);
+  assert.equal(finished.body.match.state, 'ended');
+  state = 'lobby';
+  assert.deepEqual((await f.api(path, {}, f.host.token)).body.match, finished.body.match);
+  assert.equal((await f.api(path, { create: true }, f.host.token)).body.match.state, 'lobby');
+  assert.equal(created, 2);
+  await f.passenger.wait(value => value.type === 'snapshot' && value.room.deadzoneJoinUrl === origin + '/j/ABC235');
+  await f.report('D', 'RESTRICTED');
+  assert.equal((await f.api(path, { enableAmbient: true }, f.host.token)).status, 409);
 });

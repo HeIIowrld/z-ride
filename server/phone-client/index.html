@@ -12,7 +12,7 @@
 </head>
 <body>
   <main>
-    <header><a class="wordmark" href="/play">Z<span>—</span>RIDE</a><span class="tag">PASSENGER / TEST</span></header>
+    <header><a class="wordmark" href="/play">Z<span>—</span>RIDE</a><span class="tag">동승자</span></header>
     <div id="connection" class="connection" role="status">방에 참가해 주세요</div>
     <section id="account-panel" class="panel">
       <p class="eyebrow">PHONE ACCOUNT</p><h1>로그인하고 차량에 참가</h1>
@@ -38,7 +38,7 @@
         <p id="invite-status" class="subtle" role="status">차량 QR을 기다리는 중</p>
         <label id="switch-label" class="check" hidden><input id="switch-confirm" type="checkbox"><span>새 차량에서 승인하면 기존 파티에서 나옴. 기존 파티 재고는 이동하지 않음.</span></label>
         <p id="invite-notice" class="subtle" hidden>차량 QR로 참가합니다. 앱 설치·접근키 입력 없이 좌석을 선택하면 차량에 승인 요청을 보냅니다.</p>
-        <button id="legacy-toggle" type="button" class="quiet">기존 테스트 코드로 참가</button>
+        <button id="legacy-toggle" type="button" class="quiet">참가 코드로 입장</button>
         <div id="legacy-fields" hidden>
           <p class="footnote">코드 참가는 계정 이력과 연결되지 않는 기존 테스트 모드임.</p>
           <label>테스트 접근키<input id="access-key" type="password" maxlength="1024" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="별도로 받은 팀 테스트 키"></label>
@@ -46,7 +46,7 @@
           <label>참가 코드<input id="join-code" minlength="10" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="10자리 코드"></label>
         </div>
         <div class="form-row">
-          <label>앉은 자리<select id="seat"><option value="REAR_LEFT">뒤 왼쪽 · 좌측 방어</option><option value="REAR_RIGHT">뒤 오른쪽 · 우측 방어</option><option value="FRONT_PASSENGER">앞 동승석 · 전방 사수</option></select></label></div>
+          <label>앉은 자리<select id="seat"><option value="REAR_LEFT">뒷좌석 왼쪽</option><option value="REAR_RIGHT">뒷좌석 오른쪽</option><option value="FRONT_PASSENGER">조수석</option></select></label></div>
         <label class="check"><input id="passenger-confirm" type="checkbox" required><span>운전자가 아닌 동승자임을 확인함. 운전 중에는 조작하지 않음.</span></label>
         <button id="join-button" class="primary" type="submit">방 참가하기 <span>↗</span></button>
       </form>
@@ -58,6 +58,26 @@
       <div class="squad-head"><div><p class="eyebrow">CONNECTED SQUAD</p><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">파티 탈퇴</button></div>
       <section id="pending-panel" class="panel" hidden><h2>차량에서 자리 확인 중</h2><p class="subtle">차량 앱에서 이 참가자를 승인하면 수집과 전투에 참여할 수 있음.</p></section>
       <section id="approved-content" hidden>
+        <section id="journey-map" class="panel journey-map">
+          <div class="section-heading"><h2>여행 지도</h2><span class="pill">보급품 <b id="journey-supplies">0</b>개</span></div>
+          <div id="journey-next" class="journey-next" hidden>
+            <p id="journey-next-label" class="eyebrow"></p>
+            <h2 id="journey-next-name"></h2>
+            <p id="journey-next-status" class="subtle" role="status"></p>
+            <button id="journey-next-enter" type="button" class="primary"></button>
+          </div>
+          <div id="journey-plot" aria-label="차량 주변 스팟 지도"></div>
+          <p id="journey-map-status" class="subtle"></p>
+          <div id="journey-spots" class="journey-spots"></div>
+          <div id="journey-place" class="journey-place" hidden>
+            <h2 id="journey-place-name"></h2>
+            <p id="journey-place-status" class="subtle"></p>
+            <button id="journey-enter" type="button" class="primary" hidden></button>
+          </div>
+          <p class="footnote">북쪽 ↑ · 차량 기준 위치도 · © OpenStreetMap contributors</p>
+        </section>
+        <section id="journey-game" hidden><button id="journey-back" type="button" class="quiet">← 지도로 돌아가기</button></section>
+        <details id="journey-party"><summary>파티 정보와 연습 기능</summary>
         <div class="status-grid"><article class="panel stat"><span>공동 전투</span><strong id="battle-state">대기</strong><small id="battle-reason"></small></article><article class="panel stat"><span>공동 보급품</span><strong><b id="supplies">0</b><em>개</em></strong><small id="support-state">차량 지원 대기</small></article></div>
         <section class="panel battle-panel">
           <div class="section-heading"><h2>내 방어 구역</h2><span id="sector-label" class="pill"></span></div>
@@ -72,10 +92,11 @@
         <section class="panel"><h2>차량 내비 · Pleos SDK</h2><p id="navigation-summary">차량 내비 연결 대기</p><p id="navigation-progress" class="subtle"></p></section>
         <section class="panel"><h2>차량 주변 장소 리스트</h2><p class="subtle">차량 도로망 근거로 선별한 후보임. 현장 접근·주차와 게임 운영은 검토 전임.</p><label>유형<select id="place-category"><option value="">전체</option><option value="PARKING">주차장</option><option value="CHARGER">충전소</option><option value="FUEL_STATION">주유소</option><option value="ATTRACTION">명소</option></select></label><button id="places-refresh" type="button">차량 위치 주변 10km 조회</button><p id="places-status" role="status"></p><ul id="place-list"></ul><p class="footnote">© OpenStreetMap contributors / Geofabrik · ODbL 1.0. 직선거리순이며 실제 도로 우회거리와 다름.</p></section>
         <section class="panel squad-panel"><div class="section-heading"><h2>같은 방 참가자</h2><span id="participant-count" class="pill"></span></div><ul id="members"></ul><p id="room-meta" class="footnote"></p></section>
+        </details>
       </section>
       <p id="action-result" class="action-result" role="status" aria-live="polite"></p>
     </section>
-    <footer>Z-RIDE / PHONE REFERENCE CLIENT <a href="/observer">관제 ↗</a></footer>
+    <footer>Z-RIDE</footer>
   </main>
 </body>
 </html>

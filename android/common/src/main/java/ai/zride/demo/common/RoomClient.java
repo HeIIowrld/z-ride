@@ -130,7 +130,15 @@ public final class RoomClient {
         }catch(Exception e){callback.onError("Configuration unavailable");}});
     }
     // The HTTP room snapshot precedes WS auth. Never queue telemetry ahead of auth.
-    public boolean send(JSONObject message) { WebSocket current=socket;return authenticatedGeneration==generation && current != null && !closed && current.send(message.toString()); }
+    public boolean send(JSONObject message) {
+        if ("vehicle.report".equals(message.optString("type"))) {
+            long sampled = message.optLong("speedMeasuredElapsedMs");
+            message.remove("speedMeasuredElapsedMs");
+            if (sampled <= 0 || android.os.SystemClock.elapsedRealtime() - sampled > 5000) message.remove("speedMps");
+        }
+        WebSocket current = socket;
+        return authenticatedGeneration == generation && current != null && !closed && current.send(message.toString());
+    }
     public String getSessionId() { return sessionId; }
     public void close() {
         generation++;

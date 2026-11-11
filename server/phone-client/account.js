@@ -60,6 +60,7 @@
     if (!cap) return;
     invite = cap; history.replaceState(null,'',location.pathname+location.search);
     legacy = false; $('legacy-fields').hidden = true; $('nickname').required = false; $('join-code').required = false;
+    $('legacy-toggle').hidden = true;
     $('login-panel').hidden = false; $('game').hidden = true;
     $('join-description').textContent = '차량 QR을 확인하고 좌석을 선택해 참가 요청을 보내 주세요.';
     if (config) void checkInvite();
@@ -125,7 +126,7 @@
   $('legacy-toggle').addEventListener('click', () => {
     legacy = !legacy; $('legacy-fields').hidden = !legacy;
     $('nickname').required = legacy; $('join-code').required = legacy;
-    $('legacy-toggle').textContent = legacy ? '계정·QR 참가로 돌아가기' : '기존 테스트 코드로 참가';
+    $('legacy-toggle').textContent = legacy ? 'QR 참가로 돌아가기' : '참가 코드로 입장';
   });
   window.PHONE_ACCOUNT = {
     isAccountMode: () => !legacy,

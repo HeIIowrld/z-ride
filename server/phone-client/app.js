@@ -7,6 +7,7 @@ const gateNames = { CAR_DISCONNECTED: '차량 연결 끊김', APP_INACTIVE: '차
 const errors = { TEST_ACCESS_REQUIRED: '테스트 접근키를 확인해 주세요. 관찰키와는 다른 키임.', MEMBER_PENDING: '차량에서 참가자를 먼저 승인해 주세요.', AUTH_EXPIRED: '세션이 만료됨. 새 참가 코드로 다시 참가해 주세요.', INVALID_JOIN_CODE: '참가 코드가 잘못됐거나 만료됨. 차량에서 새 코드를 받아 주세요.', JOIN_CODE_EXPIRED: '참가 코드가 만료됨. 차량에서 새 코드를 받아 주세요.', GATE_CLOSED: '차량 전투 조건이 닫힘. 주차 후 차량에서 다시 시작해 주세요.', NOT_PLAYING: '차량에서 공동 전투를 시작해야 사격할 수 있음.', ALREADY_COLLECTED: '파티에서 획득한 상자임. 리스폰 후 다시 수집 가능.', SEAT_EMPTY: '차량에서 이 자리가 비어 있다고 보고됨.', STALE_EPOCH: '전투 상태가 바뀜. 최신 화면에서 다시 시도해 주세요.', SEAT_TAKEN: '이미 사용 중인 자리임. 다른 자리를 선택해 주세요.' };
 let credentials = null, room = null, socket = null, memberId = null, generation = 0, retry = 0, retryTimer = null, pending = null, receivedAt = 0, joining = false;
 let counter = 0;
+let waitingForApprovedTicket = false;
 const id = () => 'web-' + Date.now().toString(36) + '-' + (++counter).toString(36) + '-' + Math.random().toString(36).slice(2, 12);
 function status(message, kind = '') { $('connection').textContent = message; $('connection').className = 'connection ' + kind; }
 function result(message) { $('action-result').textContent = message; }
@@ -91,9 +92,24 @@ function readInviteFragment() {
 }
 readInviteFragment();
 window.addEventListener('hashchange', readInviteFragment);
-function showLogin(message = '') { $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
+function showLogin(message = '') { $('login-panel').before($('account-panel')); $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
 function useTicket(joined) {
   reset(); credentials = {token:joined.token,roomId:joined.roomId}; room=joined.room; receivedAt=Date.now();
+  waitingForApprovedTicket = Boolean(joined.pending && window.PHONE_ACCOUNT?.isAccountMode());
+  nearbySpots = [];
+  lastMapFetch = null;
+  venueStatus = null;
+  venueSignature = '';
+  selectedSpot = null;
+  mapSignature = '';
+  mapAnchor = null;
+  routeFeedback = '';
+  activeRouteChallenge = null;
+  routeRequestPending = false;
+  routeButtons.replaceChildren();
+  routeMessage.textContent = '';
+  routeConfirmation.checked = false;
+  showJourney('map');
   const me=room?.members?.find(m=>m.memberId===joined.memberId); if(me?.seat)$('seat').value=me.seat;
   $('login-panel').hidden=true; $('game').hidden=false;
   $('angle').value={REAR_LEFT:-100,REAR_RIGHT:140,FRONT_PASSENGER:60}[$('seat').value];
@@ -135,15 +151,470 @@ function command(action, fields = {}) {
   socket.send(JSON.stringify({ type: 'command', commandId, roomEpoch: room.roomEpoch, action, ...fields }));
   result('처리 중…'); renderControls();
 }
+const deadzoneLink = document.createElement('a');
+deadzoneLink.textContent = 'DEADZONE 협동 게임 열기';
+deadzoneLink.target = '_blank';
+deadzoneLink.rel = 'noopener noreferrer';
+deadzoneLink.hidden = true;
+$('journey-place').append(deadzoneLink);
+
+const routeGame = document.createElement('section');
+routeGame.className = 'panel';
+routeGame.hidden = true;
+let activeRouteChallenge;
+let routeRequestPending = false;
+const routeStart = document.createElement('button');
+routeStart.textContent = '경로 보급품 찾기';
+const routeMessage = document.createElement('p');
+const routeSpeed = document.createElement('p');
+const routeButtons = document.createElement('div');
+routeButtons.className = 'journey-digits';
+routeStart.className = 'primary';
+const routeConfirmation = document.createElement('input');
+routeConfirmation.type = 'checkbox';
+const routePassenger = document.createElement('label');
+routePassenger.className = 'check';
+routePassenger.append(routeConfirmation, document.createTextNode('동승자입니다'));
+routeGame.append(routeSpeed, routePassenger, routeStart, routeMessage, routeButtons);
+$('journey-game').append(routeGame);
+
+routeStart.onclick = async () => {
+  const active = credentials;
+  if (!active || !routeConfirmation.checked) {
+    routeMessage.textContent = '동승자 확인을 먼저 선택해 주세요.';
+    return;
+  }
+  routeStart.disabled = true;
+  routeRequestPending = true;
+  routeButtons.replaceChildren();
+  try {
+    const challenge = await post('/api/world/route-supply', {
+      passengerConfirmed: true, placeId: selectedSpot?.activity === 'supply' ? selectedSpot.placeId : room?.routeSupplySpot?.placeId,
+    }, active.token);
+    if (active !== credentials || room?.vehicle?.gear !== 'D') return;
+    activeRouteChallenge = challenge;
+    routeMessage.textContent = challenge.placeName + ' · 순서를 기억하세요: ' + [...challenge.sequence].join(' ');
+    let sequence = '';
+    setTimeout(() => {
+      if (active !== credentials || activeRouteChallenge !== challenge) return;
+      routeMessage.textContent = '기억한 숫자를 순서대로 누르세요.';
+      for (const digit of ['1', '2', '3']) {
+        const button = document.createElement('button');
+        button.textContent = digit;
+        button.onclick = async () => {
+          if (active !== credentials || activeRouteChallenge !== challenge) return;
+          sequence += digit;
+          routeMessage.textContent = '입력 ' + sequence.length + ' / ' + challenge.sequence.length;
+          if (sequence.length !== challenge.sequence.length) return;
+          routeButtons.replaceChildren();
+          try {
+            const receipt = await post('/api/world/route-supply', {
+              passengerConfirmed: true, challengeId: challenge.challengeId, sequence
+            }, active.token);
+            if (active !== credentials) return;
+            routeFeedback = receipt.outcome === 'MISSED'
+              ? '이번 스팟은 놓쳤어요. 다음 스팟에서 도전하세요.'
+              : '보급품 획득 · 파티 보급품 ' + receipt.supplies + '개';
+          } catch {
+            if (active === credentials) routeFeedback = '이번 도전이 종료됐어요. 다음 스팟에서 도전하세요.';
+          } finally {
+            if (active === credentials) {
+              activeRouteChallenge = null;
+              showJourney('map');
+            }
+          }
+        };
+        routeButtons.append(button);
+      }
+      setTimeout(() => {
+        if (active !== credentials || activeRouteChallenge !== challenge || sequence.length === challenge.sequence.length) return;
+        activeRouteChallenge = null;
+        routeButtons.replaceChildren();
+        routeFeedback = '시간이 끝났어요. 다음 스팟에서 도전하세요.';
+        showJourney('map');
+      }, 27000);
+    }, 1500);
+  } catch {
+    if (active === credentials) routeMessage.textContent = '현재 경로에 수집할 수 있는 보급품이 없습니다.';
+  } finally {
+    if (active === credentials) {
+      routeRequestPending = false;
+      routeStart.disabled = Boolean(activeRouteChallenge) || !room?.routeSupplyAvailable;
+    }
+  }
+};
+
+const venuePanel = document.createElement('section');
+venuePanel.id = 'journey-venue';
+venuePanel.className = 'panel';
+venuePanel.hidden = true;
+$('journey-game').append(venuePanel);
+let venuePoll = null, venueSubmitting = false, venueSignature = '';
+let venueStatus = null;
+async function venueAction(action = 'status', fields = {}) {
+  const active = credentials;
+  if (!active || !ownMember()?.approved || venueSubmitting) return;
+  if (action === 'status') {
+    if (venuePoll) return;
+    venuePoll = post('/api/rooms/' + active.roomId + '/venue-game', { action }, active.token);
+    try {
+      const value = await venuePoll;
+      if (active === credentials) showVenue(value);
+    } catch {} finally { venuePoll = null; }
+    return;
+  }
+  venueSubmitting = true;
+  try {
+    if (venuePoll) await venuePoll.catch(() => {});
+    if (active !== credentials) return;
+    const value = await post('/api/rooms/' + active.roomId + '/venue-game', { action, ...fields }, active.token);
+    if (active === credentials) showVenue(value);
+  } catch (error) {
+    if (active === credentials) result(describe(error.message));
+  } finally { venueSubmitting = false; }
+}
+function venueButton(label, action, fields) {
+  const button = document.createElement('button');
+  button.textContent = label;
+  button.onclick = () => venueAction(action, typeof fields === 'function' ? fields() : fields);
+  venuePanel.append(button);
+}
+function sketch(existing) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 240;
+  canvas.style.cssText = 'display:block;width:min(240px,100%);background:white;touch-action:none';
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 3;
+  const strokes = [];
+  let stroke = null;
+  function draw(points) {
+    ctx.beginPath();
+    for(let i=0;i<points.length;i+=2) {
+      const x=points[i]*.24,y=points[i+1]*.24;
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  for(const item of existing?.strokes ?? []) draw(item.p);
+  if (!existing) {
+    const add = event => {
+      const r = canvas.getBoundingClientRect();
+      if (stroke.p.length >= 128) return;
+      const scale = (n, start, size) => Math.max(0, Math.min(1000, Math.round((n-start)/size*1000)));
+      stroke.p.push(scale(event.clientX,r.left,r.width),scale(event.clientY,r.top,r.height));
+      draw(stroke.p);
+    };
+    canvas.onpointerdown = event => {
+      if(strokes.length >= 8)return;
+      canvas.setPointerCapture(event.pointerId);
+      stroke={c:0,w:1,p:[]};strokes.push(stroke);add(event);
+    };
+    canvas.onpointermove = event => { if(stroke)add(event); };
+    canvas.onpointerup = canvas.onpointercancel = () => { stroke=null; };
+  }
+  venuePanel.append(canvas);
+  return {strokes};
+}
+function showVenue(value) {
+  venueStatus = value;
+  renderJourneyMap();
+  const state = value.game;
+  const key = JSON.stringify([value.kind,state?.phase,state?.caseNo,state?.round,state?.step,
+    state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.shown,value.paused,value.stop?.placeId,value.supplies]);
+  venuePanel.hidden = !state && !value.paused && !value.stop;
+  if(key === venueSignature)return;
+  venueSignature = key;
+  venuePanel.replaceChildren();
+  if(venuePanel.hidden)return;
+  const title = document.createElement('h2');
+  title.textContent = value.kind === 'thief' ? '전기도둑' : value.kind === 'relay' ? '충전 릴레이' :
+    value.paused ? '충전 게임 일시정지' : '충전 게임 참가 가능';
+  venuePanel.append(title);
+  const info = document.createElement('p');
+  venuePanel.append(info);
+  if (!state) { info.textContent=value.paused ? '충전소에서 다시 연결하면 이어집니다.' :
+    '차량 화면에서 전기도둑 또는 충전 릴레이를 선택하면 여기에 표시됩니다.';return; }
+  const me = state.players?.find(p=>p.id===state.me);
+  info.textContent = '파티 보급품 ' + value.supplies + '개';
+  if(!me){info.textContent='이번 경기 참가자 목록을 차량에서 확인해 주세요.';return;}
+  if(value.kind === 'thief'){
+    if(state.phase==='BRIEFING'){
+      info.textContent += state.solo ? ' · 차량이 숨은 값을 더해요.' : ' · 내 역할 ' + (state.role==='THIEF'?'도둑':'가족');
+      if(!me.done)venueButton('준비 완료','ready');
+    } else if(state.phase==='CASE'&&!me.done){
+      info.textContent += ' · 목표 합계 ' + state.range.lo + '~' + state.range.hi;
+      const watch = document.createElement('select');
+      watch.setAttribute('aria-label','살펴볼 동승자');
+      watch.append(new Option('살펴보지 않기',''));
+      if(!state.solo){
+        state.players.filter(p=>p.id!==state.me).forEach(p=>watch.append(new Option(p.name,p.id)));
+        venuePanel.append(watch);
+      }
+      const prank = document.createElement('select');
+      prank.setAttribute('aria-label','도둑의 방해');
+      prank.append(new Option('방해 없음','NONE'));
+      if(state.role==='THIEF'){
+        prank.append(new Option('조명 방해','LIGHT'),new Option('바람 방해','WIND'));
+        venuePanel.append(prank);
+      }
+      state.hand.forEach((card,index)=>venueButton('카드 '+(card>0?'+':'')+card,'play',
+        ()=>({card:index,watch:watch.value||null,prank:prank.value})));
+    } else if(state.phase==='RESULT'){
+      const round=state.result;
+      info.textContent += ' · 합계 '+round.sum+' / 목표 '+round.lo+'~'+round.hi+' · '+
+        (round.saved?'보급품으로 복구':{LOW:'정전',HIGH:'과부하',OK:'충전 성공'}[round.outcome]);
+    } else if(state.phase==='VOTE'&&!me.done){
+      state.players.filter(p=>p.id!==state.me).forEach(p=>venueButton(p.name+'에게 투표','vote',{suspect:p.id}));
+      venueButton('기권','vote',{suspect:'SKIP'});
+    } else if(state.phase==='END')info.textContent += ' · ' + ({FAMILY:'가족 승리',THIEF:'도둑 승리',CAR:'차량 승리'}[state.winner]);
+    else if(state.clue)info.textContent += ' · ' + state.clue;
+  }else if(state.phase==='PLAY'&&state.task&&!state.submitted){
+    const task=state.task;
+    if(task.kind==='DRAW'){
+      info.textContent += ' · 그릴 단어 ' + task.prompt;
+      const drawing=sketch();
+      venueButton('그림 제출','submit',()=>({step:task.step,drawing}));
+    }else{
+      sketch(task.drawing);
+      const input=document.createElement('input');
+      input.placeholder='그림의 정답';
+      input.maxLength=30;
+      venuePanel.append(input);
+      venueButton('정답 제출','submit',()=>({step:task.step,text:input.value}));
+    }
+  }else if(state.reveal){
+    info.textContent += ' · 공개 단어 ' + state.reveal.word;
+    for(const entry of state.reveal.entries){
+      if(entry.drawing)sketch(entry.drawing);
+      if(entry.text){const line=document.createElement('p');line.textContent=entry.text;venuePanel.append(line);}
+    }
+  }else if(state.phase==='END')info.textContent += ' · 전달 성공 ' + state.family.success + ' / ' + state.family.total;
+}
+setInterval(() => {
+  if (room?.vehicle?.playAllowed || !venuePanel.hidden) void venueAction();
+}, 1500);
+
+let journeyView = 'map';
+let selectedSpot = null;
+let nearbySpots = [];
+let lastMapFetch = null;
+let mapSignature = '';
+let mapAnchor = null;
+let routeFeedback = '';
+const spotTypes = { CHARGER: '충전소', PARKING: '주차장', FUEL_STATION: '주유소', ATTRACTION: '명소' };
+
+function journeySpotName(spot) {
+  if (spot.name && !spot.name.startsWith('이름 미등록')) return spot.name;
+  return spotTypes[spot.category] ?? (spot.activity === 'supply' ? '경로 보급 지점' : '주변 장소');
+}
+
+function showJourney(view) {
+  journeyView = view;
+  $('journey-map').hidden = view !== 'map';
+  $('journey-game').hidden = view === 'map';
+  $('journey-game').dataset.view = view;
+  $('journey-party').hidden = view !== 'map';
+  routeGame.hidden = view !== 'supply';
+  if (view === 'map') {
+    renderJourneyMap();
+    void refreshJourneyMap();
+  }
+}
+$('journey-back').onclick = () => {
+  showJourney('map');
+  $('journey-map').scrollIntoView({ block: 'start' });
+};
+
+function selectJourneySpot(spot) {
+  selectedSpot = spot;
+  renderJourneyMap();
+}
+
+function enterJourneyActivity(spot) {
+  if (spot.activity === 'deadzone') {
+    if (room?.deadzoneJoinUrl) deadzoneLink.click();
+    return;
+  }
+  if (spot.activity === 'supply') selectedSpot = spot;
+  showJourney(spot.activity);
+  if (spot.activity === 'charge') void venueAction();
+  $('journey-game').scrollIntoView({ block: 'start' });
+}
+
+function journeyActivityCopy(activity) {
+  if (activity === 'supply') return ['이동 중 보급 스팟', '동승자 미니게임에서 파티 보급품을 얻을 수 있어요.', '보급품 미니게임 입장'];
+  if (activity === 'deadzone') return ['DEADZONE 집결지', '파티의 좌석으로 협동 전투에 참가해요.', 'DEADZONE 입장'];
+  const gameName = venueStatus.kind === 'thief' ? '전기도둑' : '충전 릴레이';
+  if (venueStatus.game?.phase === 'END') return ['충전소', gameName + '이 끝났어요.', '결과 보기'];
+  return venueStatus.game
+    ? ['충전소', '파티의 충전 게임이 열렸어요.', gameName + ' 입장']
+    : ['충전소', '차량에서 게임을 선택하면 입장할 수 있어요.', '충전소 대기실'];
+}
+
+function renderJourneyMap() {
+  if (journeyView !== 'map' || !ownMember()?.approved) return;
+  const position = room.navigation?.position;
+  const supply = room.routeSupplySpot;
+  const stop = room.vehicle?.playAllowed && venueStatus?.stop;
+  const deadzone = room.deadzoneJoinUrl;
+  const points = new Map((position ? nearbySpots : []).map(spot => [spot.placeId, spot]));
+  if (supply) points.set(supply.placeId, { ...points.get(supply.placeId), ...supply, activity: 'supply' });
+  if (stop) points.set(stop.placeId, { ...position, ...points.get(stop.placeId), ...stop, activity: 'charge' });
+  if (deadzone) points.set('deadzone', { ...position, placeId: 'deadzone', name: 'DEADZONE 집결지', activity: 'deadzone' });
+  const spots = [...points.values()].sort((a, b) => Number(Boolean(b.activity)) - Number(Boolean(a.activity))).slice(0, 10);
+  const next = spots.find(spot => spot.activity);
+  $('journey-next').hidden = !next;
+  if (next) {
+    const [label, description, action] = journeyActivityCopy(next.activity);
+    $('journey-next-label').textContent = label;
+    $('journey-next-name').textContent = journeySpotName(next);
+    const status = $('journey-next-status');
+    if (status.textContent !== description) status.textContent = description;
+    const enter = $('journey-next-enter');
+    enter.textContent = action;
+    enter.onclick = () => enterJourneyActivity(next);
+  }
+  const plot = $('journey-plot');
+  const list = $('journey-spots');
+  $('journey-supplies').textContent = room.collection?.inventory?.supplies ?? 0;
+  $('journey-map-status').textContent = routeFeedback || (position
+    ? '보급 스팟에 가까워지면 입장 버튼이 표시돼요.' : '차량 위치를 기다리고 있어요.');
+  const offset = (spot, origin) => [
+    (spot.longitude - origin.longitude) * 111000 * Math.cos(origin.latitude * Math.PI / 180),
+    (spot.latitude - origin.latitude) * 111000,
+  ];
+  if (!position) mapAnchor = null;
+  else if (!mapAnchor || Math.hypot(...offset(position, mapAnchor)) > 360) mapAnchor = position;
+  const signature = JSON.stringify([position, spots, selectedSpot?.placeId]);
+  if (signature !== mapSignature) {
+    mapSignature = signature;
+    plot.querySelectorAll('.journey-pin').forEach(pin => pin.remove());
+    list.replaceChildren();
+    let car = plot.querySelector('.journey-car');
+    if (position && !car) {
+      car = document.createElement('span');
+      car.className = 'journey-car';
+      car.textContent = '내 차량';
+      plot.append(car);
+    }
+    if (!position) car?.remove();
+    const plotted = spots.filter(spot => Number.isFinite(spot.latitude) && Number.isFinite(spot.longitude));
+    const scale = position ? Math.max(600, ...plotted.flatMap(spot => offset(spot, mapAnchor).map(Math.abs))) : 600;
+    const [carEast, carNorth] = position ? offset(position, mapAnchor) : [0, 0];
+    const carX = 50 + carEast / scale * 40, carY = 50 - carNorth / scale * 40;
+    if (position) {
+      car.style.left = carX + '%';
+      car.style.top = carY + '%';
+    }
+    const plotWidth = Math.max(1, plot.clientWidth);
+    const plotHeight = Math.max(1, plot.clientHeight);
+    const clusters = [];
+    for (const [index, spot] of spots.entries()) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = (index + 1) + ' · ' + journeySpotName(spot);
+      button.className = spot.activity ? 'spot-active' : '';
+      button.setAttribute('aria-pressed', String(selectedSpot?.placeId === spot.placeId));
+      button.onclick = () => selectJourneySpot(spot);
+      list.append(button);
+      if (!position || !plotted.includes(spot)) continue;
+      const [east, north] = offset(spot, mapAnchor);
+      const x = 50 + east / scale * 40;
+      let y = 50 - north / scale * 40;
+      if (Math.abs(x - carX) * plotWidth / 100 < 38 && Math.abs(y - carY) * plotHeight / 100 < 46) {
+        y = carY - 46 * 100 / plotHeight;
+      }
+      const marker = { spot, index, button };
+      const cluster = clusters.find(group =>
+        Math.hypot((x - group.x) * plotWidth / 100, (y - group.y) * plotHeight / 100) < 40);
+      if (cluster) cluster.markers.push(marker);
+      else clusters.push({ x, y, markers: [marker] });
+    }
+    for (const { x, y, markers } of clusters) {
+      const selected = markers.findIndex(({spot}) => selectedSpot?.placeId === spot.placeId);
+      const marker = markers[selected < 0 ? 0 : (selected + 1) % markers.length];
+      const pin = document.createElement('button');
+      pin.type = 'button';
+      pin.className = 'journey-pin' + (markers.some(({spot}) => spot.activity) ? ' spot-active' : '');
+      pin.style.left = x + '%';
+      pin.style.top = y + '%';
+      pin.textContent = markers.length > 1 ? '+' + markers.length : String(marker.index + 1);
+      pin.setAttribute('aria-label', markers.length > 1
+        ? markers.length + '개 장소 · 다음 장소 ' + marker.button.textContent : marker.button.textContent);
+      pin.setAttribute('aria-pressed', String(selected >= 0));
+      pin.onclick = marker.button.onclick;
+      plot.append(pin);
+    }
+  }
+  const current = selectedSpot && (points.get(selectedSpot.placeId) ?? { ...selectedSpot, activity: null });
+  $('journey-place').hidden = !current;
+  deadzoneLink.hidden = current?.activity !== 'deadzone';
+  if (!current) return;
+  $('journey-place-name').textContent = journeySpotName(current);
+  const status = $('journey-place-status');
+  const enter = $('journey-enter');
+  enter.hidden = !current.activity || current.activity === 'deadzone';
+  if (current.activity) {
+    const [, description, action] = journeyActivityCopy(current.activity);
+    status.textContent = description;
+    enter.textContent = action;
+    enter.onclick = () => enterJourneyActivity(current);
+  } else {
+    status.textContent = [spotTypes[current.category], Number.isFinite(current.distanceM) ? current.distanceM + 'm' : '', '현재 열려 있는 활동이 없어요.'].filter(Boolean).join(' · ');
+  }
+}
+
+async function refreshJourneyMap() {
+  const active = credentials;
+  const position = room?.navigation?.position;
+  if (journeyView !== 'map' || !active || !position || !ownMember()?.approved) return;
+  if (lastMapFetch && Date.now() - lastMapFetch < 12000) return;
+  lastMapFetch = Date.now();
+  try {
+    const value = await post('/api/places/nearby', { ...position, radiusM: 2500, limit: 12, eligibleOnly: false }, active.token);
+    if (active !== credentials || !ownMember()?.approved) return;
+    nearbySpots = value.places;
+    renderJourneyMap();
+  } catch {
+    if (active === credentials) $('journey-map-status').textContent = '주변 스팟을 불러오지 못했어요. 연결되면 다시 조회합니다.';
+  }
+}
+
 function render() {
+  if (!ownMember()?.approved) {
+    venuePanel.hidden = true;
+    venueSignature = '';
+  }
+  const hasRoute = Boolean(room?.party?.route?.active || room?.navigation?.owned);
+  document.querySelector('.collection-panel').hidden = hasRoute;
+  const supplyAvailable = ownMember()?.approved && room?.vehicle?.gear === 'D' && room?.routeSupplyAvailable;
+  routeGame.hidden = journeyView !== 'supply';
+  const speed = room?.vehicle?.speedMps;
+  routeSpeed.textContent = Number.isFinite(speed) ? '차량 속도 ' + Math.round(speed * 3.6) + ' km/h' : '';
+  if (!supplyAvailable && room?.vehicle?.gear !== 'D' && activeRouteChallenge) {
+    activeRouteChallenge = null;
+    routeButtons.replaceChildren();
+    routeMessage.textContent = '차량이 정차해 수집을 마쳤습니다.';
+  }
+  if (!activeRouteChallenge && !routeRequestPending) routeStart.disabled = !supplyAvailable;
+  const joinUrl = memberId && room?.deadzoneJoinUrl;
+  if (!joinUrl) deadzoneLink.hidden = true;
+  if (joinUrl) deadzoneLink.href = joinUrl;
+  else deadzoneLink.removeAttribute('href');
   if (!room) return;
   const me = ownMember() || room.members?.find(member => member.seat === $('seat').value);
   $('my-name').textContent = me?.nickname || $('nickname').value;
   $('my-seat').textContent = seats[me?.seat] || '자리 확인 중';
-  const approved = me?.approved === true;
+  const approved = me?.approved === true && !waitingForApprovedTicket;
   $('leave-button').textContent=approved?'파티 탈퇴':'참가 요청 취소';
   $('pending-panel').hidden = approved; $('approved-content').hidden = !approved;
   if (!approved) return;
+  if ($('account-panel').parentElement !== $('journey-party')) {
+    $('journey-party').append($('account-panel'));
+    $('journey-map').scrollIntoView({ block: 'start' });
+  }
+  renderJourneyMap();
+  void refreshJourneyMap();
   $('places-refresh').disabled=!room.navigation?.available||!room.navigation.position;
   $('battle-state').textContent = states[room.state] || room.state;
   $('battle-reason').textContent = room.pauseReason ? room.pauseReason.split(',').map(reason => gateNames[reason] || reason).join(' · ') : room.state === 'PLAYING' ? '차량 주차 조건 유지 중' : '차량에서 시작 / 재개';
