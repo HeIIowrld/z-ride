@@ -82,6 +82,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     protected RoomClient retainedClient(){return null;}
     protected boolean retainClientOnDestroy(){return false;}
     protected void addVehicleControls(LinearLayout container) {}
+    protected void addVehicleWelcomeActions(LinearLayout menu) {}
     protected android.graphics.drawable.Drawable vehicleCover() { return new RoadCover(); }
     private boolean inviteAfterJourneyStart;
     protected void inspectExtraDiagnostics() {}
@@ -182,6 +183,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             LinearLayout.LayoutParams menu = new LinearLayout.LayoutParams(dp(225), -2);
             menu.topMargin = dp(16);
             ((LinearLayout) vehicleMasthead).addView(partyWelcome, menu);
+            addVehicleWelcomeActions(partyWelcome);
             parkedHint = text("주차하면 파티를 시작할 수 있어요", 26);
             parkedHint.setTypeface(null, android.graphics.Typeface.BOLD);
             root.addView(parkedHint);

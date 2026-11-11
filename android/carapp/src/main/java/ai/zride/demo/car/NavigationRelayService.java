@@ -32,6 +32,10 @@ public final class NavigationRelayService extends Service implements RoomClient.
     public static JSONObject currentState(){return instance==null?null:instance.state;}
     public static JSONObject currentRoom(){return instance==null||instance.client==null||!instance.client.isAuthenticated()?null:instance.room;}
     public static boolean sdkMode(){return instance!=null&&instance.sdkMode;}
+    public static boolean searchPlace(String keyword) {
+        return instance != null && uiForeground && instance.vehicleAllowed
+                && instance.probe != null && instance.probe.searchPlace(keyword);
+    }
     public static void attach(RoomClient c){if(instance!=null)instance.client=c;}
     public static void attach(RoomClient c,JSONObject room){if(instance!=null){instance.client=c;instance.room=room;}}
     public static boolean detach(RoomClient c){if(instance==null||instance.client!=c)return false;c.setListener(instance);return true;}

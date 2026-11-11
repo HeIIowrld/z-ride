@@ -1,6 +1,7 @@
 package ai.zride.demo.car;
 
 import android.os.Bundle;
+import android.app.AlertDialog;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
@@ -8,6 +9,7 @@ import android.view.View;
 import ai.zride.demo.common.DemoActivity;
 import org.json.JSONObject;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import java.io.File;
 import java.io.FileWriter;
@@ -221,6 +223,8 @@ public final class MainActivity extends DemoActivity {
     private Button settingsButton;
     private LinearLayout arcadeToolbar;
     private Button cabinButton;
+    private Button destinationToolbarButton;
+    private AlertDialog destinationDialog;
     private TextView cabinSummary;
     private CabinPanel cabinPanel;
     private android.app.AlertDialog cabinDialog;
@@ -239,6 +243,9 @@ public final class MainActivity extends DemoActivity {
         if (arcadeToolbar != null)
             arcadeToolbar.setVisibility(foreground && localAllowed ? View.VISIBLE : View.GONE);
         if (!localAllowed && cabinDialog != null) cabinDialog.dismiss();
+        if (destinationToolbarButton != null)
+            destinationToolbarButton.setVisibility(connected ? View.VISIBLE : View.GONE);
+        if ((!foreground || !localAllowed) && destinationDialog != null) destinationDialog.dismiss();
         updateArcadeVisibility();
     }
 
@@ -443,6 +450,59 @@ public final class MainActivity extends DemoActivity {
     }
     private void saveRouteReceipt(String command,JSONObject route,String error){try(FileWriter f=new FileWriter(new File(getFilesDir(),"demo-route-result.json"))){f.write(new JSONObject().put("commandId",command).put("route",route==null?JSONObject.NULL:route).put("error",error==null?JSONObject.NULL:error).toString());}catch(Exception ignored){}}
     @Override protected boolean isCar() { return true; }
+    @Override protected void addVehicleWelcomeActions(LinearLayout menu) {
+        menu.addView(destinationButton());
+    }
+
+    private Button destinationButton() {
+        Button button = new Button(this);
+        button.setText("목적지 설정");
+        styleVehicleButton(button, false);
+        button.setOnClickListener(view -> openDestinationSearch());
+        return button;
+    }
+
+    private void openDestinationSearch() {
+        if (!foreground || !localAllowed || destinationDialog != null) return;
+        LinearLayout content = column();
+        content.setPadding(dp(24), dp(8), dp(24), dp(8));
+        EditText query = new EditText(this);
+        query.setHint("장소 이름 또는 주소");
+        query.setSingleLine(true);
+        query.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        query.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        query.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(80)});
+        query.setSaveEnabled(false);
+        content.addView(query);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("어디로 갈까요?")
+                .setView(content)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("내비에서 검색", null)
+                .create();
+        destinationDialog = dialog;
+        dialog.setOnDismissListener(ignored -> destinationDialog = null);
+        dialog.show();
+        Runnable search = () -> {
+            String keyword = query.getText().toString().trim();
+            if (keyword.isEmpty()) {
+                query.setError("장소 이름이나 주소를 입력해 주세요.");
+            } else if (!foreground || !localAllowed) {
+                dialog.dismiss();
+            } else if (NavigationRelayService.searchPlace(keyword)) {
+                dialog.dismiss();
+            } else {
+                query.setError("순정 내비에 연결 중이에요. 잠시 후 다시 검색해 주세요.");
+            }
+        };
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> search.run());
+        query.setOnEditorActionListener((view, action, event) -> {
+            if (action != android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) return false;
+            search.run();
+            return true;
+        });
+    }
+
     @Override protected Drawable vehicleCover() {
         return new GameCover(this, R.drawable.arcade_zride, 0xffb5bcff, dp(20));
     }
@@ -479,6 +539,8 @@ public final class MainActivity extends DemoActivity {
         styleVehicleButton(cabinButton, false);
         cabinButton.setOnClickListener(view -> openCabinPanel());
         arcadeToolbar.addView(cabinButton, new LinearLayout.LayoutParams(-2, -2));
+        destinationToolbarButton = destinationButton();
+        arcadeToolbar.addView(destinationToolbarButton, new LinearLayout.LayoutParams(-2, -2));
         cabinSummary = new TextView(this);
         cabinSummary.setTextSize(17);
         cabinSummary.setTextColor(0xffc3c9e0);
@@ -798,6 +860,7 @@ public final class MainActivity extends DemoActivity {
         Button cancel=new Button(this);cancel.setText("실제 내비 안내 취소");cancel.setOnClickListener(v->{if(localAllowed)NavigationRelayService.cancel();});container.addView(cancel);
     }
     @Override protected void onVehicleForegroundChanged(boolean value){
+        if (!value && destinationDialog != null) destinationDialog.dismiss();
         NavigationRelayService.setUiForeground(value);
         NavigationRelayService.watchCabin(value ? this::updateCabinPanel : null);
         updateArcadeVisibility();

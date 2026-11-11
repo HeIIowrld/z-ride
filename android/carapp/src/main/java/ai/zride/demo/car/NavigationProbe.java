@@ -26,6 +26,17 @@ final class NavigationProbe implements AutoCloseable {
     private final Runnable poll=new Runnable(){public void run(){if(closed)return;if(ready){try{sdk.getCurrentLocationInfo();sdk.getDestinationInfo();sdk.getRouteStateInfo();if(!arrived)sdk.getWaypointInfo();}catch(Exception e){failure("QUERY_FAILED");}}main.postDelayed(this,3000);}};
     NavigationProbe(Context context,Listener sink){this.sink=sink;sdk=new NaviHelper(context.getApplicationContext());}
     boolean ready(){return ready;}
+    boolean searchPlace(String keyword) {
+        if (!ready || closed) return false;
+        try {
+            sdk.requestNavigationScreen(new NavigationScreenRequest.SearchPlace(keyword));
+            return true;
+        } catch (RuntimeException unavailable) {
+            android.util.Log.w("ZRideNavigation", "Could not open native search: "
+                    + unavailable.getClass().getSimpleName());
+            return false;
+        }
+    }
     private void put(String key,Object value){try{state.put(key,value==null?JSONObject.NULL:value);}catch(JSONException ignored){}}
     private synchronized void emit(String event){try{put("source","PLEOS_NAVI_HELPER");put("event",event);put("sdkConnected",ready);put("routeRevision",revision);put("geometryAvailable",false);sink.changed(new JSONObject(state.toString()));}catch(JSONException ignored){}}
     void start(){emit("INITIALIZING");sdk.initialize(()->{main.post(()->{if(closed)return;ready=true;sdk.addListener(events);emit("CONNECTED");main.post(poll);});return Unit.INSTANCE;},error->{main.post(()->failure("SDK_CONNECTION_FAILED"));return Unit.INSTANCE;});}

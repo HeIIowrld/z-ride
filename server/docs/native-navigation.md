@@ -1,6 +1,6 @@
 # 실제 Pleos 내비 SDK 연결
 
-2026-11-04 Asia/Seoul. 참조 차량 앱은 공식 Maven의 NaviHelper3.0.5/navi-data3.0.4를 사용한다. `requestRoute`, `requestReRoute`, `cancelRoute`, `getCurrentLocationInfo`, `getDestinationInfo`, `getRouteStateInfo`와 공개 `NaviHelperEventListener`만 호출한다. InternalApi·리플렉션·숨겨진 차량 API는 사용하지 않는다.
+2026-11-04 Asia/Seoul. 참조 차량 앱은 공식 Maven의 NaviHelper3.0.5/navi-data3.0.4를 사용한다. `requestRoute`, `requestReRoute`, `cancelRoute`, `getCurrentLocationInfo`, `getDestinationInfo`, `getRouteStateInfo`, `requestNavigationScreen`과 공개 `NaviHelperEventListener`만 호출한다. InternalApi·리플렉션·숨겨진 차량 API는 사용하지 않는다.
 
 ## 통신 흐름
 
@@ -56,3 +56,8 @@ python tools/verify-native-drive.py --serial emulator-5560 \
 서버 테스트는 HOST 권한·승인된 폰 전파·역순/위조 거절·DEMO geometry 해제·freshness·영속 저장 제외를 검사한다. 실제 SDK 서비스 연결, 약관 동의 상태, 목적지 요청 후 ROUTE_DRIVE·목적지·남은 거리/시간 응답을 AVD에서 확인했다. 이동/재탐색·폰 최종 결과는 별도 실제 검증 기록으로 구분한다.
 
 [공식 SDK 가져오기](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/importing-sdk) · [목적지](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/destinations) · [재탐색](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/routes) · [callback](https://document.pleos.ai/en/api-reference/connect-sdk-pleos/NaviHelper/event-listeners) · [3.0.5 좌표 인자 변경](https://document.pleos.ai/en/docs/pleos-only/release-note/sdk-261015).
+## 목적지 설정
+
+Pleos 차량을 P에 두고 Z-RIDE 시작 화면의 **목적지 설정**을 누른다. 파티가 이미 열려 있으면 상단 차량 메뉴에서 같은 버튼을 쓸 수 있다. 장소명이나 주소를 입력하면 NaviHelper가 그 검색어로 순정 내비 검색 화면을 연다. 순정 내비의 결과에서 목적지나 경유지를 선택하고 경로를 확인한다. 이후 안내 상태는 기존 차량 SDK 경로로 파티에 전달된다.
+
+검색 화면 요청에는 `NAVI_CUSTOM_MAP` 권한을 사용한다. 이 입력은 Z-RIDE 파티 가입이나 게임 시작 요청을 만들지 않는다.
