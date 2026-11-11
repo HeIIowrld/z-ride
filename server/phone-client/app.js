@@ -4,7 +4,7 @@ const apiOrigin=window.ZRIDE_CONFIG?.apiOrigin||location.origin;
 const seats = { FRONT_PASSENGER: '앞 동승석 · 전방 사수', REAR_LEFT: '뒤 왼쪽 · 좌측 방어', REAR_RIGHT: '뒤 오른쪽 · 우측 방어', DRIVER: '운전자 · 지원 담당' };
 const states = { LOBBY: '시작 대기', READY: '시작 준비', PLAYING: '전투 진행', PAUSED: '전투 중지', CLEARED: '거점 공략 완료', PENDING: '승인 대기' };
 const gateNames = { CAR_DISCONNECTED: '차량 연결 끊김', APP_INACTIVE: '차량 앱 비활성', LEASE_EXPIRED: '차량 보고 만료', UX_RESTRICTED: '주행 중 전투 제한', UX_UNKNOWN: '차량 UX 확인 중', GEAR_NOT_P: '주차 후 전투 가능', GEAR_UNKNOWN: '차량 기어 확인 중', MEMBER_PENDING: '차량 승인 대기' };
-const errors = { TEST_ACCESS_REQUIRED: '테스트 접근키를 확인해 주세요. 관찰키와는 다른 키임.', MEMBER_PENDING: '차량에서 참가자를 먼저 승인해 주세요.', AUTH_EXPIRED: '세션이 만료됨. 새 참가 코드로 다시 참가해 주세요.', INVALID_JOIN_CODE: '참가 코드가 잘못됐거나 만료됨. 차량에서 새 코드를 받아 주세요.', JOIN_CODE_EXPIRED: '참가 코드가 만료됨. 차량에서 새 코드를 받아 주세요.', GATE_CLOSED: '차량 전투 조건이 닫힘. 주차 후 차량에서 다시 시작해 주세요.', NOT_PLAYING: '차량에서 공동 전투를 시작해야 사격할 수 있음.', ALREADY_COLLECTED: '파티에서 획득한 상자임. 리스폰 후 다시 수집 가능.', SEAT_EMPTY: '차량에서 이 자리가 비어 있다고 보고됨.', STALE_EPOCH: '전투 상태가 바뀜. 최신 화면에서 다시 시도해 주세요.', SEAT_TAKEN: '이미 사용 중인 자리임. 다른 자리를 선택해 주세요.' };
+const errors = { TEST_ACCESS_REQUIRED: '테스트 접근키를 확인해 주세요. 관찰키와는 다른 키임.', MEMBER_PENDING: '차량에서 참가자를 먼저 승인해 주세요.', AUTH_EXPIRED: '세션이 만료됨. 새 참가 코드로 다시 참가해 주세요.', INVALID_JOIN_CODE: '참가 코드가 잘못됐거나 만료됨. 차량에서 새 코드를 받아 주세요.', JOIN_CODE_EXPIRED: '참가 코드가 만료됨. 차량에서 새 코드를 받아 주세요.', GATE_CLOSED: '차량 전투 조건이 닫힘. 주차 후 차량에서 다시 시작해 주세요.', NOT_PLAYING: '차량에서 공동 전투를 시작해야 사격할 수 있음.', ALREADY_COLLECTED: '파티에서 획득한 상자임. 리스폰 후 다시 수집 가능.', SEAT_EMPTY: '차량에서 이 자리가 비어 있다고 보고됨.', STALE_EPOCH: '전투 상태가 바뀜. 최신 화면에서 다시 시도해 주세요.', SEAT_TAKEN: '이미 사용 중인 자리임. 다른 자리를 선택해 주세요.', INVITE_EXPIRED: 'QR이 만료됐거나 다 쓰였음. 차량 화면의 새 QR을 다시 찍어 주세요.' };
 let credentials = null, room = null, socket = null, memberId = null, generation = 0, retry = 0, retryTimer = null, pending = null, receivedAt = 0, joining = false;
 let counter = 0;
 let waitingForApprovedTicket = false;
@@ -18,8 +18,15 @@ function gateOpen() { return room?.vehicle?.playAllowed === true && room.vehicle
 function reset(clear = true) {
   generation++; clearTimeout(retryTimer); clearTimeout(pending?.timer); pending = null;
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
-  if (clear) { credentials = null; room = null; memberId = null; }
+  if (clear) { credentials = null; room = null; memberId = null; forgetSession(); }
 }
+// 새로고침·탭 재로딩(아이폰 Safari가 자주 함)이나 QR을 다시 찍어 새 탭이 열려도 같은 자리로 다시 붙도록 세션을 기억한다.
+// 카메라가 여는 새 탭은 sessionStorage를 이어받지 못해 대원이 하나 더 생기므로 localStorage를 쓴다.
+// URL·로그에는 남지 않고, 탈퇴·해산·인증 만료 때 지운다(서버 세션도 8시간 뒤 만료).
+const SESSION_KEY = 'zride.phone.session';
+function saveSession() { try { localStorage.setItem(SESSION_KEY, JSON.stringify(credentials)); } catch {} }
+function forgetSession() { try { localStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_KEY); } catch {} }
+function savedSession() { try { const v = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null'); return v && typeof v.token === 'string' && typeof v.roomId === 'string' ? v : null; } catch { return null; } }
 async function post(path, body, token) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
@@ -46,7 +53,14 @@ function connect() {
   const current = ++generation; clearTimeout(retryTimer); memberId = null;
   status(retry ? '재연결 중…' : '방 연결 중…');
   socket = new WebSocket(apiOrigin.replace(/^http/,'ws') + '/ws');
-  socket.onopen = () => { if (current === generation && credentials) socket.send(JSON.stringify({ type: 'auth', token: credentials.token, roomId: credentials.roomId })); };
+  // 아이폰 Safari는 연결이 열리지도 실패하지도 않은 채 멈출 때가 있다 → 8초 안에 auth.ok가 없으면 버리고 다시 연결한다
+  setTimeout(() => {
+    if (current !== generation || memberId || !socket) return;
+    const stuck = socket; stuck.onopen = stuck.onmessage = stuck.onerror = stuck.onclose = null; try { stuck.close(); } catch {} socket = null;
+    status('연결이 늦어 다시 시도 중…', 'error'); renderControls();
+    retryTimer = setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++) + Math.random() * 300);
+  }, 8000);
+  socket.onopen =() => { if (current === generation && credentials) socket.send(JSON.stringify({ type: 'auth', token: credentials.token, roomId: credentials.roomId })); };
   socket.onmessage = event => {
     if (current !== generation) return;
     let message; try { message = JSON.parse(event.data); } catch { return; }
@@ -64,7 +78,7 @@ function connect() {
       renderControls();
     } else if (message.type === 'error') {
       result(describe(message.error?.code || 'UNKNOWN_ERROR'));
-      if (['AUTH_EXPIRED', 'AUTH_REQUIRED', 'ROOM_NOT_FOUND', 'NOT_A_MEMBER'].includes(message.error?.code)) { reset(); showLogin('인증이 끝남. 새 코드로 다시 참가해 주세요.'); }
+      if (['AUTH_EXPIRED', 'AUTH_REQUIRED', 'ROOM_NOT_FOUND', 'NOT_A_MEMBER', 'NOT_MEMBER', 'PARTY_CLOSED'].includes(message.error?.code)) { reset(); showLogin(inviteToken ? '이전 파티는 끝났음. 새 QR로 참가해 주세요.' : '인증이 끝남. 새 코드로 다시 참가해 주세요.'); }
     }
   };
   socket.onerror = () => { if (current === generation) status('연결 상태 확인 중…', 'error'); };
@@ -88,14 +102,18 @@ function readInviteFragment() {
   $('access-key').closest('label').hidden = true;
   $('invite-notice').hidden = false;
   $('join-description').textContent = '차량 QR로 연결됩니다. 닉네임과 좌석을 선택해 참가 요청을 보내 주세요.';
-  if (credentials) result('새 QR을 받았음. 현재 파티에서 탈퇴한 뒤 새 파티에 참가해 주세요.');
+  if (credentials) result('이미 참가한 자리로 다시 연결함. 다른 파티에 들어가려면 먼저 탈퇴해 주세요.');
 }
+const restored = savedSession();
+if (restored) { credentials = restored; $('login-panel').hidden = true; $('game').hidden = false; result('다시 연결하는 중…'); connect(); }
 readInviteFragment();
 window.addEventListener('hashchange', readInviteFragment);
 function showLogin(message = '') { $('login-panel').before($('account-panel')); $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
 function useTicket(joined) {
   reset(); credentials = {token:joined.token,roomId:joined.roomId}; room=joined.room; receivedAt=Date.now();
-  waitingForApprovedTicket = Boolean(joined.pending && window.PHONE_ACCOUNT?.isAccountMode());
+  const accountMode = window.PHONE_ACCOUNT?.isAccountMode();
+  if (!accountMode) saveSession();
+  waitingForApprovedTicket = Boolean(joined.pending && accountMode);
   nearbySpots = [];
   lastMapFetch = null;
   venueStatus = null;
@@ -680,8 +698,10 @@ function drawRadar() {
     ctx.fillStyle = '#e2eff6'; ctx.font = '18px sans-serif'; ctx.fillText(zombie.hp <= 0 ? '✓' : zombie.hp + ' HP', x, y + 36);
   }
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden && credentials && (!socket || socket.readyState > WebSocket.OPEN)) { clearTimeout(retryTimer); connect(); } });
-window.addEventListener('online', () => { if (credentials && (!socket || socket.readyState > WebSocket.OPEN)) connect(); });
-window.addEventListener('pageshow', () => { if (credentials && (!socket || socket.readyState > WebSocket.OPEN)) connect(); });
+// 화면으로 돌아오면 열려 있지 않은 연결(멈춘 연결 포함)은 바로 다시 붙인다
+const notLive = () => credentials && (!socket || socket.readyState !== WebSocket.OPEN);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && notLive()) { clearTimeout(retryTimer); connect(); } });
+window.addEventListener('online', () => { if (notLive()) connect(); });
+window.addEventListener('pageshow', () => { if (notLive()) connect(); });
 window.addEventListener('pagehide', () => { if (socket) socket.close(); });
 setInterval(() => { if (room) renderControls(); }, 1000);

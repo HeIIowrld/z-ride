@@ -14,6 +14,12 @@ const FILES = new Map([
   ['/play/demo', ['demo.html', 'text/html; charset=utf-8']],
   ['/play/demo/', ['demo.html', 'text/html; charset=utf-8']],
   ['/play/demo.js', ['demo.js', 'text/javascript; charset=utf-8']],
+  ['/play/arena.js', ['arena.js', 'text/javascript; charset=utf-8']],
+  ['/play/arena.css', ['arena.css', 'text/css; charset=utf-8']],
+  ['/play/car', ['car.html', 'text/html; charset=utf-8']],
+  ['/play/car.js', ['car.js', 'text/javascript; charset=utf-8']],
+  ['/play/car.css', ['car.css', 'text/css; charset=utf-8']],
+  ['/play/qr.js', ['qr.js', 'text/javascript; charset=utf-8']],
 ]);
 
 /** PHONE client: account tokens in tab sessionStorage, play tokens in memory. */

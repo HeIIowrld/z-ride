@@ -36,3 +36,5 @@
 .journey-digits button { flex: 1; }
 #journey-venue button { margin: 4px; }
 #join-form .form-row{grid-template-columns:minmax(0,1fr)}
+
+button, input, select { touch-action: manipulation; }

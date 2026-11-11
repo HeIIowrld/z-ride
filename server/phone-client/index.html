@@ -2,12 +2,14 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#09121b">
   <title>Z-RIDE · 동승자</title>
   <link rel="stylesheet" href="/play/style.css">
   <script src="/play/account.js" defer></script>
+  <link rel="stylesheet" href="/play/arena.css">
   <script src="/play/app.js" defer></script>
+  <script src="/play/arena.js" defer></script>
   <script src="/play/config.js"></script>
 </head>
 <body>
@@ -80,6 +82,7 @@
         <details id="journey-party"><summary>파티 정보와 연습 기능</summary>
         <div class="status-grid"><article class="panel stat"><span>공동 전투</span><strong id="battle-state">대기</strong><small id="battle-reason"></small></article><article class="panel stat"><span>공동 보급품</span><strong><b id="supplies">0</b><em>개</em></strong><small id="support-state">차량 지원 대기</small></article></div>
         <section class="panel battle-panel">
+          <button id="arena-open" class="primary arena-open" type="button" hidden>1인칭 전투 화면 열기 <span>⌖</span></button>
           <div class="section-heading"><h2>내 방어 구역</h2><span id="sector-label" class="pill"></span></div>
           <div class="radar-wrap"><canvas id="radar" width="600" height="600" aria-label="차량 기준 방어 구역과 좀비 위치"></canvas><span class="radar-caption">전방 0° · 오른쪽 +90° · 후방 ±180°</span></div>
           <div id="targets" class="targets"></div>
@@ -96,7 +99,29 @@
       </section>
       <p id="action-result" class="action-result" role="status" aria-live="polite"></p>
     </section>
-    <footer>Z-RIDE</footer>
+    <section id="arena" class="arena" hidden aria-label="1인칭 전투 화면">
+      <canvas id="arena-canvas" aria-label="차량 주변 360도 전투 시야"></canvas>
+      <div class="arena-top">
+        <button id="arena-close" type="button" class="arena-chip">← 나가기</button>
+        <span id="arena-seat" class="arena-chip quiet"></span>
+        <button id="arena-calibrate" type="button" class="arena-chip">폰 돌리기 모드</button>
+      </div>
+      <div class="arena-stats">
+        <div><small>조준</small><b id="arena-angle">0°</b></div>
+        <div><small>내 구역 좀비</small><b id="arena-left">0</b></div>
+        <div><small>보급품</small><b id="arena-supplies">0</b></div>
+        <div id="arena-buff" class="buff" hidden><small>차량 지원</small><b>피해 UP</b></div>
+      </div>
+      <p id="arena-note" class="arena-note" role="status" aria-live="polite"></p>
+      <div id="arena-lock" class="arena-lock"><p id="arena-lock-text">차량에서 전투 시작을 기다리는 중</p></div>
+      <span id="arena-mode" class="arena-mode">스틱으로 상하좌우 조준 · 화면 톡 = 사격</span>
+      <div class="arena-bottom">
+        <div id="arena-stick" class="arena-stick" role="slider" aria-label="조준 조이스틱" aria-valuemin="-180" aria-valuemax="180"><span id="arena-knob" class="arena-knob"></span></div>
+        <button id="arena-fire" type="button" class="arena-fire" aria-label="사격">사격</button>
+      </div>
+    </section>
+    <div id="item-toast" class="item-toast" hidden role="status" aria-live="polite"><span id="item-toast-icon"></span><div><b id="item-toast-title"></b><p id="item-toast-text"></p></div></div>
+    <footer>Z-RIDE <a href="/observer">관제 ↗</a></footer>
   </main>
 </body>
 </html>
