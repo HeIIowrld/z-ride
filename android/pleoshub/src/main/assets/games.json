@@ -1,0 +1,34 @@
+[
+  {
+    "id": "electric-thief",
+    "title": "전기 도둑",
+    "scene": "CHARGING",
+    "players": "2–4명",
+    "summary": "충전하는 동안 숨은 전기 도둑을 찾아요",
+    "url": "http://10.0.2.2:8210/"
+  },
+  {
+    "id": "charge-relay",
+    "title": "충전 릴레이",
+    "scene": "CHARGING",
+    "players": "2–4명",
+    "summary": "그림과 답을 돌려 가며 전달해요",
+    "url": "http://10.0.2.2:8200/"
+  },
+  {
+    "id": "parking-escape",
+    "title": "주차장 좀비 탈출",
+    "scene": "PARKED",
+    "players": "준비 중",
+    "summary": "장우진",
+    "url": null
+  },
+  {
+    "id": "on-the-road",
+    "title": "이동 중 게임",
+    "scene": "DRIVING",
+    "players": "준비 중",
+    "summary": "박지원",
+    "url": null
+  }
+]
