@@ -28,7 +28,6 @@
 import { TAU, dist2, damp } from './math.js';
 import { makeRng } from './rng.js';
 import { T } from './constants.js';
-import { keepOutOfVehicle } from './vehicle-defense.js';
 
 export const PROP_TYPES = {
   block:   { minR: 1.2, maxR: 2.2, minH: 1.4, maxH: 3.4, cover: true },
@@ -42,7 +41,6 @@ export class World {
     this.seed = seed >>> 0;
     this.radius = opts.radius ?? T.arena.radius;
     this.propCount = opts.propCount ?? T.arena.propCount;
-    this.vehicleDefense = !!opts.vehicleDefense;
     this.symmetric = !!opts.symmetric;   // PvP arenas mirror, so no team gets the good side
     this.props = [];
     for (let i = 0; i < this.propCount; i++) {
@@ -130,7 +128,6 @@ export class World {
         o.z += dz * push;
       }
     }
-    if (this.vehicleDefense) keepOutOfVehicle(o, radius);
     const d2c = o.x * o.x + o.z * o.z;
     const lim = this.radius - radius;
     if (d2c > lim * lim) {

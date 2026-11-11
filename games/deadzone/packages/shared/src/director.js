@@ -129,7 +129,6 @@ export class Director {
     sim.world.layout(this.wave, false);
     sim.world.rise();
     sim.flow.bakeCost(sim.world);
-    sim.defense?.startWave(sim);
   }
 
   /** Composition weights shift with what the party has built, so the game

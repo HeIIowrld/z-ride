@@ -1,6 +1,7 @@
 # Z-RIDE DEADZONE — 웹앱·차량 대시보드 인계
 
-2026-11-11. OVERRUN 기반의 독립 프로토타입. 원본 Apache-2.0 LICENSE와 NOTICE를 유지한다.
+2026-11-06. OVERRUN 기반의 로컬 개발 버전. 원본 Apache-2.0 LICENSE를 유지한다.
+TOSIOS는 보류. 기존 Pleos 첫 연결 앱 및 HeIIowrld/z-ride 저장소에는 아직 병합하지 않았다.
 
 ## 실행과 화면
 
@@ -27,11 +28,7 @@
 방 생성 시 정원과 난이도를 고정한다. 전원이 참가하고 준비해야 시작한다. 연결 끊김으로 난이도를 낮출 수 없다.
 좀비 HP는 기존 웨이브 증가 규칙을 유지하고 인원별로 불필요하게 배가하지 않는다.
 기본 적을 직접 작성한 저폴리 좀비 모델로 바꾸고, 기존 AI의 추적·근접·원거리·변이·보스 패턴을 유지했다.
-DEADZONE 협동 방과 로컬 AI 체험의 목표는 주차장 중앙의 팀 차량을 세 웨이브 동안 방어하는 것이다.
-일부 근접 좀비가 차를 공격하며, 차량 내구도가 0이면 작전에 실패한다.
-청록색 퓨즈를 한 번에 하나씩 차 뒤 노란 구역으로 가져오면 팀 보관함에 자동으로 들어간다.
-트렁크 근처에서 퓨즈 1개로 내구도 40을 회복하거나, 게임 속 헤드라이트를 3초간 켜서 전방 좀비를 멈출 수 있다.
-폰은 버튼, 키보드는 R/T를 사용한다. 이 효과는 게임 시뮬레이션 안에서만 발생한다.
+주차 구획과 차선은 시각 연출이다. 외곽 차량은 전투 경계 밖에 있으며 충돌 가능한 방어물이라고 표현하지 않는다.
 게임 안 보급품·회복·점수와 웨이브 업그레이드는 원본 시뮬레이션을 사용한다.
 기존 Z-RIDE 이동 중 지도 수집/영속 재고 API는 아직 연결하지 않았다.
 
@@ -67,8 +64,6 @@ QR에는 joinPath만 넣는다. dashboardToken은 관전자 권한이고 QR이�
 - `players[]`: id, name, ready, connected, hp/maxHp/shield, down, alive, kills, score, x/z. 경기 전 HP는 null이다.
 - `enemies[]`: 게임 평면의 x/z, kind. 실제 위치/GPS가 아니다.
 - `pickups[]`: 게임 내부 보급품. Z-RIDE 영속 소지품과 다르다.
-- `defense`: 방어전의 게임 상태. `hp`, `maxHp`, `fuses`, `flash`(남은 초), `carriers`(운반 중인 플레이어 ID 배열). 기존 경기나 아직 생성되지 않은 시뮬레이션은 null.
-- `outcome`: 종료 사유. 차량 방어 성공은 `vehicle_defended`, 파괴는 `vehicle_destroyed`, 전원 전투 불능은 `wipe`.
 - `vehicle`: source=unconnected, parked=null, controlsEnabled=false. 서버가 실제 주차 상태를 추정하지 않는다.
 
 현재 결과·순위는 해당 경기의 실시간 순위다. 과거 전체 순위/계정 보상은 연결하지 않았다.
@@ -97,7 +92,6 @@ Android 표준 API만 사용한다. 앱 팀이 정한 HTTPS origin의 dashboard 
 
 ## 검증
 
-- `node tools/test-vehicle-defense.mjs`: 퓨즈 운반·재접속 전 드롭·수리·헤드라이트·3웨이브·상태 직렬화.
 - `node tools/test-zride.mjs`: 인원 유효성, 1~4인 난이도, 연결 끊김 후 고정 배율, 대시보드 계약.
 - 서버 실행 후 `BASE=http://127.0.0.1:8788 node tools/test-zride-live.mjs`: 실제 HTTP/WS 1~4인 참가, 정원 초과 거부, 전원 준비 조건, 웨이브 시작, 관전자 키.
 - `node tools/simtest.mjs`: 기존 시뮬레이션과 입력/스냅샷 프로토콜 회귀 검증.
@@ -111,4 +105,5 @@ Android 표준 API만 사용한다. 앱 팀이 정한 HTTPS origin의 dashboard 
 ## 좀비 외형 보강 및 Pleos 확인
 
 `/infected.html`에서 게임에 쓰는 실제 네 종류의 3D 모델·GPU 보행을 볼 수 있다. 게임의 좀비와 같은 렌더 모듈을 사용한다.
-에뮬레이터 확인용 소스는 `integrations/pleos/dashboard-preview/`에 있다. 빌드 방법은 게임 디렉터리의 README를 참고한다.
+에뮬레이터 확인용 APK와 별도 모듈은 워크스페이스의 `dashboard-preview/`에 있다. 기존 Pleos 첫 연결 APK는 교체하지 않았다.
+실제 확인 화면·앱 로그·서버 관측은 `artifacts/zride-deadzone-20261106/pleos-dashboard-live.png`, `pleos-dashboard-logcat.txt`, `pleos-server-observation.json`에 저장한다. 방 관전자 토큰은 공유 소스에 포함하지 않는다.

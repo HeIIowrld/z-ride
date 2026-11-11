@@ -44,6 +44,7 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import { partySize, dashboardSnapshot } from '../../shared/src/zride.js';
+import { allowsSeatAim, relativeSeatAim } from '../../shared/src/seat-aim.js';
 
 import { Sim } from '../../shared/src/sim.js';
 import { ABILITIES } from '../../shared/src/abilities.js';
@@ -125,9 +126,36 @@ export class MatchRoom extends DurableObject {
       if (this.room.dashboardToken) return Response.json({error:'already_configured'}, {status:409});
       this.room.targetPlayers = partySize(body.players);
       this.room.dashboardToken = body.dashboardToken;
+      this.room.sharedVehicle = body.sharedVehicle === true;
+      if (body.partySeats !== undefined) {
+        if (!Array.isArray(body.partySeats) || body.partySeats.length !== this.room.targetPlayers ||
+            body.partySeats.some(entry => !entry || !/^[0-9a-f-]{36}$/.test(entry.ticket) ||
+              !['FRONT_PASSENGER','REAR_LEFT','REAR_RIGHT'].includes(entry.seat)) ||
+            new Set(body.partySeats.map(entry => entry.seat)).size !== body.partySeats.length ||
+            new Set(body.partySeats.map(entry => entry.ticket)).size !== body.partySeats.length)
+          return Response.json({error:'invalid_party_seats'}, {status:400});
+        this.room.partySeats = body.partySeats;
+      }
       await this.ctx.storage.put('room', this.room);
       await this.report();
       return Response.json({ok:true});
+    }
+    if (path === '/internal/zride/repair' && request.method === 'POST') {
+      if (!this.room?.dashboardToken || request.headers.get('x-dashboard-token') !== this.room.dashboardToken)
+        return Response.json({error:'forbidden'}, {status:403});
+      const { wave, runId } = await request.json();
+      const sim = this.sim;
+      const vehicle = sim?.sharedVehicle;
+      if (!vehicle || this.room.runId !== runId || !Number.isSafeInteger(wave))
+        return Response.json({ applied: false });
+      if (vehicle.repairedWave === wave) return Response.json({ applied: true });
+      if (this.room.state !== 'playing' || sim.director.wave !== wave ||
+          !['valley', 'choice'].includes(sim.director.phase) || vehicle.hp <= 0 || vehicle.hp >= vehicle.maxHp)
+        return Response.json({ applied: false });
+      vehicle.hp = Math.min(vehicle.maxHp, vehicle.hp + 60);
+      vehicle.repairedWave = wave;
+      for (const rider of sim.players) rider.hp = rider.maxHp * vehicle.hp / vehicle.maxHp;
+      return Response.json({ applied: true });
     }
     if (path === '/internal/zride/status') {
       if (!this.room?.dashboardToken || request.headers.get('x-dashboard-token') !== this.room.dashboardToken)
@@ -232,7 +260,6 @@ export class MatchRoom extends DurableObject {
       switch (type) {
         case MSG.HELLO: return this.onHello(ws, decodeJson(r) || {});
         case MSG.INPUT: return this.onInput(ws, r);
-        case MSG.VEHICLE_ACTION: return this.onVehicleAction(ws, decodeJson(r));
         case MSG.PING: return this.onPing(ws, decodeJson(r) || {});
         case MSG.CHAT: return this.onChat(ws, decodeJson(r) || {});
         case MSG.PICK: return this.onPick(ws, decodeJson(r) || {});
@@ -249,7 +276,14 @@ export class MatchRoom extends DurableObject {
     if (att.playerId) return;   // HELLO is once per socket
 
     const def = MODES[this.room.mode] || MODES.coop;
-    const name = cleanName(body.name);
+    const rider = this.room.partySeats?.find(entry => entry.ticket === body.partyTicket);
+    if (this.room.partySeats && (!rider || this.ctx.getWebSockets().some(other =>
+        other !== ws && other.deserializeAttachment()?.partySeat === rider.seat))) {
+      this.send(ws, encodeJson(MSG.KICK, {reason:'party_seat_required'}));
+      ws.close(4003, 'Approved party seat required'); return;
+    }
+    if (rider) att.token = rider.ticket;
+    const name = cleanName(rider?.name ?? body.name);
     const skin = clampInt(body.skin, 0, 15);
     const authId = typeof body.authId === 'string' ? body.authId.slice(0, 64) : null;
 
@@ -283,9 +317,11 @@ export class MatchRoom extends DurableObject {
       }
     }
 
-    ws.serializeAttachment({ ...att, playerId, name, skin, authId, ready: false });
+    ws.serializeAttachment({ ...att, playerId, name, skin, authId, partySeat: rider?.seat, ready: false });
 
     this.send(ws, encodeJson(MSG.WELCOME, {
+      ...(rider ? { partySeat: rider.seat } : {}),
+      ...(this.room.sharedVehicle ? { sharedVehicle: true } : {}),
       playerId,
       code: this.room.code,
       seed: this.room.seed,
@@ -319,16 +355,13 @@ export class MatchRoom extends DurableObject {
     if (reader.left < 7) return;
 
     const input = decodeInput(reader);
+    if (att.partySeat) {
+      input.fire = input.fire && allowsSeatAim(att.partySeat, relativeSeatAim(this.sim.matchTime, input.ax, input.az));
+      input.ab0 = input.ab1 = false;
+    }
     // Straight into the Sim. Every field is an intent; the simulation clamps
     // movement, decides the fire rate, and owns the dash charges.
     this.sim.setInput(att.playerId, input);
-  }
-
-  onVehicleAction(ws, body) {
-    if (this.room.state !== 'playing' || !this.sim?.defense || this.sim.over ||
-      this.sim.director.phase === 'choice' || !this.allowInput(ws)) return;
-    const p = this.sim.playerById(ws.deserializeAttachment()?.playerId);
-    this.sim.defense.use(p, body?.action);
   }
 
   onPing(ws, body) {
@@ -403,7 +436,7 @@ export class MatchRoom extends DurableObject {
     // Fresh Sim per match so a rematch cannot inherit last match's upgrades,
     // corpses or half-finished wave. The seed moves with the rematch counter,
     // which is why the arena is different the second time around.
-    this.sim = this.createSim();
+    this.sim = new Sim({ seed: this.matchSeed(), mode: this.room.mode, partySize: this.room.targetPlayers, authoritative: true, sharedVehicle: this.room.sharedVehicle });
     this.bots.clear();
     this.choices.clear();
     this.choiceWave = -1;
@@ -411,7 +444,8 @@ export class MatchRoom extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       const att = ws.deserializeAttachment();
       if (!att || !att.playerId) continue;
-      this.sim.addPlayer(att.playerId, { name: att.name, skin: att.skin, bot: false });
+      const rider = this.sim.addPlayer(att.playerId, { name: att.name, skin: att.skin, bot: false });
+      rider.partySeat = att.partySeat;
     }
     if (def.pvp) {
       this.sim.rebalanceTeams();
@@ -420,6 +454,7 @@ export class MatchRoom extends DurableObject {
     }
     if (this.sim.mode.waves) this.sim.director.startWave();
 
+    this.room.runId = crypto.randomUUID();
     this.room.state = 'playing';
     this.save();
     this.report();
@@ -530,7 +565,6 @@ export class MatchRoom extends DurableObject {
 
       const sim = this.sim;
       driveBots(sim, DT);
-      if (sim.defense) sim.world.animate(DT);
       sim.step(DT);
       this.stepChoice();
 
@@ -753,11 +787,14 @@ export class MatchRoom extends DurableObject {
       out.push({
         id: att.playerId, name: att.name, skin: att.skin,
         ready: !!att.ready, bot: false, connected: true,
+        ...(att.partySeat ? { partySeat: att.partySeat } : {}),
         team: p ? p.team : 0
       });
     }
     for (const g of this.ghosts.values()) {
-      out.push({ id: g.playerId, name: g.name, skin: g.skin, ready: false, bot: false, connected: false, team: 0 });
+      const seat = this.sim?.playerById(g.playerId)?.partySeat;
+      out.push({ id: g.playerId, name: g.name, skin: g.skin, ready: false, bot: false, connected: false, team: 0,
+        ...(seat ? { partySeat: seat } : {}) });
     }
     for (const id of this.bots) {
       const p = this.sim && this.sim.playerById(id);
@@ -873,15 +910,8 @@ export class MatchRoom extends DurableObject {
   ensureSim() {
     // Built lazily so a lobby can hand out world geometry without paying for a
     // simulation nobody is stepping yet.
-    if (!this.sim) this.sim = this.createSim();
+    if (!this.sim) this.sim = new Sim({ seed: this.matchSeed(), mode: this.room.mode, partySize: this.room.targetPlayers, authoritative: true });
     return this.sim;
-  }
-
-  createSim() {
-    return new Sim({
-      seed: this.matchSeed(), mode: this.room.mode, partySize: this.room.targetPlayers,
-      vehicleDefense: !!this.room.targetPlayers, authoritative: true
-    });
   }
 
   matchSeed() {

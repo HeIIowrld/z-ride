@@ -86,7 +86,14 @@ function connect() {
     if (current !== generation) return;
     memberId = null;
     if (pending) { clearTimeout(pending.timer); pending = null; result('연결이 끊김. 처리 결과는 재연결 후 보급품·좀비 HP로 확인해 주세요.'); }
-    if ([4401, 4403, 4409, 4410, 4412, 4413].includes(event.code)) { reset(); showLogin(event.code === 4412 ? '다른 화면에서 파티를 연결했음. 이 화면으로 돌아오려면 현재 파티 화면 연결을 눌러 주세요.' : event.code === 4413 ? '계정에서 로그아웃했음.' : event.code === 4410 ? '파티 상태가 바뀜. 계정 상태를 확인하거나 새 QR로 참가해 주세요.' : event.code === 4409 ? '다른 화면으로 연결이 옮겨짐. 한 참가자는 한 화면에서 접속해 주세요.' : '세션을 확인할 수 없음. 다시 참가해 주세요.'); if(event.code!==4413)window.PHONE_ACCOUNT?.sync(); return; }
+    if ([4401, 4403, 4409, 4410, 4412, 4413].includes(event.code)) {
+      const keepLegacySession = event.code === 4409 && !window.PHONE_ACCOUNT?.isAccountMode();
+      reset(!keepLegacySession);
+      if (keepLegacySession) { credentials = null; room = null; }
+      showLogin(event.code === 4412 ? '다른 화면에서 파티를 연결했음. 이 화면으로 돌아오려면 현재 파티 화면 연결을 눌러 주세요.' : event.code === 4413 ? '계정에서 로그아웃했음.' : event.code === 4410 ? '파티 상태가 바뀜. 계정 상태를 확인하거나 새 QR로 참가해 주세요.' : event.code === 4409 ? '다른 화면으로 연결이 옮겨짐. 한 참가자는 한 화면에서 접속해 주세요.' : '세션을 확인할 수 없음. 다시 참가해 주세요.');
+      if (event.code !== 4413) window.PHONE_ACCOUNT?.sync();
+      return;
+    }
     status('연결 끊김 · 자동 재연결 대기', 'error'); renderControls();
     if (credentials) retryTimer = setTimeout(connect, Math.min(15000, 1000 * 2 ** retry++) + Math.random() * 300);
   };

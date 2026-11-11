@@ -24,7 +24,6 @@
    which is what makes 60fps on a mid-range phone possible at all. */
 
 import * as THREE from 'three';
-import { TRUNK_Z, VEHICLE_HALF_LENGTH } from '@overrun/shared/vehicle-defense.js';
 import { concreteSet, steelSet, blobShadow, scorchDecal } from './textures.js';
 
 const TYPE_ORDER = ['block', 'pillar', 'crate', 'ramp'];
@@ -64,8 +63,6 @@ export class Arena {
       const roof=new THREE.Mesh(carRoof,new THREE.MeshStandardMaterial({color:0x263936,roughness:.3}));roof.position.set(0,1.65,-.1);car.add(roof);
       car.position.set(Math.cos(a)*r,0,Math.sin(a)*r);car.rotation.y=-a;scene.add(car);
     }
-
-    if (this.world.vehicleDefense) this.buildTeamVehicle();
 
     // Arena markings live on their own non-tiling decal. Painting them into
     // the concrete texture would repeat them once per tile — a dozen centre
@@ -223,71 +220,8 @@ export class Arena {
 
   /* --------------------------------------------------------------- UPDATE */
 
-  buildTeamVehicle() {
-    const vehicle = new THREE.Group();
-    const paint = new THREE.MeshStandardMaterial({ color: 0x91b94d, metalness: 0.52, roughness: 0.38 });
-    const trim = new THREE.MeshStandardMaterial({ color: 0x161e20, roughness: 0.83 });
-    const glass = new THREE.MeshStandardMaterial({ color: 0x23383d, metalness: 0.54, roughness: 0.28 });
-    const lamps = new THREE.MeshStandardMaterial({ color: 0xd8f9ff, emissive: 0x9feaff, emissiveIntensity: 0.5 });
-    const tail = new THREE.MeshStandardMaterial({ color: 0xff5341, emissive: 0xdc2818, emissiveIntensity: 0.8 });
-    const box = (material, w, h, d, x, y, z) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-      mesh.position.set(x, y, z);
-      mesh.castShadow = true;
-      vehicle.add(mesh);
-      return mesh;
-    };
-
-    box(trim, 2.8, 0.58, 5.2, 0, 0.59, 0);
-    box(paint, 2.74, 0.62, 5.08, 0, 1.02, 0);
-    box(paint, 2.35, 0.28, 1.38, 0, 1.42, -1.77).rotation.x = 0.1;
-    box(glass, 2.25, 0.68, 2.78, 0, 1.64, 0.28);
-    box(paint, 2.28, 0.23, 2.43, 0, 2.02, 0.36);
-    box(trim, 1.25, 0.2, 0.18, 0, 1, VEHICLE_HALF_LENGTH - 0.08);
-    for (const side of [-1, 1]) {
-      box(lamps, 0.72, 0.24, 0.13, side * 0.9, 1.14, -2.57);
-      box(tail, 0.72, 0.19, 0.13, side * 0.91, 1.18, 2.57);
-      box(trim, 0.08, 0.12, 2.66, side * 0.82, 2.18, 0.28);
-      box(paint, 0.37, 0.22, 0.36, side * 1.29, 1.6, -0.75);
-      for (const z of [-1.65, 1.64]) {
-        const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.53, 0.3, 12), trim);
-        tire.rotation.z = Math.PI / 2;
-        tire.position.set(side * 1.26, 0.52, z);
-        tire.castShadow = true;
-        vehicle.add(tire);
-      }
-    }
-    this.teamPaint = paint;
-    this.headlamps = lamps;
-    this.group.add(vehicle);
-
-    const trunk = new THREE.Mesh(new THREE.RingGeometry(1.7, 1.88, 36),
-      new THREE.MeshBasicMaterial({ color: 0xffc959, side: THREE.DoubleSide }));
-    trunk.rotation.x = -Math.PI / 2;
-    trunk.position.set(0, 0.06, TRUNK_Z);
-    this.group.add(trunk);
-
-    const geometry = new THREE.BufferGeometry();
-    const front = -VEHICLE_HALF_LENGTH;
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute([
-      -2.2, 0.06, front, 2.2, 0.06, front, 11.5, 0.06, front - 15,
-      -2.2, 0.06, front, 11.5, 0.06, front - 15, -11.5, 0.06, front - 15
-    ], 3));
-    this.headlightBeam = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-      color: 0xb8f3ff, transparent: true, opacity: 0.2, depthWrite: false,
-      side: THREE.DoubleSide, blending: THREE.AdditiveBlending
-    }));
-    this.headlightBeam.visible = false;
-    this.group.add(this.headlightBeam);
-  }
-
-  update(dt, shrinkRadius, defense) {
+  update(dt, shrinkRadius) {
     this.world.animate(dt);
-    if (this.headlightBeam && defense) {
-      this.headlightBeam.visible = defense.flash > 0;
-      this.headlamps.emissiveIntensity = defense.flash > 0 ? 3 : 0.5;
-      this.teamPaint.color.setHex(defense.hp / defense.maxHp <= 0.35 ? 0xbc694b : 0x91b94d);
-    }
     this.beaconTime=(this.beaconTime||0)+dt;
     this.beacons.forEach((b,i)=>b.material.color.setRGB(1,.18,.035).multiplyScalar(.45+.55*Math.max(0,Math.sin(this.beaconTime*5+i))));
 

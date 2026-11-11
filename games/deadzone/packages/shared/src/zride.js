@@ -27,7 +27,8 @@ export function dashboardSnapshot(room, sim, roster, now = Date.now()) {
     kills: players.reduce((s,p) => s+p.kills,0), players,
     enemies: (snapshot?.enemies || []).map(e => ({x:e.x,z:e.z,kind:e.k})),
     pickups: snapshot?.pickups || [], arenaRadius: sim?.arenaRadius || 46,
-    defense: snapshot?.defense ?? null, outcome: snapshot?.over?.reason ?? null,
-    vehicle: { source: 'unconnected', parked: null, controlsEnabled: false },
+    vehicle: sim?.sharedVehicle ? { hp: Math.ceil(sim.sharedVehicle.hp), maxHp: sim.sharedVehicle.maxHp, repairedWave: sim.sharedVehicle.repairedWave ?? null }
+      : { source: 'unconnected', parked: null, controlsEnabled: false },
+    runId: room.runId ?? null,
     timestamp: now };
 }

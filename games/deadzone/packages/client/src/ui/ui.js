@@ -222,10 +222,11 @@ export class UI {
     if (!p) return;
 
     const maxSh = v.maxShield ?? p.maxShield ?? T.player.shield;
-    this.scale('hpFill', clamp(p.hp / (p.maxHp || 100), 0, 1));
-    this.scale('shFill', maxSh > 0 ? clamp(p.shield / maxSh, 0, 1) : 0);
-    this.setHtml('hpNum', `<b>${Math.ceil(p.hp)}</b>/${Math.round(p.maxHp || 100)}` +
-      (p.shield > 0.5 ? ` <span style="color:var(--ice)">+${Math.ceil(p.shield)}</span>` : ''));
+    const hp = v.vehicle?.hp ?? p.hp, maxHp = v.vehicle?.maxHp || p.maxHp || 100;
+    this.scale('hpFill', clamp(hp / maxHp, 0, 1));
+    this.scale('shFill', !v.vehicle && maxSh > 0 ? clamp(p.shield / maxSh, 0, 1) : 0);
+    this.setHtml('hpNum', `${v.vehicle ? '차량 내구도 ' : ''}<b>${Math.ceil(hp)}</b>/${Math.round(maxHp)}` +
+      (!v.vehicle && p.shield > 0.5 ? ` <span style="color:var(--ice)">+${Math.ceil(p.shield)}</span>` : ''));
     this.set('score', (v.score || 0).toLocaleString());
 
     // combo ladder — only the rungs that actually changed state

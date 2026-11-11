@@ -182,7 +182,6 @@ export class NetClient {
     this.send(encodeJson(MSG.PING, { t: performance.now() }));
   }
 
-  sendVehicleAction(action) { this.send(encodeJson(MSG.VEHICLE_ACTION, { action })); }
   sendPick(pick) { this.send(encodeJson(MSG.PICK, pick)); }
   sendReady(ready) { this.send(encodeJson(MSG.READY, { ready })); }
   sendChat(text) { this.send(encodeJson(MSG.CHAT, { text })); }

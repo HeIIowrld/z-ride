@@ -36,8 +36,9 @@
 import * as THREE from 'three';
 import QRCode from 'qrcode';
 import { dashboardSnapshot, difficultyFor } from '@overrun/shared/zride.js';
+import { allowsSeatAim, relativeSeatAim, seatSectors } from '@overrun/shared/seat-aim.js';
+import { CABIN, VEHICLE_SEATS, vehiclePoint, vehiclePose, windowMuzzle } from '@overrun/shared/vehicle.js';
 import { Sim } from '@overrun/shared/sim.js';
-import { DEFENSE_WAVES, nearTrunk } from '@overrun/shared/vehicle-defense.js';
 import { T, TEAM_NAMES } from '@overrun/shared/constants.js';
 import { EV } from '@overrun/shared/events.js';
 import { WEAPONS, ENEMY_TYPES, COL } from '@overrun/shared/defs.js';
@@ -53,6 +54,7 @@ import { Swarm } from './render/swarm.js';
 import { Particles, Rings, Quads, DamageNumbers } from './render/vfx.js';
 import { CameraRig } from './render/camera.js';
 import { buildHumanoid, buildWeapon, Animator } from './render/characters.js';
+import { aimMountedWeapon, buildVehicle } from './render/vehicle.js';
 import { AudioEngine } from './audio/audio.js';
 import { Input, haptic, HAPTIC, setHaptics } from './input/input.js';
 import { UI } from './ui/ui.js';
@@ -85,7 +87,6 @@ class App {
   constructor() {
     this.practiceChannel = new BroadcastChannel('zride.practice.v1');
     this.lastDashboardFrame = 0;
-    this.vehicleHud = null;
     this.state = 'boot';
     this.mode = MODES.coop;
     this.online = false;
@@ -150,10 +151,6 @@ class App {
     this.audio = new AudioEngine(Settings);
     this.net = null;
 
-    this.vehicleHud = Object.fromEntries(
-      ['Hud', 'Wave', 'Hp', 'HpFill', 'Hint', 'Repair', 'Lights'].map(key =>
-        [key, document.getElementById('vehicle' + key)])
-    );
     this.bindUI();
     this.buildModeGrid();
     this.buildHowTo();
@@ -303,7 +300,7 @@ class App {
     host.innerHTML = `
       <div class="mission-kicker"><span class="live-dot"></span> PARKING LOT · CO-OP SURVIVAL</div>
       <h2>함께 버티는<br><em>마지막 주차장.</em></h2>
-      <p class="mission-copy">퓨즈를 모아 주차장에 남은 우리 차를 지키세요.<br>세 웨이브를 버티면 작전 성공입니다.</p>
+      <p class="mission-copy">좀비의 포위를 뚫고 보급품을 모으세요.<br>폰을 연결하면, 우리 차가 팀의 작전실이 됩니다.</p>
       <label class="field-label" for="survivorName">생존자 이름</label>
       <input id="survivorName" maxlength="18" placeholder="생존자" autocomplete="nickname">
       <div class="field-head"><span>함께할 인원</span><small>1–4 PLAYERS</small></div>
@@ -333,7 +330,6 @@ class App {
     const touch = matchMedia('(pointer: coarse)').matches;
     document.getElementById('howBody').innerHTML = `
       <h4>THE ONLY RULE</h4>
-      <p>우리 차를 3웨이브 동안 지키세요. 청록색 퓨즈를 주워 노란 트렁크 구역까지 가져오면 팀 보관함에 들어갑니다. 트렁크 옆에서 수리(R) 또는 헤드라이트(T)에 퓨즈를 쓰세요.</p>
       <p>Standing still is how you die. Everything in this game is designed around movement — your dash has invulnerability frames, your shield only regenerates when you disengage, and the arena rebuilds its cover between every wave.</p>
       <h4>CONTROLS</h4>
       <p>${touch
@@ -371,13 +367,6 @@ class App {
     on('readyBtn', () => { this._ready = !this._ready; if (this.net) this.net.sendReady(this._ready); });
     on('copyCodeBtn', () => this.copyInvite());
     on('shareBtn', () => this.shareInvite());
-    on('vehicleRepair', () => this.useVehicle('repair'));
-    on('vehicleLights', () => this.useVehicle('headlights'));
-    addEventListener('keydown', e => {
-      if (e.repeat || e.ctrlKey || e.altKey || e.metaKey || this.state !== 'play') return;
-      if (e.code === 'KeyR') this.vehicleHud.Repair.click();
-      if (e.code === 'KeyT') this.vehicleHud.Lights.click();
-    });
 
     this.ui.el.codeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.joinRoom(this.ui.el.codeInput.value.trim().toUpperCase());
@@ -386,29 +375,6 @@ class App {
     this.input.bindButton(document.getElementById('ab1'), () => { this.input.pendingAb[0] = true; });
     this.input.bindButton(document.getElementById('ab2'), () => { this.input.pendingAb[1] = true; });
     this.input.bindButton(document.getElementById('weapon'), () => { this.input.pendingWeaponCycle = true; });
-  }
-
-  useVehicle(action) {
-    if (this.state !== 'play') return;
-    if (this.online) this.net?.sendVehicleAction(action);
-    else this.sim.defense?.use(this.me, action);
-  }
-
-  updateVehicleHud(defense, view) {
-    const h = this.vehicleHud;
-    h.Hud.hidden = !defense || (this.state !== 'play' && this.state !== 'choice');
-    if (h.Hud.hidden) return;
-    const atTrunk = nearTrunk(view.player);
-    const carrying = defense.carriers.includes(this.localId);
-    const canUse = this.state === 'play' && atTrunk && view.player.alive && !view.player.down && defense.fuses > 0;
-    h.Wave.textContent = view.hudSim.wave + ' / ' + DEFENSE_WAVES + ' 웨이브';
-    h.Hp.textContent = defense.hp + ' / ' + defense.maxHp;
-    h.HpFill.style.width = (100 * defense.hp / defense.maxHp) + '%';
-    h.HpFill.classList.toggle('critical', defense.hp / defense.maxHp <= 0.35);
-    h.Hint.textContent = carrying ? '퓨즈 운반 중 · 노란 트렁크 구역으로' :
-      '보관 퓨즈 ' + defense.fuses + '개 · ' + (atTrunk ? '트렁크' : '청록색 퓨즈를 차 뒤로 운반');
-    h.Repair.disabled = !canUse || defense.hp >= defense.maxHp;
-    h.Lights.disabled = !canUse || defense.flash > 0;
   }
 
   onSettingChange(k) {
@@ -424,6 +390,11 @@ class App {
   /* --------------------------------------------------------- FLOW / STATE */
 
   toTitle() {
+    this.partySeat = null;
+    this.mounted = false;
+    if (this.vehicleModel) this.vehicleModel.visible = false;
+    document.body.classList.remove('mounted-combat');
+    document.getElementById('seatAim').hidden = true;
     this.ui.hideAllPanels();
     this.ui.panel('titleScreen', true);
     this.ui.el.hud.classList.add('hidden');
@@ -447,7 +418,7 @@ class App {
     await this.ensureAudio();
     this.online = false;
     this.mode = getMode(modeId);
-    this.sim = new Sim({ seed: (Math.random() * 0xffffffff) >>> 0, mode: modeId, partySize: this.selectedPlayers || 1, vehicleDefense: !this.mode.pvp });
+    this.sim = new Sim({ seed: (Math.random() * 0xffffffff) >>> 0, mode: modeId, partySize: this.selectedPlayers || 1 });
     this.rebuildArena();
 
     this.localId = 1;
@@ -489,7 +460,6 @@ class App {
     document.getElementById('minimap').classList.toggle('hidden', !Settings.minimap);
     this.run = { score: 0, rerolls: 1, time: 0, bestCombo: 0 };
     this.state = 'play';
-    this.matchWinner = null;
     this.accumulator = 0;
     this.audio.musicOn = true;
     this.audio.setLowHealth(false);
@@ -550,9 +520,8 @@ class App {
 
     setTimeout(() => {
       this.ui.showResults({
-        title: this.sim.defense && this.sim.over ? defenseTitle(this.sim.over) : this.mode.pvp ? (this.matchWinner === this.me.team ? 'VICTORY' : 'DEFEAT') : 'DEADZONE',
+        title: this.mode.pvp ? (this.matchWinner === this.me.team ? 'VICTORY' : 'DEFEAT') : 'DEADZONE',
         line: reason === 'quit' ? 'RUN ENDED'
-          : this.sim.defense && this.sim.over ? endReason(this.sim.over)
           : this.run.score > best - gained ? 'NEW BEST — THE ARENA REMEMBERS'
             : 'THE ARENA KEEPS THE SCORE',
         stats: [
@@ -641,16 +610,39 @@ class App {
       onKick: (k) => { this.toTitle(); this.ui.toast(k.reason==='full'?'팀 정원이 찼습니다. 다른 팀 코드를 확인해 주세요.':k.reason==='match_in_progress'?'진행 중인 경기입니다. 다음 경기에서 참가해 주세요.':'연결이 종료되었습니다. 다시 참가해 주세요.'); },
       onClose: () => { if (this.state !== 'title') this.ui.net(-1, 'off'); }
     });
-    this.net.connect(url, { name: Save.data.name || '생존자', skin: 0 });
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const ticketKey = 'deadzone.party-ticket:' + location.pathname;
+    const partyTicket = fragment.get('party') ?? sessionStorage.getItem(ticketKey);
+    if (fragment.has('party')) {
+      sessionStorage.setItem(ticketKey, partyTicket);
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+    this.net.connect(url, { name: Save.data.name || '생존자', skin: 0, partyTicket });
   }
 
   onWelcome(w) {
     this.serverState = null;
+    this.partySeat = Object.hasOwn(seatSectors, w.partySeat) ? w.partySeat : null;
+    this.mounted = !!this.partySeat && w.sharedVehicle === true;
+    this.riderSeats = new Map();
+    this.updateRiderSeats(w.players);
+    if (this.partySeat) this.riderSeats.set(w.playerId, { seat: this.partySeat, name: w.you?.name });
+    document.body.classList.toggle('mounted-combat', this.mounted);
+    const seatAim = document.getElementById('seatAim');
+    seatAim.hidden = true;
+    if (this.partySeat) {
+      const labels = { FRONT_PASSENGER: '조수석 · 전방 180°', REAR_LEFT: '뒤 왼쪽 · 후방 90°', REAR_RIGHT: '뒤 오른쪽 · 후방 90°' };
+      document.getElementById('seatAimTitle').textContent = labels[this.partySeat];
+      const [start, end] = seatSectors[this.partySeat];
+      const dial = document.getElementById('seatDial');
+      dial.style.setProperty('--sector-start', start + 'deg');
+      dial.style.setProperty('--sector-width', (end - start) + 'deg');
+    }
     this.localId = w.playerId;
     this.mode = getMode(w.mode);
     // Rebuild the world from the server's seed. Because layout is a pure
     // function of the seed, this costs one message and zero geometry.
-    this.sim = new Sim({ seed: w.seed, mode: w.mode, partySize: w.targetPlayers, vehicleDefense: !!w.targetPlayers, authoritative: false });
+    this.sim = new Sim({ seed: w.seed, mode: w.mode, partySize: w.targetPlayers, authoritative: false });
     this.rebuildArena();
     this.me = this.sim.addPlayer(w.playerId, { name: w.you && w.you.name, team: (w.you && w.you.team) || 0 });
     for (const p of w.players || []) {
@@ -661,10 +653,10 @@ class App {
   }
 
   onLobby(l) {
+    this.updateRiderSeats(l.players);
     if (l.reason === 'start') {
-      this.serverState = null;
       if (l.seed && l.seed !== this.sim.seed) {
-        this.sim = new Sim({ seed: l.seed, mode: this.mode.id, partySize: l.targetPlayers, vehicleDefense: !!l.targetPlayers, authoritative: false });
+        this.sim = new Sim({ seed: l.seed, mode: this.mode.id, authoritative: false });
         this.rebuildArena();
         this.me = this.sim.addPlayer(this.localId, { name: Save.data.name || 'YOU' });
       }
@@ -681,19 +673,22 @@ class App {
     });
   }
 
-  onSnapshot(s) {
-    if (s.defense && this.sim.director.wave !== s.wave) {
-      this.sim.director.wave = s.wave;
-      this.sim.world.layout(s.wave, false);
-      this.sim.world.rise();
+  updateRiderSeats(players = []) {
+    if (!this.partySeat) return;
+    for (const player of players) {
+      if (Object.hasOwn(VEHICLE_SEATS, player.partySeat)) {
+        this.riderSeats.set(player.id, { seat: player.partySeat, name: player.name });
+      }
     }
-    if (s.defense && s.phase === 'choice') this.sim.world.sink();
+  }
+
+  onSnapshot(s) {
     // Reconcile our own player against authority.
     const mine = s.players.find(p => p.id === this.localId);
     if (mine && this.me) {
       const pending = this.net.ackInputs(mine.seq);
       const err = Math.hypot(this.me.x - mine.x, this.me.z - mine.z);
-      if (err > T.net.reconcileSnap) {
+      if (this.mounted || err > T.net.reconcileSnap) {
         // Big divergence: something happened we did not predict (a knockback,
         // a teleport, a hit we did not see). Accept the server's word.
         this.me.x = mine.x; this.me.z = mine.z;
@@ -747,7 +742,7 @@ class App {
     const players = (e.results || []).map(p => ({ ...p, me: p.id === this.localId }))
       .sort((a, b) => b.score - a.score);
     this.ui.showResults({
-      title: this.sim.world.vehicleDefense && e.over ? defenseTitle(e.over) : this.mode.pvp ? (this.matchWinner === (this.me ? this.me.team : -1) ? 'VICTORY' : 'DEFEAT') : 'DEADZONE',
+      title: this.mode.pvp ? (this.matchWinner === (this.me ? this.me.team : -1) ? 'VICTORY' : 'DEFEAT') : 'DEADZONE',
       line: e.over ? endReason(e.over) : '',
       stats: [
         ['SCORE', (this.me ? this.me.score : 0).toLocaleString()],
@@ -856,16 +851,42 @@ class App {
       ? this.interpolatedEnemiesForAim()
       : this.sim.enemies;
 
-    const inp = this.input.sample(dt, { player: this.me, rig: this.rig, targets });
+    const matchTime = this.serverState?.matchTime;
+    const canAim = this.mounted && matchTime !== undefined
+      ? (ax, az) => windowMuzzle(this.partySeat, matchTime, ax, az)
+      : null;
+    const inp = this.input.sample(dt, { player: this.me, rig: this.rig, targets, canAim });
     if (this.input.takeWeaponCycle()) this.cycleWeapon();
 
     if (this.online) {
+      if (this.partySeat && matchTime !== undefined) {
+        const aim = relativeSeatAim(this.serverState.matchTime, inp.ax, inp.az);
+        const allowed = allowsSeatAim(this.partySeat, aim);
+        const clear = allowed && (!canAim || canAim(inp.ax, inp.az));
+        const panel = document.getElementById('seatAim');
+        const state = clear ? 'inside' : allowed ? 'blocked' : 'outside';
+        panel.hidden = false;
+        if (panel.dataset.aim !== state) {
+          panel.dataset.aim = state;
+          document.getElementById('seatAimStatus').textContent = clear ? (canAim ? '창문 사격 가능' : '사격 가능')
+            : allowed ? '차체에 가려짐' : '담당 방향으로 조준하세요';
+        }
+        document.getElementById('seatDial').style.setProperty('--aim', Math.round(aim) + 'deg');
+        if (this.mounted) {
+          inp.mx = inp.mz = 0;
+          inp.dash = inp.ab0 = inp.ab1 = false;
+        }
+      }
       this.net.pushInput(inp, dt);
       this.net.tickPing(performance.now());
       // Predict only our own player. Enemies and other players come from the
       // server, so running the whole simulation locally would fight it.
-      this.sim.setInput(this.localId, { ...inp, seq: undefined });
-      this.sim.stepPlayer(this.me, dt);
+      if (this.mounted) {
+        this.me.aimA = Math.atan2(inp.az, inp.ax);
+      } else {
+        this.sim.setInput(this.localId, { ...inp, seq: undefined });
+        this.sim.stepPlayer(this.me, dt);
+      }
       this.ui.net(this.net.ping, 'on');
     } else {
       this.sim.setInput(this.localId, { ...inp, seq: undefined });
@@ -921,11 +942,23 @@ class App {
 
   present(dt, alpha) {
     const view = this.buildView(alpha);
+    if (view.vehicle && !this.vehicleModel) {
+      this.vehicleModel = buildVehicle();
+      this.stage.scene.add(this.vehicleModel);
+    }
+    if (this.vehicleModel) {
+      this.vehicleModel.visible = !!view.vehicle;
+      if (view.vehicle) {
+        this.vehicleModel.position.set(view.vehicle.x, 0, view.vehicle.z);
+        this.vehicleModel.rotation.y = -view.vehicle.angle;
+      }
+    }
     if (!view.player) { this.stage.render(dt); return; }
 
     // world + effects
-    this.arena.update(dt, view.shrink, view.defense);
+    this.arena.update(dt, view.shrink);
     this.arena.beginBlobs();
+    if (view.vehicle) this.arena.addBlob(view.vehicle.x, view.vehicle.z, 1.85, .9);
     this.swarm.update(view.enemies, dt, alpha, this.arena);
     this.renderAvatars(dt, view);
     this.renderProjectiles(view);
@@ -945,6 +978,8 @@ class App {
       aimA: view.player.aimA,
       speed: Math.hypot(view.player.vx, view.player.vz),
       density: density / 14,
+      vehicle: view.vehicle,
+      seat: VEHICLE_SEATS[this.partySeat],
       zoom: this.state === 'dead' ? 0.86 : 1
     });
     this.stage.followShadow(view.player.x, view.player.z);
@@ -968,10 +1003,10 @@ class App {
     this.audio.tickMusic(view.intensity);
 
     // HUD
-    this.updateVehicleHud(view.defense, view);
     if (this.state !== 'title' && this.state !== 'boot' && PROBE !== 'nohud') {
       this.ui.update(dt, {
         player: view.player, mode: this.mode, sim: view.hudSim,
+        vehicle: view.vehicleHealth,
         mates: view.mates, score: this.run.score,
         maxShield: this.me ? this.me.maxShield + this.me.mods.shieldBonus : 50,
         modifier: this.sim.director.modifier ? this.sim.director.modifier.name : ''
@@ -993,7 +1028,6 @@ class App {
   buildView(alpha) {
     const v = {
       player: null, mates: [], enemies: [], projectiles: [], pickups: [], turrets: [],
-      defense: this.online ? this.serverState?.defense : this.sim.defense?.snapshot(),
       threats: [], shrink: this.sim.shrinkRadius, intensity: this.sim.director.intensity,
       hudSim: { wave: this.sim.director.wave, phase: this.sim.director.phase, intensity: this.sim.director.intensity, teamScore: this.sim.teamScore, matchTime: this.sim.matchTime }
     };
@@ -1028,6 +1062,16 @@ class App {
           id: p.id, name: nameFor(p.id, this), x: p.x, z: p.z, vx: p.vx, vz: p.vz,
           aimA: p.a, hp: p.hp, alive: p.alive, down: p.down, team: p.team, remote: true
         });
+      }
+      if (this.mounted) {
+        const time = win ? lerp(win.a.matchTime, win.b.matchTime, win.t) : s.matchTime;
+        v.vehicle = vehiclePose(time);
+        v.vehicleHealth = s.vehicle;
+        v.player = { ...this.me, ...vehiclePoint(v.vehicle, VEHICLE_SEATS[this.partySeat].x, VEHICLE_SEATS[this.partySeat].z) };
+        for (const rider of v.mates) {
+          const seat = VEHICLE_SEATS[this.riderSeats.get(rider.id)?.seat];
+          if (seat) Object.assign(rider, vehiclePoint(v.vehicle, seat.x, seat.z));
+        }
       }
       for (const e of se) {
         const def = ENEMY_TYPES[e.k] || ENEMY_TYPES.rusher;
@@ -1103,17 +1147,27 @@ class App {
       a.group.visible = p.alive !== false;
       if (!a.group.visible) continue;
 
-      a.group.position.set(p.x, 0, p.z);
-      a.group.rotation.y = -(p.aimA || 0) + Math.PI / 2;
+      const seat = view.vehicle && (local ? this.partySeat : this.riderSeats.get(p.id)?.seat);
+      const seated = !!seat;
+      const facing = seated ? view.vehicle.angle + Math.PI / 2 : p.aimA || 0;
+      a.group.position.set(p.x, seated ? .16 : 0, p.z);
+      a.group.rotation.y = -facing + Math.PI / 2;
 
       const src = local ? this.me : (p.sim || p);
       a.anim.update(dt, {
         vx: p.vx || 0, vz: p.vz || 0,
-        faceA: p.aimA || 0, aimA: p.aimA || 0,
+        faceA: facing, aimA: p.aimA || 0,
         dashing: src.dashT > 0,
         down: !!p.down,
         dead: p.alive === false
       });
+      if (seated) {
+        const { hips, thighL, thighR, shinL, shinR, footL, footR } = a.built.bones;
+        hips.position.y = .75;
+        thighL.rotation.x = thighR.rotation.x = -1.3;
+        shinL.rotation.x = shinR.rotation.x = 1.25;
+        footL.rotation.x = footR.rotation.x = 0;
+      }
 
       // weapon swap
       const wid = WEAPONS[src.weapon || 0] ? WEAPONS[src.weapon || 0].id : 'smg';
@@ -1123,17 +1177,20 @@ class App {
         a.built.bones.handR.add(a.weapon);
         a.weaponKind = wid;
       }
+      if (seated || a.weaponMounted) aimMountedWeapon(a.weapon, seat, seated ? view.vehicle : null, p.aimA || 0);
+      a.weaponMounted = seated;
 
       // i-frame flicker, exactly as loud as it needs to be
       const iframe = src.iframe > 0 && src.dashT <= 0;
-      a.group.visible = !iframe || (Math.floor(this.time * 28) % 2 === 0);
+      a.group.visible = seated || !iframe || (Math.floor(this.time * 28) % 2 === 0);
 
       if (a.ring) {
+        a.ring.visible = !seated;
         const k = clamp((p.combo || 0) / T.combo.maxRung, 0, 1);
         a.ring.material.opacity = 0.28 + k * 0.55;
         a.ring.scale.setScalar(1 + k * 0.7);
       }
-      this.arena.addBlob(p.x, p.z, 0.85, 1);
+      if (!seated) this.arena.addBlob(p.x, p.z, 0.85, 1);
     }
     this.releaseAvatars(keep);
   }
@@ -1178,7 +1235,7 @@ class App {
       d.scale.setScalar(1 + Math.sin(t * 4) * 0.08);
       d.updateMatrix();
       m.setMatrixAt(n, d.matrix);
-      const c = p.kind === 'fuse' ? 0x60ffe1 : p.kind === 'health' ? COL.ice : p.kind === 'surge' ? COL.rose : COL.amber;
+      const c = p.kind === 'health' ? COL.ice : p.kind === 'surge' ? COL.rose : COL.amber;
       m.setColorAt(n, TMPC.setHex(c));
       n++;
       this.arena.addBlob(p.x, p.z, 0.3, 0.5);
@@ -1225,15 +1282,11 @@ class App {
           break;
         case EV.PICKUP:
           this.fx.burst(e.x, 1.0, e.z, 6, 5, e.kind === 'health' ? COL.ice : COL.amber, 0.32, 0.24);
-          if (e.id === this.localId) {
-            this.audio.pickup(e.kind); haptic(HAPTIC.pickup);
-            if (e.kind === 'fuse') this.ui.toast('퓨즈 획득 · 트렁크로 운반하세요');
-            if (e.kind === 'fuse_stored') this.ui.toast('퓨즈 보관 · 수리 또는 헤드라이트에 사용');
-          }
+          if (e.id === this.localId) { this.audio.pickup(e.kind); haptic(HAPTIC.pickup); }
           break;
         case EV.BANNER:
           this.ui.banner(/^WAVE \d+$/.test(e.a)?'감염체 웨이브 '+e.a.split(' ')[1]:e.clear?'구역 확보':e.a,
-            e.clear?'보급품을 고르고 다음 무리를 대비하세요.':/^WAVE \d+$/.test(e.a)?(this.sim.world.vehicleDefense?'우리 차를 지키고 퓨즈를 트렁크로 운반하세요.':'좀비의 접근을 막고 함께 살아남으세요.'):e.b);
+            e.clear?'보급품을 고르고 다음 무리를 대비하세요.':/^WAVE \d+$/.test(e.a)?'좀비의 접근을 막고 함께 살아남으세요.':e.b);
           if (e.big) { this.rig.rumble(0.5); this.audio.wave(false); }
           if (e.clear) { this.audio.wave(true); if (!this.online) this.slowmoT = 1.1; }
           break;
@@ -1280,8 +1333,9 @@ class App {
     this.audio.shot(e.w, e.x, e.z);
     const w = WEAPONS.find(x => x.id === e.w);
     const color = w ? w.color : COL.rose;
-    this.fx.burst(e.x, 1.12, e.z, w && w.pellets > 3 ? 14 : 6, 9, color, 0.44, 0.14, 0, { cone: e.a, spread: 0.7 });
-    this.fx.smoke(e.x, 1.1, e.z, 2, 1.2, 0xBFC8CE, 0.5, 0.5);
+    const height = this.mounted && this.riderSeats.has(e.id) ? CABIN.windowY : 1.12;
+    this.fx.burst(e.x, height, e.z, w && w.pellets > 3 ? 14 : 6, 9, color, 0.44, 0.14, 0, { cone: e.a, spread: 0.7 });
+    this.fx.smoke(e.x, height, e.z, 2, 1.2, 0xBFC8CE, 0.5, 0.5);
     if (local) {
       const a = this.avatars.get(this.localId);
       if (a) a.anim.kick(w ? 0.4 + w.shake : 0.4);
@@ -1483,7 +1537,7 @@ class App {
       haptic(HAPTIC.down);
       if (!this.online) {
         this.slowmoT = 1.4;
-        if (!this.mode.respawn && !this.sim.defense) setTimeout(() => this.endRun('died'), 200);
+        if (!this.mode.respawn) setTimeout(() => this.endRun('died'), 200);
       }
     }
   }
@@ -1564,12 +1618,10 @@ function drainEvents(sim) {
 }
 
 function nameFor(id, app) {
+  const riderName = app.partySeat && app.riderSeats.get(id)?.name;
+  if (riderName) return riderName;
   const p = app.sim.playerById(id);
   return p ? p.name : 'RUNNER';
-}
-
-function defenseTitle(over) {
-  return over.reason === 'vehicle_defended' ? '차량 방어 성공' : '차량 방어 실패';
 }
 
 function endReason(over) {
@@ -1577,9 +1629,7 @@ function endReason(over) {
     case 'score': return 'SCORE LIMIT — ' + (TEAM_NAMES[over.winner] || '');
     case 'time': return 'TIME — ' + (TEAM_NAMES[over.winner] || '');
     case 'lastsquad': return 'LAST SQUAD STANDING';
-    case 'vehicle_defended': return '우리 차와 함께 세 웨이브를 버텼습니다.';
-    case 'vehicle_destroyed': return '우리 차의 내구도가 소진되었습니다.';
-    case 'wipe': return '모든 팀원이 전투 불능 상태입니다.';
+    case 'wipe': return 'THE ARENA KEEPS THE SCORE';
     default: return '';
   }
 }

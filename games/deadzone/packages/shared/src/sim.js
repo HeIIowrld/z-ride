@@ -37,9 +37,9 @@ import { EV, EventQueue } from './events.js';
 import { getMode, teamSpawn, balanceTeams } from './modes.js';
 import { FlowField, ROLE, BEHAVIOR, perceive, shareIntel, assignRoles, chooseBehavior, steer, avoid } from './ai.js';
 import { Director } from './director.js';
-import { VehicleDefense } from './vehicle-defense.js';
 import { ABILITIES, ABILITY_BY_ID } from './abilities.js';
 import { UPGRADES, UPGRADE_BY_ID, freshMods } from './upgrades.js';
+import { CABIN, VEHICLE_SEATS, hullImpact, vehiclePoint, vehiclePose, windowMuzzle } from './vehicle.js';
 
 let ENTITY_SEQ = 1;
 
@@ -47,6 +47,7 @@ const steerOut = { x: 0, z: 0 };
 
 export class Sim {
   constructor(opts = {}) {
+    this.sharedVehicle = opts.sharedVehicle ? { hp: 300, maxHp: 300, iframe: 0 } : null;
     this.seed = (opts.seed ?? 12345) >>> 0;
     this.rng = makeRng(this.seed);
     this.fxRng = makeRng(this.seed ^ 0xA5A5A5);   // cosmetic rolls, never gameplay
@@ -59,8 +60,7 @@ export class Sim {
     this.world = new World(this.seed, {
       radius: this.arenaRadius,
       propCount: pvp ? T.arena.pvpPropCount : T.arena.propCount,
-      symmetric: this.mode.symmetricArena,
-      vehicleDefense: !!opts.vehicleDefense && !pvp
+      symmetric: this.mode.symmetricArena
     });
 
     this.hash = new SpatialHash(4.2);
@@ -87,7 +87,6 @@ export class Sim {
     for (let i = 0; i < 12; i++) this.turrets.push({ alive: false, id: 0, owner: 0, x: 0, z: 0, a: 0, t: 0, life: 0, cd: 0 });
 
     this.director = new Director(this);
-    this.defense = this.world.vehicleDefense && this.authoritative ? new VehicleDefense(this.arenaRadius) : null;
     this.teamScore = new Array(this.mode.teams).fill(0);
 
     this.tick = 0;
@@ -167,8 +166,7 @@ export class Sim {
       p.protectT = T.player.spawnProtect;
     } else {
       const a = this.rng.range(TAU);
-      const d = initial && this.world.vehicleDefense ? this.rng.range(5.5, 4)
-        : initial ? this.rng.range(4, 0) : this.rng.range(8, 3);
+      const d = initial ? this.rng.range(4, 0) : this.rng.range(8, 3);
       p.x = Math.cos(a) * d;
       p.z = Math.sin(a) * d;
       p.aimA = p.faceA = -Math.PI / 2;
@@ -227,6 +225,22 @@ export class Sim {
     this.time += dt;
     if (!this.over) this.matchTime += dt;
 
+    if (this.sharedVehicle) {
+      this.sharedVehicle.iframe = Math.max(0, this.sharedVehicle.iframe - dt);
+      const pose = vehiclePose(this.matchTime);
+      for (const [index, player] of this.players.entries()) {
+        const seat = VEHICLE_SEATS[player.partySeat] ?? {
+          x: index % 2 === 1 ? .57 : -.57, z: index < 2 ? .62 : -.62,
+        };
+        const point = vehiclePoint(pose, seat.x, seat.z);
+        player.x = point.x;
+        player.z = point.z;
+        player.input.mx = player.input.mz = 0;
+        player.input.dash = false;
+        player.vx = player.vz = player.ivx = player.ivz = 0;
+      }
+    }
+
     // Rebuild the broad phase once, up front. Everything downstream reads it.
     this.hash.clear();
     this.aliveEnemies = 0;
@@ -237,11 +251,7 @@ export class Sim {
     // Cover only changes when something breaks it. Rebaking is batched to at
     // most once per tick so a shotgun that shatters four crates in one frame
     // does not rebuild the navigation grid four times.
-    if (this.costDirty) {
-      this.costDirty = false;
-      this.flow.bakeCost(this.world);
-      this.defense?.rebuildPath(this.world);
-    }
+    if (this.costDirty) { this.costDirty = false; this.flow.bakeCost(this.world); }
 
     this._flowT -= dt;
     if (this._flowT <= 0) {
@@ -262,13 +272,12 @@ export class Sim {
     this.stepProjectiles(dt);
     this.stepTurrets(dt);
     this.stepPickups(dt);
-    this.defense?.step(this, dt);
     this.director.step(dt);
     this.stepShrink(dt);
     this.stepEffects(dt);
 
     if (!this.over) {
-      const end = this.defense?.result(this.director) || this.mode.endCondition(this);
+      const end = this.mode.endCondition(this);
       if (end) {
         this.over = end;
         this.events.push(EV.MATCH_END, end);
@@ -418,7 +427,7 @@ export class Sim {
       if (Math.abs(p.ivz) < 0.02) p.ivz = 0;
     }
 
-    this.world.collide(p, T.player.radius);
+    if (!this.sharedVehicle || !p.partySeat) this.world.collide(p, T.player.radius);
 
     // Aim. Assist is applied client-side before the input is sent, so the
     // server never has to guess what the player meant.
@@ -508,13 +517,17 @@ export class Sim {
     }
     if (p.cooldown > 0) return;
 
+    const mounted = this.sharedVehicle && p.partySeat;
+    const pose = mounted ? vehiclePose(this.matchTime) : null;
+    const muzzle = mounted
+      ? windowMuzzle(p.partySeat, this.matchTime, Math.cos(p.aimA), Math.sin(p.aimA), pose)
+      : { x: p.x + Math.cos(p.aimA) * 1.15, z: p.z + Math.sin(p.aimA) * 1.15 };
+    if (!muzzle) return;
+    const { x: mx, z: mz } = muzzle;
     const comboRate = 1 + Math.min(p.combo, T.combo.maxRung * 2) * T.combo.fireRateBonus * m.comboRamp;
     p.cooldown = w.rate / (m.rate * comboRate);
     p.shotsFired += w.pellets;
     p.loudT = 0.5;   // gunfire is a perception event for every enemy nearby
-
-    const mx = p.x + Math.cos(p.aimA) * 1.15;
-    const mz = p.z + Math.sin(p.aimA) * 1.15;
 
     /* Bloom. The cone opens while the trigger is held and closes when it is
        not, so holding fire across a room is a choice with a price and tapping
@@ -524,9 +537,13 @@ export class Sim {
     const cone = (w.spread + bloom) * m.spread;
 
     for (let i = 0; i < w.pellets; i++) {
-      const a = p.aimA + (cone > 0 ? this.rng.range(cone, -cone) : 0);
+      let a = p.aimA + (cone > 0 ? this.rng.range(cone, -cone) : 0);
+      const spreadMuzzle = mounted
+        ? windowMuzzle(p.partySeat, this.matchTime, Math.cos(a), Math.sin(a), pose)
+        : muzzle;
+      if (!spreadMuzzle) a = p.aimA;
       this.spawnProjectile({
-        x: mx, z: mz,
+        x: (spreadMuzzle ?? muzzle).x, z: (spreadMuzzle ?? muzzle).z,
         vx: Math.cos(a) * w.speed * m.projSpeed,
         vz: Math.sin(a) * w.speed * m.projSpeed,
         def: w, owner: p, hostile: false
@@ -568,6 +585,17 @@ export class Sim {
 
   damagePlayer(p, amount, srcX, srcZ, attacker, ignoreIframe = false) {
     if (!p.alive || p.down) return;
+    if (this.sharedVehicle) {
+      const vehicle = this.sharedVehicle;
+      if (vehicle.iframe > 0 || vehicle.hp <= 0) return;
+      vehicle.iframe = T.player.iframeOnHit;
+      vehicle.hp = Math.max(0, vehicle.hp - amount);
+      for (const rider of this.players) {
+        rider.hp = rider.maxHp * vehicle.hp / vehicle.maxHp;
+        if (vehicle.hp === 0 && rider.alive) this.killPlayer(rider, attacker);
+      }
+      return;
+    }
     if (!ignoreIframe && (p.iframe > 0 || p.protectT > 0)) return;
     if (attacker && this.mode.pvp && attacker.team === p.team && attacker !== p) return;
 
@@ -692,7 +720,6 @@ export class Sim {
     e.lungeT = 0; e.lungeCd = 0; e.fuse = 0;
     e.team = -1;
     e.isEnemy = true;
-    e.targetsVehicle = this.defense?.assignTarget(key) || false;
     e.mem = { target: null, x, z, vx: 0, vz: 0, seen: false, confidence: 0, t: 99 };
     // A brand-new enemy is not blind: it starts pointed at whoever it spawned near.
     const near = this.nearestPlayer(x, z);
@@ -735,9 +762,8 @@ export class Sim {
         if (!e.alive) continue;
       }
 
-      this.defense?.stun(e);
-      const target = e.targetsVehicle ? null : perceive(e, this);
-      if (!e.targetsVehicle) e.behavior = chooseBehavior(e, this);
+      const target = perceive(e, this);
+      e.behavior = chooseBehavior(e, this);
 
       // Lunge: a stalker's whole identity. Committed, telegraphed, and it
       // overrides steering entirely while it runs.
@@ -755,8 +781,7 @@ export class Sim {
         steerOut.x = 0; steerOut.z = 0;
         speedMul = e.windup > 0 ? 0.12 : 0;
       } else {
-        if (e.targetsVehicle) this.defense.steer(e, this.world, steerOut);
-        else speedMul = steer(e, this, steerOut);
+        speedMul = steer(e, this, steerOut);
         avoid(e, this, steerOut);
       }
 
@@ -779,13 +804,12 @@ export class Sim {
       this.world.collide(e, e.r);
 
       // Facing: toward what it believes, not toward what is true.
-      const wantA = e.targetsVehicle ? Math.atan2(-e.z, -e.x) : e.mem.confidence > 0
+      const wantA = e.mem.confidence > 0
         ? Math.atan2(e.mem.z - e.z, e.mem.x - e.x)
         : Math.atan2(e.vz, e.vx);
       if (Number.isFinite(wantA)) e.faceA += angleDelta(e.faceA, wantA) * Math.min(1, dt * 9);
 
-      if (e.targetsVehicle) this.defense.attack(e, dt);
-      else if (e.staggerT <= 0 || !this.defense) this.enemyAttacks(e, target, dt);
+      this.enemyAttacks(e, target, dt);
       this.enemyAura(e);
       if (def.boss) this.bossLogic(e, dt);
     }
@@ -1067,6 +1091,8 @@ export class Sim {
   }
 
   stepProjectiles(dt) {
+    const vehicle = this.sharedVehicle && this.players.find(p => p.alive && p.partySeat);
+    const pose = vehicle ? vehiclePose(this.matchTime) : null;
     for (const p of this.projectiles) {
       if (!p.alive) continue;
       p.life -= dt;
@@ -1077,6 +1103,18 @@ export class Sim {
       }
 
       const nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
+      if (pose && p.hostile) {
+        const impact = hullImpact(pose, p.x, p.z, nx, nz, p.size);
+        if (impact) {
+          const hp = this.sharedVehicle.hp;
+          this.damagePlayer(vehicle, p.dmg, impact.x, impact.z, p.owner);
+          if (hp > this.sharedVehicle.hp) {
+            this.events.push(EV.HIT, { ...impact, y: CABIN.windowY, dmg: Math.round(hp - this.sharedVehicle.hp) });
+          }
+          p.alive = false;
+          continue;
+        }
+      }
       const stepLen = Math.hypot(nx - p.x, nz - p.z);
       const midX = (p.x + nx) * 0.5, midZ = (p.z + nz) * 0.5;
       const searchR = stepLen * 0.5 + p.size + 3.0;
@@ -1252,16 +1290,6 @@ export class Sim {
     for (const p of this.pickups) {
       if (!p.alive) continue;
       p.t += dt;
-      if (p.kind === 'fuse') {
-        const carrier = this.players.find(pl => pl.connected && pl.alive && !pl.down && !pl.bot &&
-          !this.defense.carriers.has(pl.id) && dist2(pl.x, pl.z, p.x, p.z) <= 1.45 ** 2);
-        if (carrier) {
-          p.alive = false;
-          this.defense.carriers.add(carrier.id);
-          this.events.push(EV.PICKUP, { id: carrier.id, kind: 'fuse', x: p.x, z: p.z });
-        }
-        continue;
-      }
 
       let claimer = null, cd = Infinity;
       for (const pl of this.players) {
@@ -1328,7 +1356,7 @@ export class Sim {
       intensity: +this.director.intensity.toFixed(3),
       teamScore: this.teamScore.slice(),
       over: this.over,
-      defense: this.defense?.snapshot() ?? null,
+      ...(this.sharedVehicle ? { vehicle: { hp: Math.ceil(this.sharedVehicle.hp), maxHp: this.sharedVehicle.maxHp } } : {}),
       players: this.players.map(p => ({
         id: p.id, x: +p.x.toFixed(2), z: +p.z.toFixed(2),
         vx: +p.vx.toFixed(2), vz: +p.vz.toFixed(2),
