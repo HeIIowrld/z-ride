@@ -1,5 +1,5 @@
-import { Game as ElectricThief } from './venue-games/electric-thief/game.mjs';
-import { Game as ChargeRelay } from './venue-games/charge-relay/game.mjs';
+import { Game as ElectricThief } from './venue-electric-thief.mjs';
+import { Game as ChargeRelay } from './venue-charge-relay.mjs';
 import http from 'node:http';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';

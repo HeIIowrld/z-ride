@@ -63,7 +63,7 @@
   - 정적 파일 서빙(이 폴더 전체) — 이 서버 하나로 웹앱도 열림.
   - WebSocket(직접 구현, RFC6455 텍스트 프레임 최소 구현) 경로 `/vehicle`: 차량 앱/테스트 도구가 트리거를 보내면 같은 세션의 폰들에게 중계. 세션은 쿼리 `?session=ID`.
   - `POST /api/trigger?session=ID` (JSON 이벤트) — 차량 앱이 HTTP로 보낼 수도 있게. 받은 트리거를 서버측 quiz-engine으로 문제 선택(간격·중복 관리 서버 기준) 후 `{type:'question', questionId}`를 WS로 폰들에 푸시.
-  - `POST /api/party/inventory`, `POST /api/records` — 받은 JSON을 server/data/*.jsonl에 append(나중 리더보드용). 
+  - `POST /api/party/inventory`, `POST /api/records` — 받은 JSON을 server/data/*.jsonl에 append(나중 리더보드용).
 - 클라이언트: config.SERVER_URL이 null이면 서버 없이 브라우저 안에서 quiz-engine으로 동작(오프라인), 있으면 서버가 고른 questionId를 받아 출제.
 - README에 실행법·트리거 예시 curl 추가.
 

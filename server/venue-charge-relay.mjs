@@ -1,4 +1,4 @@
-import { WORDS } from './words.mjs';
+import { WORDS } from './venue-charge-words.mjs';
 
 export const MIN_PLAYERS = 2, MAX_PLAYERS = 4;
 export const DRAW_MS = 75_000, GUESS_MS = 35_000;
