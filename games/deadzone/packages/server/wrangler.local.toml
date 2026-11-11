@@ -1,0 +1,71 @@
+#  ============================== OVERRUN EDGE ==============================
+#  One Worker serves the PWA, the room API, and the WebSocket upgrade. Two
+#  Durable Object classes do the stateful work: MatchRoom is a running match,
+#  Matchmaker is the single directory that maps a 6-character code to a room.
+
+name = "overrun"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# The shared simulation is plain ES modules and needs nothing from Node, but
+# `nodejs_compat` keeps the door open for anything the asset/result pipeline
+# pulls in later without a second migration.
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+html_handling = "none"
+directory = "../client/dist"
+binding = "ASSETS"
+# The client is a single-page app: /j/ABC123 invite links and /play must all
+# resolve to index.html instead of 404ing.
+not_found_handling = "single-page-application"
+# Only these prefixes are worth a Worker invocation. Everything else is served
+# straight off the asset edge, which is free and does not count against the
+# 100k requests/day the free plan allows.
+#
+# /landing and /download have to be here even though they look static: without
+# them the asset edge answers first, misses, and hands back index.html via the
+# SPA fallback — so the marketing page silently served the game instead.
+run_worker_first = ["/dashboard", "/dashboard/", "/api/*", "/ws", "/landing", "/about", "/download", "/download/*"]
+
+[vars]
+# Public project URL. The anon key is publishable by design (RLS is what
+# protects the data), so it lives here rather than in a secret.
+SUPABASE_URL = ""
+SUPABASE_ANON_KEY = ""
+# Non-default Postgres schema; Supabase REST needs it named explicitly.
+SUPABASE_SCHEMA = "game"
+
+#  Secrets — NOT in this file. Before the first deploy a human must run:
+#    wrangler secret put INTERNAL_SECRET        # shared secret MatchRoom sends
+#                                               # on /api/match-result, so an
+#                                               # external caller cannot forge
+#                                               # a match result
+#    wrangler secret put MATCH_SECRET           # must equal the MATCH_SECRET
+#                                               # set on the submit-match Edge
+#                                               # Function; injected into the
+#                                               # body Worker-side so it never
+#                                               # crosses the Durable Object hop
+#    wrangler secret put SUPABASE_SERVICE_KEY   # service_role key, optional:
+#                                               # only used as the bearer on the
+#                                               # function call
+#  Until INTERNAL_SECRET exists, /api/match-result answers 503 and refuses
+#  everything, which is the safe direction to fail in.
+
+[[durable_objects.bindings]]
+name = "MATCH_ROOM"
+class_name = "MatchRoom"
+
+[[durable_objects.bindings]]
+name = "MATCHMAKER"
+class_name = "Matchmaker"
+
+# Free plan requirement: key-value backed Durable Objects are a paid feature,
+# SQLite-backed ones are not. `new_sqlite_classes` is the difference between
+# this deploying and this being rejected at upload.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MatchRoom", "Matchmaker"]
+
+[observability]
+enabled = true

@@ -1,0 +1,127 @@
+apply plugin: 'com.android.application'
+
+/*  ============================ OVERRUN / ANDROID ============================
+
+    A Capacitor shell around the built PWA. The web assets are copied into
+    app/src/main/assets/public by `npx cap sync android`; nothing is fetched at
+    runtime, so the APK is playable with the radio off.
+
+    Signing is driven entirely by environment variables so that no secret ever
+    lands in this file. CI exports them from GitHub Secrets; locally you can
+    export the same four before running ./gradlew assembleRelease. With none of
+    them set the release build stays unsigned — which the CI job then fails on,
+    loudly, instead of shipping an APK nobody can install.                    */
+
+def envOr = { String name, String fallback -> System.getenv(name) ?: fallback }
+
+def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def hasKeystore = keystorePath != null && !keystorePath.trim().isEmpty() && file(keystorePath).exists()
+
+android {
+    namespace "dev.overrun.game"
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "dev.overrun.game"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+
+        // CI passes the run number / tag through; a plain local build gets 1 / 1.0.0.
+        versionCode envOr('OVERRUN_VERSION_CODE', '1').toInteger()
+        versionName envOr('OVERRUN_VERSION_NAME', '1.0.0')
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // No shrinking. There is no Java worth shrinking here, and both R8
+            // and the resource shrinker are historically good at deleting web
+            // assets they do not understand.
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig hasKeystore ? signingConfigs.release : null
+        }
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+/*  A guard against the single most expensive silent failure in this pipeline:
+    an APK that builds, installs, launches and then shows a white screen because
+    `cap sync` never ran and app/src/main/assets/public is empty or stale.      */
+tasks.register('verifyWebAssets') {
+    doLast {
+        def dir = file('src/main/assets/public')
+        if (!dir.exists()) {
+            throw new GradleException("Web assets missing: ${dir}. Run `npm run sync` in packages/android first.")
+        }
+        if (!file("${dir}/index.html").exists()) {
+            throw new GradleException("Web assets incomplete: ${dir}/index.html not found.")
+        }
+        def bytes = 0
+        dir.eachFileRecurse { f -> if (f.isFile()) bytes += f.length() }
+        if (bytes < 900 * 1024) {
+            throw new GradleException("Web assets are only ${bytes} bytes; expected > 900 kB. The client build did not land in the APK.")
+        }
+        println "verifyWebAssets: ${dir} holds ${(bytes / 1024).intValue()} kB"
+    }
+}
+tasks.matching { it.name == 'preBuild' }.configureEach { dependsOn 'verifyWebAssets' }
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

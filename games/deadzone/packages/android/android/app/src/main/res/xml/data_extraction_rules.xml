@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="app_webview" />
+        <exclude domain="file" path="app_webview/Default/Cache" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="app_webview" />
+        <exclude domain="file" path="app_webview/Default/Cache" />
+    </device-transfer>
+</data-extraction-rules>

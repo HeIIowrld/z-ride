@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>OVERRUN — a browser arena shooter that installs like an app</title>
+<meta name="description" content="A top-down arena shooter that runs in a browser tab. Co-op waves for four, 4v4 team deathmatch, 2v2v2v2 squad royale. No asset files, 67 kB of game code, authoritative servers on the edge. Free, no ads, no tracking." />
+<link rel="canonical" href="https://overrun.mahdi-mortazavi-135.workers.dev/landing" />
+<meta name="theme-color" content="#0E1620" />
+<meta name="color-scheme" content="dark" />
+
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="icon" href="/icon-512.png" sizes="512x512" type="image/png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="OVERRUN" />
+<meta property="og:title" content="OVERRUN — a browser arena shooter" />
+<meta property="og:description" content="Co-op waves for four, 4v4 team deathmatch, 2v2v2v2 squad royale. Nothing to download but the code. Free, no ads, no tracking." />
+<meta property="og:url" content="https://overrun.mahdi-mortazavi-135.workers.dev/landing" />
+<meta property="og:image" content="https://overrun.mahdi-mortazavi-135.workers.dev/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="A top-down concrete arena swarming with enemies, with the word OVERRUN across it." />
+<meta property="og:locale" content="en_US" />
+<meta property="og:locale:alternate" content="fa_IR" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="OVERRUN — a browser arena shooter" />
+<meta name="twitter:description" content="Co-op waves for four, 4v4 team deathmatch, 2v2v2v2 squad royale. 67 kB of game code, zero asset files. Free, no ads, no tracking." />
+<meta name="twitter:image" content="https://overrun.mahdi-mortazavi-135.workers.dev/og.png" />
+
+<script>
+/* Decide direction before anything lays out, so a Persian visitor never sees
+   the page reflow from LTR to RTL. The copy itself is swapped in at the
+   bottom of the body, which still happens before first paint. */
+(function(){var s=null;try{s=localStorage.getItem('overrun-lang')}catch(e){}
+var l=(s==='fa'||s==='en')?s:((navigator.language||'').toLowerCase().indexOf('fa')===0?'fa':'en');
+var h=document.documentElement;h.lang=l;h.dir=l==='fa'?'rtl':'ltr';})();
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "OVERRUN",
+  "url": "https://overrun.mahdi-mortazavi-135.workers.dev/",
+  "image": "https://overrun.mahdi-mortazavi-135.workers.dev/og.png",
+  "description": "A top-down browser arena shooter. Co-op waves for up to four players, 4v4 team deathmatch and 2v2v2v2 squad royale, on authoritative edge servers. Everything it draws, plays and animates is generated at runtime.",
+  "inLanguage": ["en", "fa"],
+  "genre": ["Action", "Shooter", "Arena"],
+  "playMode": ["SinglePlayer", "CoOp", "MultiPlayer"],
+  "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 8 },
+  "gamePlatform": ["Web browser", "Android", "iOS", "Windows", "macOS"],
+  "applicationCategory": "Game",
+  "operatingSystem": "Any (modern browser with WebGL 2)",
+  "author": { "@type": "Person", "name": "Mahdi Mortazavi", "url": "https://github.com/Mahdi-mortazavi" },
+  "codeRepository": "https://github.com/Mahdi-mortazavi/overrun",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }
+}
+</script>
+
+<style>
+/* ========================= OVERRUN LANDING ============================
+   Same palette as the game, and it carries the same meaning there:
+     amber = you and your things   rose = it can kill you
+     ice   = utility               bone = neutral text
+   Everything directional is a logical property, so RTL is correct rather
+   than mirrored. No web fonts: nothing here waits on a network round trip
+   before it can paint text.                                            */
+
+:root {
+  --ink:    #0E1620;
+  --deep:   #131F2A;
+  --panel:  #17242F;
+  --line:   #24384A;
+  --steel:  #93A9B8;   /* 7.4:1 on ink  */
+  --bone:   #EEF3F6;   /* 16.4:1 on ink */
+  --amber:  #FFB53D;   /* 10.0:1 on ink */
+  --rose:   #FF2D6B;
+  --rose-t: #FF5C8A;   /* 6.0:1 on ink — the small-text rose */
+  --ice:    #6FE3FF;
+  --lime:   #B4FF6F;
+  --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --fa: Vazirmatn, "Vazir", "IRANSans", "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
+  --ui: var(--mono);
+  --pad: clamp(18px, 5vw, 56px);
+  --maxw: 1120px;
+  --lh: 1.62;
+}
+html[lang="fa"] { --ui: var(--fa); --lh: 1.9; }
+html[lang="en"] .plat .badge { font-family: var(--mono); }
+/* Persian ordered lists get Persian markers rather than 1. 2. 3. */
+html[lang="fa"] .plat ol { list-style-type: persian; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+html[lang="fa"] body { font-size: 16.5px; letter-spacing: 0; }
+
+.latin { font-family: var(--mono); direction: ltr; unicode-bidi: isolate; }
+
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--amber); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--bone); }
+
+:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.wrap { max-width: var(--maxw); margin-inline: auto; padding-inline: var(--pad); }
+
+/* Clipped rather than shoved off-screen: a -9999px offset is an overflow bug
+   waiting to happen the moment the document is RTL. */
+.skip {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+  background: var(--amber); color: var(--ink); font-weight: 700;
+  text-decoration: none;
+}
+.skip:focus {
+  position: fixed; inset-block-start: 0; inset-inline-start: 0; z-index: 200;
+  width: auto; height: auto; clip-path: none; padding: 10px 16px;
+}
+
+/* ------------------------------------------------------------- typography */
+h1, h2, h3 { line-height: 1.15; margin: 0; font-weight: 700; }
+h2 {
+  font-size: clamp(24px, 4.2vw, 34px);
+  letter-spacing: .01em;
+  margin-block-end: 10px;
+}
+html[lang="en"] h2, html[lang="en"] h3 { letter-spacing: .04em; }
+h3 { font-size: clamp(17px, 2.6vw, 21px); }
+p { margin: 0 0 16px; color: #D3DEE6; }
+p.lead { color: var(--bone); }
+.kicker {
+  font-size: 11px; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--amber); margin-block-end: 14px;
+}
+html[lang="en"] .kicker { font-family: var(--mono); }
+html[lang="fa"] .kicker { letter-spacing: 0; text-transform: none; font-size: 12.5px; }
+.muted { color: var(--steel); }
+.small { font-size: 14px; }
+
+section { padding-block: clamp(56px, 9vw, 104px); position: relative; scroll-margin-block-start: 64px; }
+section + section { border-block-start: 1px solid var(--line); }
+.sechead { max-width: 62ch; margin-block-end: clamp(26px, 4vw, 40px); }
+
+/* ------------------------------------------------------------------ chrome */
+header.bar {
+  position: sticky; top: 0; z-index: 60;
+  background: rgba(14,22,32,.86);
+  backdrop-filter: blur(10px);
+  border-block-end: 1px solid var(--line);
+}
+.bar .wrap { display: flex; align-items: center; gap: 14px; padding-block: 10px; }
+.brand {
+  font-family: var(--mono); direction: ltr;
+  font-weight: 700; font-size: 17px; letter-spacing: .30em;
+  color: var(--bone); text-decoration: none; margin-inline-end: auto;
+}
+.brand:hover { color: var(--amber); }
+nav.links { display: none; gap: 20px; }
+nav.links a { color: var(--steel); text-decoration: none; font-size: 13px; letter-spacing: .06em; }
+nav.links a:hover { color: var(--bone); }
+@media (min-width: 900px) { nav.links { display: flex; } }
+
+.langtoggle { display: flex; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+.langtoggle button {
+  font: inherit; font-size: 12px; letter-spacing: .1em;
+  background: transparent; color: var(--steel); border: 0;
+  padding: 6px 11px; cursor: pointer; min-height: 32px;
+}
+.langtoggle button[aria-pressed="true"] { background: var(--amber); color: var(--ink); font-weight: 700; }
+.langtoggle button:not([aria-pressed="true"]):hover { color: var(--bone); }
+
+/* ------------------------------------------------------------------ buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 50px; padding: 13px 26px;
+  border: 1px solid var(--line); border-radius: 2px;
+  background: transparent; color: var(--bone);
+  font: inherit; font-size: 15px; font-weight: 700; letter-spacing: .08em;
+  text-decoration: none; cursor: pointer;
+  transition: background .14s ease, border-color .14s ease, color .14s ease;
+}
+html[lang="fa"] .btn { letter-spacing: 0; }
+.btn:hover { border-color: var(--steel); background: #ffffff0d; color: var(--bone); }
+.btn.primary { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.btn.primary:hover { background: #FFC768; border-color: #FFC768; color: var(--ink); }
+.btn.ghost { border-color: var(--steel); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* --------------------------------------------------------------------- hero */
+.hero { position: relative; padding-block: clamp(56px, 12vw, 128px) clamp(48px, 8vw, 96px); overflow: hidden; border: 0; }
+#bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+.hero .wrap { position: relative; z-index: 1; }
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 0%, transparent 20%, var(--ink) 92%);
+}
+.wordmark {
+  font-family: var(--mono); direction: ltr; unicode-bidi: isolate;
+  font-size: clamp(46px, 13vw, 116px); font-weight: 700;
+  letter-spacing: clamp(.06em, 2.4vw, .20em);
+  margin: 0 0 6px; color: var(--bone);
+  text-shadow: 0 0 60px #6FE3FF1f;
+}
+html[dir="rtl"] .wordmark { text-align: right; }
+.hook { font-size: clamp(17px, 2.8vw, 23px); color: var(--amber); margin: 0 0 8px; max-width: 34ch; }
+html[lang="fa"] .hook { max-width: 34ch; }
+.subhook { color: var(--steel); max-width: 56ch; margin: 0 0 30px; }
+.hero .btnrow { margin-block-end: 16px; }
+.instlink { font-size: 14px; color: var(--steel); }
+.instlink a { color: var(--ice); }
+.herofacts {
+  display: flex; flex-wrap: wrap; gap: 8px 22px;
+  margin-block-start: 34px; font-size: 13px; color: var(--steel);
+}
+.herofacts b { color: var(--bone); font-weight: 700; }
+
+/* -------------------------------------------------------------------- cards */
+/* min-width:0 on every grid child: without it a grid track is floored at the
+   child's min-content width, and one nowrap token blows the whole row out. */
+.grid { display: grid; gap: 18px; }
+.grid > * { min-width: 0; }
+@media (min-width: 760px) { .grid.g3 { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 640px) { .grid.g2 { grid-template-columns: repeat(2, 1fr); } }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 22px 22px 24px;
+  display: flex; flex-direction: column;
+}
+.card .top { height: 3px; margin: -22px -22px 20px; }
+.card.coop  .top { background: var(--ice); }
+.card.tdm   .top { background: var(--amber); }
+.card.squad .top { background: var(--rose); }
+.card h3 { font-family: var(--mono); direction: ltr; unicode-bidi: isolate; letter-spacing: .12em; }
+html[dir="rtl"] .card h3 { text-align: right; }
+.card .blurb { color: var(--amber); margin: 10px 0 14px; font-size: 15px; }
+.card .count {
+  font-size: 12px; letter-spacing: .16em; color: var(--steel);
+  padding-block-end: 14px; margin-block-end: 14px; border-block-end: 1px solid var(--line);
+}
+html[lang="en"] .card .count { font-family: var(--mono); }
+html[lang="fa"] .card .count { letter-spacing: 0; font-size: 13px; }
+.card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.card li { position: relative; padding-inline-start: 18px; font-size: 14.5px; color: #CBD8E1; }
+.card li::before {
+  content: ""; position: absolute; inset-inline-start: 0; top: .62em;
+  width: 7px; height: 1px; background: var(--steel);
+}
+
+/* ------------------------------------------------------------ ask / weapons */
+.asks { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.ask { background: var(--panel); display: grid; grid-template-columns: minmax(88px, 130px) 1fr; gap: 14px; padding: 11px 16px; align-items: baseline; }
+.ask dt { font-family: var(--mono); direction: ltr; unicode-bidi: isolate; font-size: 12.5px; letter-spacing: .14em; color: var(--rose-t); text-transform: uppercase; }
+html[dir="rtl"] .ask dt { text-align: right; }
+.ask dd { margin: 0; font-size: 14.5px; color: #CBD8E1; }
+@media (max-width: 520px) { .ask { grid-template-columns: 1fr; gap: 2px; } }
+
+.weps { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .weps { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 860px) { .weps { grid-template-columns: repeat(3, 1fr); } }
+.wep { border: 1px solid var(--line); border-radius: 3px; padding: 14px 16px; background: #ffffff05; }
+.wep b { display: block; font-family: var(--mono); direction: ltr; unicode-bidi: isolate; letter-spacing: .16em; font-size: 13px; color: var(--amber); margin-block-end: 5px; }
+html[dir="rtl"] .wep b { text-align: right; }
+.wep span { font-size: 14px; color: #CBD8E1; }
+
+/* ------------------------------------------------------------------ gallery */
+.shots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.shot { position: relative; margin: 0; }
+.shot button {
+  display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 3px;
+  background: var(--deep); cursor: zoom-in; overflow: hidden; position: relative;
+  transition: border-color .14s ease;
+}
+.shot button:hover { border-color: var(--amber); }
+.shot button img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background-size: cover; background-position: center; }
+.shot[data-tall] button img { aspect-ratio: 16 / 9; object-fit: contain; }
+.shot figcaption { font-size: 13px; color: var(--steel); margin-block-start: 9px; }
+
+.lightbox {
+  position: fixed; inset: 0; z-index: 100; display: none;
+  background: rgba(6,11,16,.95); padding: clamp(12px, 3vw, 34px);
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+}
+.lightbox[open] { display: flex; }
+.lightbox img { max-width: min(1400px, 96vw); max-height: 76vh; object-fit: contain; border: 1px solid var(--line); }
+.lb-cap { color: var(--bone); font-size: 14px; text-align: center; max-width: 70ch; }
+.lb-bar { display: flex; gap: 10px; align-items: center; }
+.lb-bar button { min-height: 42px; padding: 8px 16px; }
+.lb-count { font-family: var(--mono); direction: ltr; font-size: 13px; color: var(--steel); min-width: 56px; text-align: center; }
+
+/* -------------------------------------------------------------------- facts */
+.facts { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); margin-block-end: 34px; }
+@media (min-width: 760px) { .facts { grid-template-columns: repeat(3, 1fr); } }
+.fact { border: 1px solid var(--line); border-radius: 3px; padding: 16px; background: #ffffff05; }
+.fact b {
+  display: block; font-size: clamp(22px, 3.4vw, 30px);
+  color: var(--amber); line-height: 1.1; margin-block-end: 7px;
+}
+html[lang="en"] .fact b { font-family: var(--mono); }
+.fact span { font-size: 13.5px; color: #C4D2DC; }
+.prose { max-width: 66ch; }
+.prose h3 { margin-block: 26px 8px; color: var(--bone); }
+
+/* ------------------------------------------------------------------- friends */
+.joinbox { border: 1px solid var(--line); border-radius: 3px; background: var(--panel); padding: 22px; }
+.joinform { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.joinform label { flex: 0 0 100%; font-size: 13px; color: var(--steel); margin-block-end: 2px; }
+.joinform input {
+  flex: 1 1 190px; min-height: 50px; padding: 12px 16px;
+  font-family: var(--mono); direction: ltr; text-align: center;
+  font-size: 20px; letter-spacing: .30em; font-weight: 700;
+  background: var(--ink); color: var(--bone);
+  border: 1px solid var(--line); border-radius: 2px;
+}
+.joinform input::placeholder { color: #5C7183; letter-spacing: .30em; }
+.joinform input:focus-visible { border-color: var(--ice); }
+.joinerr { flex: 0 0 100%; color: var(--rose-t); font-size: 14px; min-height: 21px; margin-block-start: 4px; }
+.steps { counter-reset: s; list-style: none; margin: 0 0 26px; padding: 0; display: grid; gap: 16px; max-width: 64ch; }
+.steps li { counter-increment: s; position: relative; padding-inline-start: 40px; color: #CBD8E1; }
+.steps li::before {
+  content: counter(s); position: absolute; inset-inline-start: 0; top: 0;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  color: var(--ink); background: var(--amber); border-radius: 2px;
+}
+.steps b { color: var(--bone); }
+code.inline {
+  font-family: var(--mono); direction: ltr; unicode-bidi: isolate;
+  background: #ffffff0f; border: 1px solid var(--line); border-radius: 2px;
+  padding: 2px 7px; font-size: 13.5px; color: var(--ice);
+  white-space: nowrap; overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------- install */
+.plats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+.plat { border: 1px solid var(--line); border-radius: 3px; padding: 20px; background: var(--panel); }
+.plat.you { border-color: var(--amber); order: -1; background: #FFB53D0d; }
+.plat h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.plat .badge {
+  display: none; font-size: 10px; letter-spacing: .18em;
+  background: var(--amber); color: var(--ink); padding: 3px 8px; border-radius: 2px; font-weight: 700;
+}
+.plat.you .badge { display: inline-block; }
+.plat ol { margin: 14px 0 0; padding-inline-start: 20px; display: grid; gap: 8px; }
+.plat li { font-size: 14.5px; color: #CBD8E1; }
+.plat .btn { margin-block-start: 16px; width: 100%; }
+
+/* -------------------------------------------------------------------- footer */
+footer { border-block-start: 1px solid var(--line); padding-block: 44px 56px; }
+footer .cols { display: flex; flex-wrap: wrap; gap: 18px 40px; align-items: flex-start; justify-content: space-between; }
+footer p { margin: 0 0 10px; }
+.freeline { color: var(--bone); }
+.fnav { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; }
+.fnav a { color: var(--steel); text-decoration: none; }
+.fnav a:hover { color: var(--amber); }
+
+@media (max-width: 380px) {
+  :root { --pad: 16px; }
+  .btn { width: 100%; }
+  .wordmark { letter-spacing: .05em; }
+}
+</style>
+</head>
+
+<body>
+<a class="skip" href="#main" data-fa="پرش به محتوا">Skip to content</a>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top">OVERRUN</a>
+    <nav class="links" aria-label="Sections" data-fa-al="بخش‌ها">
+      <a href="#what" data-fa="این بازی چیه">What it is</a>
+      <a href="#modes" data-fa="مودها">Modes</a>
+      <a href="#gallery" data-fa="تصاویر">Screenshots</a>
+      <a href="#fast" data-fa="چرا سریعه">Why it's fast</a>
+      <a href="#friends" data-fa="با دوستان">With friends</a>
+      <a href="#install" data-fa="نصب">Install</a>
+    </nav>
+    <div class="langtoggle" role="group" aria-label="Language" data-fa-al="زبان">
+      <button type="button" id="btnEn" lang="en" aria-pressed="true">EN</button>
+      <button type="button" id="btnFa" lang="fa" aria-pressed="false">فارسی</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- =============================== HERO =============================== -->
+<section class="hero" id="top">
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <h1 class="wordmark">OVERRUN</h1>
+    <p class="hook" data-fa="تعدادشون از تو بیشتره. وایسی، تمومه.">You are outnumbered. Stay moving.</p>
+    <p class="subhook" data-fa="یک شوتر آرنای تاپ‌داون که توی تب مرورگر اجرا می‌شه. موج‌های کوآپ برای چهار نفر، ددمچ تیمی ۴v۴، اسکواد رویال ۲v۲v۲v۲. آفلاین هم کار می‌کنه.">A top-down arena shooter that runs in a browser tab. Co-op waves for four, 4v4 team deathmatch, 2v2v2v2 squad royale. It plays offline too.</p>
+
+    <div class="btnrow">
+      <a class="btn primary" href="/" data-fa="بازی در مرورگر">PLAY IN BROWSER</a>
+      <a class="btn ghost" href="/download/overrun.apk" data-fa="دانلود APK">DOWNLOAD APK</a>
+    </div>
+    <p class="instlink" data-fa='یا <a href="#install">به‌عنوان اپ نصبش کن</a> — روی اندروید، آیفون، ویندوز یا مک.'>or <a href="#install">install it as an app</a> — Android, iPhone, Windows or Mac.</p>
+
+    <p class="herofacts">
+      <span data-fa="<b>۸ بازیکن</b> حداکثر"><b>8 players</b> maximum</span>
+      <span data-fa="<b>۲۰۳ کیلوبایت</b> کل دانلود اولیه"><b>203 kB</b> total first load</span>
+      <span data-fa="<b>۰ بایت</b> فایل مدل، بافت و صدا"><b>0 bytes</b> of model, texture or audio files</span>
+      <span data-fa="<b>رایگان</b>، بدون تبلیغ"><b>Free</b>, no ads</span>
+    </p>
+  </div>
+</section>
+
+<!-- ============================== WHAT IT IS ========================== -->
+<section id="what">
+  <div class="wrap">
+    <div class="sechead">
+      <p class="kicker" data-fa="۰۱ — این بازی چیه">01 — What it is</p>
+      <h2 data-fa="یک آرنا، یک شبیه‌سازی، سه مود">One arena, one simulation, three modes</h2>
+    </div>
+    <div class="prose">
+      <p class="lead" data-fa="اورران یک شوتر آرنای تاپ‌داون است که توی همون تب مرورگر اجرا می‌شود. سه مود روی یک آرنا و یک شبیه‌سازی مشترک سوارند: موج‌های کوآپ تا چهار نفر، ددمچ تیمی چهار در چهار، و اسکواد رویال دو در دو در دو در دو. یک مود اینجا فقط یک بسته‌ی کوچک از قوانین است — چه کسی می‌تواند به چه کسی آسیب بزند، چه چیزی مسابقه را تمام می‌کند، وقتی می‌میری چه اتفاقی می‌افتد — نه یک بازی جداگانه. برای همین اضافه‌کردن یک مود به‌جای بازنویسی، چند ده خط کد خرج برمی‌دارد.">OVERRUN is a top-down arena shooter that runs in a browser tab. Three modes share one arena and one simulation: co-op waves for up to four, 4v4 team deathmatch, and 2v2v2v2 squad royale. A mode here is a small bundle of rules — who can hurt whom, what ends the match, what happens when you die — rather than a separate game. That is why adding one costs a dozen lines instead of a rewrite.</p>
+
+      <p data-fa="هیچ‌چیزش دانلود نشده. توی مخزن نه فایل مدلی هست، نه بافتی، نه صدایی: هندسه با کد نوشته می‌شود، بافت‌ها روی canvas کشیده می‌شوند، و چهل‌واندی صدا همان بار اولی که Play می‌زنی داخل بافر رندر می‌شوند. ده آرکتایپ دشمن روی یک هسته‌ی هوش مصنوعی مشترک می‌چرخند، و یک دایرکتور هر موج را بر اساس چیزی که تیمت واقعاً ساخته می‌چیند — نه از روی فهرستی که از قبل نوشته شده باشد.">Nothing in it was downloaded. There are no model files, no texture files and no audio files in the repository: geometry is written, textures are drawn onto a canvas, and forty-odd sounds are rendered into buffers the first time you press play. Ten enemy archetypes run on one AI core, and a director composes each wave against what your party has actually built rather than replaying an authored list.</p>
+
+      <p data-fa="در آنلاین، خودِ مسابقه روی edge اجرا می‌شود. یک Durable Object روی کلادفلر همان شبیه‌سازی را بیست بار در ثانیه تیک می‌زند و حقیقت دستِ اوست؛ مرورگر تو جلوتر از آن پیش‌بینی می‌کند و بعد اصلاح می‌شود. کلاینت هیچ‌وقت به سرور نمی‌گوید «زدمش» — فقط می‌گوید کجا را نشانه رفته بود، و سرور تصمیم می‌گیرد، و تا ۲۰۰ میلی‌ثانیه عقب برمی‌گردد تا پینگت به ضررت تمام نشود.">Online, the match itself runs on the edge. A Cloudflare Durable Object ticks the same simulation twenty times a second and owns the truth; your browser predicts ahead of it and gets corrected. The client never tells the server that it hit something — it says where it was aiming, the server decides, and it rewinds up to 200 ms so your ping is not held against you.</p>
+
+      <h3 data-fa="ده آرکتایپ، ده سؤال">Ten archetypes, ten questions</h3>
+      <p class="small muted" data-fa="هر دشمن برای این ساخته شده که یک سؤال متفاوت از تو بپرسد. سختی از تصمیم بهتر می‌آید، نه از تقلب: هر حمله دست‌کم ۲۵۰ میلی‌ثانیه تلگراف می‌دهد و هیچ‌چیز کنار شانه‌ات اسپاون نمی‌شود.">Every one of them exists to ask a different question of the player. Difficulty comes from better decisions, never from cheating: every attack telegraphs for at least 250 ms, and nothing spawns inside your shoulder.</p>
+    </div>
+
+    <dl class="asks">
+      <div class="ask"><dt>rusher</dt><dd data-fa="می‌توانی مدام در حرکت بمانی؟">can you keep moving?</dd></div>
+      <div class="ask"><dt>shard</dt><dd data-fa="وقتی تعدادشان بیشتر شد هم می‌توانی؟">can you keep moving when there are more of them?</dd></div>
+      <div class="ask"><dt>bruiser</dt><dd data-fa="زیر فشار می‌توانی تلگراف حمله را بخوانی؟">can you read a telegraph under pressure?</dd></div>
+      <div class="ask"><dt>spitter</dt><dd data-fa="زیر آتش می‌توانی فاصله را کم کنی؟">can you close distance while being shot at?</dd></div>
+      <div class="ask"><dt>splitter</dt><dd data-fa="بیلدت جواب مشکلی که تکثیر می‌شود را می‌دهد؟">does your build handle a problem that multiplies?</dd></div>
+      <div class="ask"><dt>stalker</dt><dd data-fa="حواست به جناحین هست یا فقط روبه‌رو؟">are you watching the flanks or only the front?</dd></div>
+      <div class="ask"><dt>sapper</dt><dd data-fa="در ۹۰۰ میلی‌ثانیه می‌توانی تصمیم بگیری؟">can you make a decision in 900 milliseconds?</dd></div>
+      <div class="ask"><dt>warden</dt><dd data-fa="جابه‌جا می‌شوی، یا همین‌طور به دیوار شلیک می‌کنی؟">will you reposition, or keep shooting a wall?</dd></div>
+      <div class="ask"><dt>elite</dt><dd data-fa="همه‌ی این‌ها را با هم می‌توانی؟">can you do all of that at once?</dd></div>
+      <div class="ask"><dt>boss</dt><dd data-fa="دو دقیقه‌ی تمام؟">for two minutes?</dd></div>
+    </dl>
+
+    <h3 style="margin-block:34px 14px" data-fa="شش سلاح">Six weapons</h3>
+    <div class="weps">
+      <div class="wep"><b>SMG</b><span data-fa="بخشنده است. همیشه کافی است.">Forgiving. Always enough.</span></div>
+      <div class="wep"><b>BREACHER</b><span data-fa="نُه دلیل برای نزدیک‌شدن.">Nine reasons to get close.</span></div>
+      <div class="wep"><b>LANCE</b><span data-fa="یک خط می‌کشد. هرچه روی خط باشد می‌میرد.">Draws a line. Everything on it dies.</span></div>
+      <div class="wep"><b>RICOCHET</b><span data-fa="گوشه‌ها فقط یک پیشنهادند.">Corners are only suggestions.</span></div>
+      <div class="wep"><b>TORCH</b><span data-fa="بردش کوتاه است. هیچ‌چیز از آن جان سالم به‌در نمی‌برد.">Short reach. Nothing survives it.</span></div>
+      <div class="wep"><b>THUMPER</b><span data-fa="دیر می‌رسد. بلند می‌رسد.">Arrives late. Arrives loud.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================ MODES ============================= -->
+<section id="modes">
+  <div class="wrap">
+    <div class="sechead">
+      <p class="kicker" data-fa="۰۲ — مودها">02 — Modes</p>
+      <h2 data-fa="سه‌تا، و هر سه واقعاً بازی می‌شوند">Three of them, and all three get played</h2>
+    </div>
+
+    <div class="grid g3">
+      <article class="card coop">
+        <div class="top"></div>
+        <h3>OVERRUN</h3>
+        <p class="blurb" data-fa="چهارتا شما. بقیه‌اش همه‌چیز.">Four of you. Everything else.</p>
+        <p class="count" data-fa="۱–۴ بازیکن · یک تیم · PvE">1–4 PLAYERS · ONE TEAM · PVE</p>
+        <ul>
+          <li data-fa="ریسپاون ندارد. می‌افتی و هم‌تیمی ۳٫۲ ثانیه وقت دارد از فاصله‌ی سه متری بلندت کند.">No respawn. You go down, and a teammate has 3.2 seconds inside 3 metres to pick you up.</li>
+          <li data-fa="موج پشت موج، و بین هرکدام یک ارتقا انتخاب می‌کنی. هر ۵ موج یک مودیفایر، هر ۱۰ موج یک باس.">Waves, with an upgrade choice between them. A modifier every 5 waves, a boss every 10.</li>
+          <li data-fa="هر بازیکن اضافه ۷۲٪ به بودجه‌ی دشمن اضافه می‌کند، نه ۱۰۰٪ — چون چهار نفر با هم از چهار برابرِ یک نفر قوی‌ترند.">Each extra player adds 72% of a player's worth of enemies, not 100% — four of you are stronger than four times one of you.</li>
+          <li data-fa="وقتی همه‌تان زمین‌گیر شدید، تمام است.">It ends when all of you are down.</li>
+        </ul>
+      </article>
+
+      <article class="card tdm">
+        <div class="top"></div>
+        <h3>TEAM DEATHMATCH</h3>
+        <p class="blurb" data-fa="چهار در برابر چهار. اولین تیمی که به سی برسد.">Four against four. First to thirty.</p>
+        <p class="count" data-fa="۸ بازیکن · ۲ تیم چهارنفره · PvP">8 PLAYERS · 2 TEAMS OF 4 · PVP</p>
+        <ul>
+          <li data-fa="اولین تیم تا ۳۰ کیل — یا هر تیمی که سرِ دقیقه‌ی هشتم جلو باشد.">First team to 30 kills — or whoever is ahead when the eight-minute clock runs out.</li>
+          <li data-fa="ریسپاون چهار ثانیه‌ای، با یک سپر ۱٫۶ ثانیه‌ای که لحظه‌ای که شلیک کنی از دست می‌رود.">A four-second respawn, with a 1.6-second shield you lose the moment you shoot.</li>
+          <li data-fa="آرنای متقارن، به‌علاوه‌ی به‌اندازه‌ی کافی حضور PvE که نگذارد فضا سرد شود.">A symmetric arena, plus enough of a PvE presence to stop it going quiet.</li>
+          <li data-fa="جای خالی با بات پر می‌شود، پس مسابقه‌ی هفت‌نفره منتظر نمی‌ماند.">Empty slots fill with bots, so a seven-player lobby does not sit and wait.</li>
+        </ul>
+      </article>
+
+      <article class="card squad">
+        <div class="top"></div>
+        <h3>SQUAD ROYALE</h3>
+        <p class="blurb" data-fa="چهار دونفره. یک آرنا. که کوچک می‌شود.">Four duos. One arena. It gets smaller.</p>
+        <p class="count" data-fa="۸ بازیکن · ۴ تیم دونفره · PvP">8 PLAYERS · 4 TEAMS OF 2 · PVP</p>
+        <ul>
+          <li data-fa="اولین تیم تا ۲۴ امتیاز، یا هر تیمی که سرِ دقیقه‌ی هفتم جلو باشد.">First duo to 24 points, or the lead at seven minutes.</li>
+          <li data-fa="شریکت اگر بیفتد بلندکردنی است: ۲٫۶ ثانیه، از فاصله‌ی سه متری.">A downed partner can be picked back up: 2.6 seconds, 3 metres.</li>
+          <li data-fa="سرِ ۷۲٪ زمان، زمین شروع می‌کند به بسته‌شدن تا ۴۲٪ شعاع. بیرون از دایره ثانیه‌ای ۱۴ سلامتی می‌سوزاند.">At 72% of the clock the floor starts closing to 42% of its radius. Outside costs 14 health a second.</li>
+          <li data-fa="یا زودتر تمام می‌شود: وقتی فقط یک اسکواد سرِ پا مانده باشد.">Or it ends early, the moment one squad is the only one left standing.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== GALLERY ============================= -->
+<section id="gallery">
+  <div class="wrap">
+    <div class="sechead">
+      <p class="kicker" data-fa="۰۳ — تصاویر">03 — Screenshots</p>
+      <h2 data-fa="هیچ‌کدام رتوش نشده‌اند">None of these are touched up</h2>
+      <p class="muted small" data-fa="همه‌ی این تصاویر با اجرای خودکار همین بیلد در کرومیومِ headless گرفته شده‌اند. برای اندازه‌ی کامل کلیک کن — یا با Tab برو رویش و Enter بزن.">Every one of these was captured by driving this build in headless Chromium. Click for full size — or tab to one and press Enter.</p>
+    </div>
+
+    <div class="shots" id="shots">
+      <figure class="shot">
+        <button type="button" data-full="/shots/00-title.webp" data-w="1600" data-h="900">
+          <img src="/shots/00-title-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="The OVERRUN title screen: the wordmark over a dark arena, with three mode cards below it."
+               data-fa-alt="صفحه‌ی عنوان اورران: وردمارک روی یک آرنای تاریک، و زیرش سه کارت مود."
+               style="background-image:url('data:image/webp;base64,UklGRj4AAABXRUJQVlA4IDIAAADwAgCdASoUAAsAPu1iqk2ppaQmMAgBMB2JZwCdAC0kAAD+74IgEljmLR+6VNSjOIQAAA==')" />
+        </button>
+        <figcaption data-fa="منو: سه مود، و کدی برای پیوستن به روم یک دوست.">The menu: three modes, and a code box for joining a friend's room.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <button type="button" data-full="/shots/01-coop-swarm.webp" data-w="1600" data-h="900">
+          <img src="/shots/01-coop-swarm-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="Wave 14 of co-op: dozens of enemies converging on a single player in a pale concrete arena."
+               data-fa-alt="موج ۱۴ کوآپ: ده‌ها دشمن که در یک آرنای بتنی روشن به سمت یک بازیکن همگرا می‌شوند."
+               style="background-image:url('data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADQAwCdASoUAAsAPu1mq04ppaQiMAgBMB2JZwAAXlG8VhGiu4tTDgAA/naKlk3s5cjmXrxKr+n+W9x0dbo/3YHlJAA=')" />
+        </button>
+        <figcaption data-fa="موج ۱۴، و بنرش می‌گوید «آن‌ها یاد می‌گیرند». دایرکتور موج را بر اساس بیلد تو می‌چیند.">Wave 14, and the banner says THEY LEARN. The director composes the wave against your build.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <button type="button" data-full="/shots/02-explosion.webp" data-w="1600" data-h="900">
+          <img src="/shots/02-explosion-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="Two explosions going off at once, damage numbers rising, a ten times combo counter on screen."
+               data-fa-alt="دو انفجار هم‌زمان، اعداد آسیب که بالا می‌روند، و شمارنده‌ی کمبوی ۱۰ برابری روی صفحه."
+               style="background-image:url('data:image/webp;base64,UklGRlIAAABXRUJQVlA4IEYAAACQAwCdASoUAAsAPu1iqk2ppaQiMAgBMB2JZwAAXdl/Zla6CqoAAP52flXhIAPrhNEqEQZT9T32ThBnueeevfdmdmToUAAA')" />
+        </button>
+        <figcaption data-fa="کمبوی ۱۰ برابری. نردبان کمبو ۳٫۲ ثانیه پس از آخرین کیل شروع به افت می‌کند.">A 10x combo. The ladder starts decaying 3.2 seconds after the last kill.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <button type="button" data-full="/shots/03-boss.webp" data-w="1600" data-h="900">
+          <img src="/shots/03-boss-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="A boss twice the height of everything else, telegraphed slam rings marked in rose across the floor."
+               data-fa-alt="یک باس با دو برابر قدِ بقیه، و دایره‌های صورتی تلگراف ضربه که کف آرنا را پر کرده‌اند."
+               style="background-image:url('data:image/webp;base64,UklGRkwAAABXRUJQVlA4IEAAAADQAwCdASoUAAsAPu1iqk2ppaQiMAgBMB2JZwDKABnT6vI7lZuVH/AA/iKuAJtji4APXtoTbUAZKUlgGFdDlmAA')" />
+        </button>
+        <figcaption data-fa="موج ۲۰، باس. هر دایره‌ی صورتی یک حمله‌ی تلگراف‌شده است — رنگ صورتی هرگز تزئینی نیست.">Wave 20, a boss. Every rose ring is a telegraphed attack — rose is never decorative.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <button type="button" data-full="/shots/04-tdm.webp" data-w="1600" data-h="900">
+          <img src="/shots/04-tdm-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="Team deathmatch at 22 to 19, blue and orange players trading fire across a symmetric arena."
+               data-fa-alt="ددمچ تیمی با نتیجه‌ی ۲۲ به ۱۹؛ بازیکنان آبی و نارنجی در یک آرنای متقارن آتش رد و بدل می‌کنند."
+               style="background-image:url('data:image/webp;base64,UklGRlIAAABXRUJQVlA4IEYAAACQAwCdASoUAAsAPu1iqk2ppaQiMAgBMB2JYwAATpVwH/ox4RIAAP4iQsv12Sjo+lTBHg8kAQI2d25ZDtHR9mAQ5OSf3i4A')" />
+        </button>
+        <figcaption data-fa="ددمچ، ۲۲ به ۱۹. رنگ تیم اطلاعات است، پس در پکیج مشترک زندگی می‌کند.">Team deathmatch, 22–19. Team colour is gameplay information, so it lives in the shared package.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <button type="button" data-full="/shots/05-squad.webp" data-w="1600" data-h="900">
+          <img src="/shots/05-squad-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="Squad royale with four scores on the HUD and the arena's rose closing zone eating the left half of the floor."
+               data-fa-alt="اسکواد رویال با چهار امتیاز روی HUD، و ناحیه‌ی صورتیِ بسته‌شدن آرنا که نیمه‌ی چپ زمین را خورده است."
+               style="background-image:url('data:image/webp;base64,UklGRlYAAABXRUJQVlA4IEoAAACQAwCdASoUAAsAPu1kqk4ppaQiMAgBMB2JaAAAWvfxOO1nFTcAAP2Wms8Z4sZW1zL/KuOQ/7VJDV60jD+glQliAaIiQS8BG8AAAA==')" />
+        </button>
+        <figcaption data-fa="اسکواد رویال، ۲۹ ثانیه مانده. صورتی یعنی زمین دارد ازت گرفته می‌شود.">Squad royale with 29 seconds left. Rose means the floor is being taken away from you.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <button type="button" data-full="/shots/06-upgrades.webp" data-w="1600" data-h="900">
+          <img src="/shots/06-upgrades-800.webp" width="800" height="450" loading="lazy" decoding="async"
+               alt="A quiet moment on wave 7: one player alone on a wide concrete floor, the arena tinted rose on one side."
+               data-fa-alt="یک لحظه‌ی آرام در موج ۷: یک بازیکن تنها روی زمین بتنی وسیع، و آرنا که یک طرفش صورتی شده."
+               style="background-image:url('data:image/webp;base64,UklGRjwAAABXRUJQVlA4IDAAAADwAQCdASoUAAsAA4BaJYwAAuPzbb03tyAA/j8cBjH1+kRDQLf7hfBY2pTb/ypj1AA=')" />
+        </button>
+        <figcaption data-fa="موج ۷، و آرنا برای یک لحظه خالی است. دره‌ی آرامش عمدی است؛ چیزی است که ضربه‌ی بعدی را می‌سازد.">Wave 7, and the arena is briefly empty. The relief valley is deliberate; it is what makes the next spike land.</figcaption>
+      </figure>
+
+      <figure class="shot" data-tall>
+        <button type="button" data-full="/shots/07-mobile.webp" data-w="844" data-h="390">
+          <img src="/shots/07-mobile-800.webp" width="800" height="370" loading="lazy" decoding="async"
+               alt="The same game on a phone in landscape, with a floating dash pad and thumb controls at the edges."
+               data-fa-alt="همان بازی روی گوشی در حالت افقی، با پد شناور دش و کنترل‌های انگشتی در لبه‌ها."
+               style="background-image:url('data:image/webp;base64,UklGRlYAAABXRUJQVlA4IEoAAABwAwCdASoUAAkAPu1iqk2ppaQiMAgBMB2JZQC+SBm12yi4lgAA/iMjlJJz9KJI0QWt5smRTEoW2HILueouCZhsLelq9FA0xcUwAA==')" />
+        </button>
+        <figcaption data-fa="روی گوشی، افقی و تمام‌صفحه. HUD در حاشیه می‌ماند چون وسط صفحه جایی است که داری زنده می‌مانی.">On a phone, landscape and fullscreen. The HUD stays at the edges because the centre is where you are staying alive.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== WHY FAST ============================ -->
+<section id="fast">
+  <div class="wrap">
+    <div class="sechead">
+      <p class="kicker" data-fa="۰۴ — چرا سریع است">04 — Why it's fast</p>
+      <h2 data-fa="چون هیچ‌چیزی برای دانلود وجود ندارد">Because there is nothing to download</h2>
+    </div>
+
+    <div class="facts">
+      <div class="fact"><b data-fa="۶۷ کیلوبایت">67 kB</b><span data-fa="خودِ بازی، بعد از فشرده‌سازی gzip — جاوااسکریپت و CSS، اندازه‌گیری‌شده روی بیلد پروداکشن">the game itself, gzipped — JS and CSS, measured on the production build</span></div>
+      <div class="fact"><b data-fa="۱۳۶ کیلوبایت">136 kB</b><span data-fa="حجم three.js بعد از gzip. تنها وابستگیِ زمان اجرا.">three.js, gzipped. The only runtime dependency.</span></div>
+      <div class="fact"><b data-fa="۰">0</b><span data-fa="فایل مدل، بافت یا صدا در کل مخزن">model, texture or audio files in the whole repository</span></div>
+      <div class="fact"><b data-fa="حدود ۷۰۰">~700</b><span data-fa="مثلث برای یک جنگجوی کاملاً مفصل‌دار، که کد آن را می‌سازد">triangles for a fully articulated fighter, generated in code</span></div>
+      <div class="fact"><b data-fa="۱">1</b><span data-fa="دراو کال به ازای هر آرکتایپ دشمن، تا سقف ۲۶۰ دشمن هم‌زمان">draw call per enemy archetype, up to 260 enemies at once</span></div>
+      <div class="fact"><b data-fa="۲۰ هرتز">20 Hz</b><span data-fa="تیکِ سرورِ معتبر. کلاینت ورودی‌اش را ۳۰ بار در ثانیه می‌فرستد.">authoritative server tick. The client ships input 30 times a second.</span></div>
+    </div>
+
+    <div class="prose">
+      <h3 data-fa="صفر بایت دارایی">Zero asset bytes</h3>
+      <p data-fa="بافت‌ها روی canvas کشیده می‌شوند. هندسه با کد نوشته می‌شود. کاراکترها اسکلت واقعی و اسکینینگ واقعی دارند، ولی هیچ فایل انیمیشنی وجود ندارد: چرخش استخوان‌ها هر فریم از وضعیت واقعی کاراکتر حساب می‌شود — سرعت واقعی طول و ریتم گام را تعیین می‌کند، زاویه‌ی نشانه‌گیری بالاتنه را مستقل از لگن می‌چرخاند، شلیک بازوها را با یک فنر عقب می‌راند. انیمیشن کلیپ‌محور مجبور است به سمت کاری که کاراکتر دارد می‌کند «بلند» شود؛ این خودِ همان کار است، پس هیچ‌وقت از حالت خارج نمی‌شود و هیچ‌وقت وسط چرخه‌ی دویدن، ایستاده نمی‌ماند.">Textures are painted onto a canvas. Geometry is written. Characters have a real skeleton and real skinning, but there are no animation clips: bone rotations are computed each frame from the character's actual state — real velocity drives stride length and cadence, the aim angle twists the torso independently of the hips, firing kicks the arms through a spring. Clip-based animation has to blend toward what the character is doing. This is what the character is doing, so it can never desync and never plays a run cycle while standing still.</p>
+
+      <p data-fa="صدا هم همین است. حدود چهل صدای مجزا، یک ریورب کانولوشن، یک مسیر میکس واقعی و چهار لایه موسیقی تطبیقی — و حتی یک فایل صوتی هم وجود ندارد. همه‌چیز موقع لود با OfflineAudioContext داخل بافر رندر می‌شود، و از هر صدای پرضربه شش نسخه پخته می‌شود که تصادفی انتخاب و پیچ‌شیفت می‌شوند. همین است که کاری می‌کند یک خشاب شصت‌تیری، شصت شلیک به گوش برسد، نه یک لوپ.">Audio is the same. Forty-odd distinct sounds, a convolution reverb, a real mix bus and four layers of adaptive music — and not one audio file. Everything is rendered into buffers at load time with an OfflineAudioContext, and six variants of each impactful sound are baked, chosen at random and pitch-shifted. That is the whole trick to making a sixty-round magazine sound like sixty rounds.</p>
+
+      <h3 data-fa="یک دراو کال برای هر آرکتایپ">One draw call per archetype</h3>
+      <p data-fa="دویست‌وشصت دشمن، که هرکدام آشکارا راه می‌روند، بالا و پایین می‌شوند، برای حمله آماده می‌شوند و از ضربه جا می‌خورند — به‌ازای هر آرکتایپ فقط یک دراو کال. اسکینینگ در وِرتکس شیدر انجام می‌شود و با اتریبیوت‌های اینستنس رانده می‌شود؛ «اسکلت» داخل خودِ هندسه پخته شده است. بدون استخوان، بدون یونیفرم اسکلتی، بدون هیچ کار CPU به‌ازای هر شیء.">Two hundred and sixty enemies, each visibly walking, bobbing, winding up and flinching — in one draw call per archetype. Skinning happens in the vertex shader, driven by instance attributes, with the skeleton baked into the geometry itself. No bones, no skeleton uniforms, no per-object CPU work.</p>
+
+      <p data-fa="مسیریابی هم به همین شکل بی‌اعتنا به تعداد است. یک BFS چندمنبعی از هر هدفِ زنده روی گریدی با سلول‌های ۲٫۴ متری، سه بار در ثانیه بازسازی می‌شود. هر دشمن با هزینه‌ی دو بار خواندن از آرایه، یک مسیر دور موانع به دست می‌آورد. هزینه‌اش اصلاً به تعداد دشمن‌ها بستگی ندارد.">Pathfinding is just as indifferent to the crowd. One multi-source BFS from every living target across a 2.4-metre grid, rebuilt three times a second. Every enemy gets a route around cover for the cost of two array reads, and the cost does not depend on enemy count at all.</p>
+
+      <h3 data-fa="کیفیت تطبیقی، اندازه‌گیری‌شده نه حدس‌زده">Adaptive quality, measured rather than guessed</h3>
+      <p data-fa="چهار سطح کیفیت — low، med، high، ultra — از روی زمان فریمِ واقعی انتخاب می‌شوند، نه از روی sniff کردن user agent، و مدام دوباره ارزیابی می‌شوند. اول رزولوشن و پس‌پردازش کوتاه می‌آیند: نسبت پیکسل از ۲٫۰ تا ۱٫۰ و شدو مپ از ۴۰۹۶ تا ۵۱۲ پایین می‌آید. تعداد دشمن‌ها هیچ‌وقت تغییر نمی‌کند، چون آن کار خودِ بازی را عوض می‌کند، نه نمایشش را.">Four quality tiers — low, med, high, ultra — are chosen from a real frame-time measurement rather than by sniffing the user agent, and re-evaluated continuously. Resolution and post-processing go first: pixel ratio falls from 2.0 to 1.0, shadow maps from 4096 to 512. The enemy count never changes, because that would alter the game rather than its presentation.</p>
+
+      <h3 data-fa="سرور معتبر روی edge">An authoritative server on the edge</h3>
+      <p data-fa="هر مسابقه یک Durable Object است: یک پروسه‌ی تک، در نزدیک‌ترین نقطه به بازیکن‌ها، که دقیقاً همان شبیه‌سازی مرورگر را ۲۰ بار در ثانیه اجرا می‌کند. مرورگر تو حرکت خودت را پیش‌بینی می‌کند و اسنپ‌شات‌های سرور آن را اصلاح می‌کنند؛ بقیه‌ی بازیکن‌ها ۱۰۰ میلی‌ثانیه در گذشته رندر می‌شوند، چون نرم‌بودن از فوری‌بودن مهم‌تر است. ثبت برخورد سروری است و تا ۲۰۰ میلی‌ثانیه عقب برمی‌گردد. کلاینت هیچ‌وقت نمی‌گوید که چیزی را زده است.">Every match is a Durable Object: a single process, as close to the players as Cloudflare can put it, running exactly the browser's simulation 20 times a second. Your browser predicts your own movement and the server's snapshots correct it; everyone else is rendered 100 ms in the past, because smooth beats instant. Hit registration is server-side and rewinds up to 200 ms. The client never claims a hit.</p>
+
+      <h3 data-fa="و بعد آفلاین کار می‌کند">And then it works offline</h3>
+      <p data-fa="سرویس ورکر موقع نصب همه‌ی خروجی‌های بیلد را یک‌جا پیش‌کش می‌کند، پس کل بازی تک‌نفره با شبکه‌ی قطع اجرا می‌شود. نام کش هش بیلد را با خود دارد، پس فعال‌شدن نسخه‌ی جدید همه‌ی نسخه‌های قبلی را در یک حرکت پاک می‌کند. توی تونل و آسانسور، یک ران تمام نمی‌شود.">The service worker precaches every build artefact at install, atomically, so the whole single-player game runs with the network cut. The cache name carries the build hash, so activating a new version drops every previous one in a single sweep. A tunnel or a lift does not end a run.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== FRIENDS ============================= -->
+<section id="friends">
+  <div class="wrap">
+    <div class="sechead">
+      <p class="kicker" data-fa="۰۵ — با دوستان">05 — Play with friends</p>
+      <h2 data-fa="یک کد شش‌حرفی، یک لینک">A six-character code, and a link</h2>
+    </div>
+
+    <div class="grid g2" style="align-items:start">
+      <div>
+        <ol class="steps">
+          <li data-fa="<b>یک روم بساز</b> در هر مودی که خواستی. یک کد شش‌حرفی می‌گیری، مثل <code class=&quot;inline&quot;>7KQ2MX</code>."><b>Create a room</b> in any mode. You get a six-character code, like <code class="inline">7KQ2MX</code>.</li>
+          <li data-fa="<b>کد را بگو یا لینک را بفرست.</b> الفبای کد نه O دارد، نه ۰، نه I و نه ۱ — چون کد را بیشتر توی کال می‌خوانند تا کپی‌پیست کنند، و «I بود یا ۱؟» شایع‌ترین دلیل پرنشدن یک روم است."><b>Read it out, or send the link.</b> The alphabet has no O, no 0, no I and no 1 — a code gets read aloud over a voice call more often than it gets pasted, and "was that an I or a 1" is the single most common way a private room fails to fill.</li>
+          <li data-fa="<b>لینک دعوت</b> به شکل <code class=&quot;inline&quot;>/j/7KQ2MX</code> است و مستقیم داخل همان روم باز می‌شود — حتی وقتی شبکه قطع است، چون پوسته‌ی بازی کش شده و لینک به همان کش می‌رسد."><b>The invite link</b> is <code class="inline">/j/7KQ2MX</code> and opens straight into that room — even with the network down, because the shell is cached and the link resolves to it.</li>
+          <li data-fa="<b>یا کوییک‌پلی بزن</b> و در یک روم عمومی همان مود بیفت. جای خالی با بات پر می‌شود و اگر قطع شدی، ۳۰ ثانیه فرصت داری برگردی قبل از اینکه جایت را بدهند."><b>Or hit quickplay</b> and drop into a public room for the mode you picked. Empty slots fill with bots, and a disconnect gets 30 seconds of grace before your slot is given away.</li>
+        </ol>
+      </div>
+
+      <div class="joinbox">
+        <form class="joinform" id="joinForm" novalidate>
+          <label for="code" data-fa="کدی داری؟ اینجا بچسبانش.">Got a code? Paste it here.</label>
+          <input id="code" name="code" type="text" inputmode="latin" autocomplete="off" autocapitalize="characters"
+                 spellcheck="false" maxlength="6" placeholder="7KQ2MX"
+                 aria-describedby="joinErr" data-fa-ph="7KQ2MX" />
+          <button class="btn primary" type="submit" data-fa="پیوستن">JOIN</button>
+          <p class="joinerr" id="joinErr" role="status" aria-live="polite"></p>
+        </form>
+        <p class="small muted" style="margin:14px 0 0" data-fa="این فرم فقط تو را به آدرس <code class=&quot;inline&quot;>/j/&amp;lt;CODE&amp;gt;</code> می‌فرستد، همان جایی که لینک دعوت می‌فرستد. اینجا حسابی لازم نیست؛ به‌عنوان مهمان وارد می‌شوی.">This just sends you to <code class="inline">/j/&lt;CODE&gt;</code>, the same place the invite link goes. No account is needed; you join as a guest.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== INSTALL ============================= -->
+<section id="install">
+  <div class="wrap">
+    <div class="sechead">
+      <p class="kicker" data-fa="۰۶ — نصب">06 — Install</p>
+      <h2 data-fa="نصب کن تا تمام‌صفحه، افقی و آفلاین اجرا شود">Install it and it runs fullscreen, landscape and offline</h2>
+      <p class="muted small" id="platNote" data-fa="لازم نیست چیزی نصب کنی — دکمه‌ی «بازی در مرورگر» همین حالا کار می‌کند. نصب فقط نوار آدرس را برمی‌دارد، آیکون می‌سازد و بازی را آفلاین نگه می‌دارد.">You do not have to install anything — PLAY IN BROWSER works right now. Installing just removes the address bar, gives you an icon, and keeps the game playable offline.</p>
+    </div>
+
+    <div class="plats" id="plats">
+      <div class="plat" data-plat="android">
+        <h3 data-fa='اندروید <span class="badge">دستگاه شما</span>'>Android <span class="badge">YOUR DEVICE</span></h3>
+        <ol>
+          <li data-fa="APK را بگیر و بازش کن. اندروید یک بار برای نصب از منبع ناشناخته اجازه می‌خواهد.">Take the APK and open it. Android will ask once for permission to install from an unknown source.</li>
+          <li data-fa="یا همین سایت را در کروم باز کن، منوی ⋮ و بعد «نصب برنامه» را بزن. همان بازی است، بدون مرحله‌ی نصب.">Or open this site in Chrome, tap ⋮ and then Install app. Same game, no install step.</li>
+        </ol>
+        <a class="btn primary" href="/download/overrun.apk" data-fa="دانلود APK">DOWNLOAD APK</a>
+      </div>
+
+      <div class="plat" data-plat="ios">
+        <h3 data-fa='آیفون و آیپد <span class="badge">دستگاه شما</span>'>iPhone &amp; iPad <span class="badge">YOUR DEVICE</span></h3>
+        <ol>
+          <li data-fa="این صفحه را در سافاری باز کن — کروم روی iOS اجازه‌ی نصب ندارد.">Open this page in Safari — Chrome on iOS cannot install it.</li>
+          <li data-fa="دکمه‌ی «اشتراک‌گذاری» (مربع با فلش رو به بالا) را بزن.">Tap Share, the square with an arrow pointing up.</li>
+          <li data-fa="«افزودن به صفحه‌ی اصلی» را انتخاب کن و بعد «افزودن».">Choose Add to Home Screen, then Add.</li>
+        </ol>
+        <a class="btn" href="/" data-fa="بازش کن و همین‌کار را بکن">OPEN IT AND DO THAT</a>
+      </div>
+
+      <div class="plat" data-plat="desktop">
+        <h3 data-fa='ویندوز و مک <span class="badge">دستگاه شما</span>'>Windows &amp; macOS <span class="badge">YOUR DEVICE</span></h3>
+        <ol>
+          <li data-fa="سایت را در کروم یا اِج باز کن.">Open the site in Chrome or Edge.</li>
+          <li data-fa="آیکون نصب را در انتهای نوار آدرس بزن — یک صفحه‌نمایش با فلش رو به پایین.">Click the install icon at the end of the address bar — a monitor with a downward arrow.</li>
+          <li data-fa="در پنجره‌ی خودش باز می‌شود و مثل هر برنامه‌ی دیگری در منوی شروع یا Launchpad می‌نشیند.">It opens in its own window and sits in the Start menu or Launchpad like anything else.</li>
+        </ol>
+        <a class="btn" href="/" data-fa="بازی در مرورگر">PLAY IN BROWSER</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap cols">
+    <div>
+      <p class="freeline" data-fa="اورران رایگان است. تبلیغ ندارد، ردیاب ندارد، و برای بازی‌کردن به هیچ حسابی نیاز نداری.">OVERRUN is free. There are no ads, no tracking, and you do not need an account to play.</p>
+      <p class="small muted" data-fa='کد کامل روی گیت‌هاب است: <a href="https://github.com/Mahdi-mortazavi/overrun" rel="noopener">Mahdi-mortazavi/overrun</a>.'>The whole thing is on GitHub: <a href="https://github.com/Mahdi-mortazavi/overrun" rel="noopener">Mahdi-mortazavi/overrun</a>.</p>
+    </div>
+    <nav class="fnav" aria-label="Footer" data-fa-al="پاورقی">
+      <a href="/" data-fa="بازی">Play</a>
+      <a href="#modes" data-fa="مودها">Modes</a>
+      <a href="#install" data-fa="نصب">Install</a>
+      <a href="https://github.com/Mahdi-mortazavi/overrun" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<!-- ============================= LIGHTBOX ============================= -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot" data-fa-al="تصویر">
+  <img id="lbImg" src="" alt="" />
+  <p class="lb-cap" id="lbCap"></p>
+  <div class="lb-bar">
+    <button class="btn" type="button" id="lbPrev" aria-label="Previous screenshot" data-fa-al="تصویر قبلی">‹</button>
+    <span class="lb-count" id="lbCount"></span>
+    <button class="btn" type="button" id="lbNext" aria-label="Next screenshot" data-fa-al="تصویر بعدی">›</button>
+    <button class="btn ghost" type="button" id="lbClose" data-fa="بستن">CLOSE</button>
+  </div>
+</div>
+
+<script>
+/* ============================ LANGUAGE ==============================
+   Both languages live in one document. English is the markup; Persian
+   rides along in data-fa attributes and is swapped in. The English
+   string is captured lazily the first time we leave it, so the DOM
+   stays the single source of truth for the English copy. */
+(function () {
+  var html = document.documentElement;
+  var MAP = { '': 'innerHTML', '-alt': 'alt', '-ph': 'placeholder', '-al': 'ariaLabel' };
+
+  function apply(lang) {
+    var fa = lang === 'fa';
+    html.lang = fa ? 'fa' : 'en';
+    html.dir = fa ? 'rtl' : 'ltr';
+    for (var suffix in MAP) {
+      var prop = MAP[suffix];
+      var nodes = document.querySelectorAll('[data-fa' + suffix + ']');
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i], key = 'en' + suffix.replace('-', '');
+        if (el.dataset[key] === undefined) {
+          el.dataset[key] = prop === 'innerHTML' ? el.innerHTML
+            : prop === 'ariaLabel' ? (el.getAttribute('aria-label') || '') : (el[prop] || '');
+        }
+        var v = fa ? el.getAttribute('data-fa' + suffix) : el.dataset[key];
+        if (prop === 'ariaLabel') el.setAttribute('aria-label', v); else el[prop] = v;
+      }
+    }
+    document.getElementById('btnEn').setAttribute('aria-pressed', String(!fa));
+    document.getElementById('btnFa').setAttribute('aria-pressed', String(fa));
+    try { localStorage.setItem('overrun-lang', lang); } catch (e) {}
+    document.dispatchEvent(new CustomEvent('langchange', { detail: lang }));
+  }
+
+  var stored = null;
+  try { stored = localStorage.getItem('overrun-lang'); } catch (e) {}
+  var initial = stored === 'fa' || stored === 'en' ? stored
+    : (navigator.language || '').toLowerCase().indexOf('fa') === 0 ? 'fa' : 'en';
+  apply(initial);
+
+  document.getElementById('btnEn').addEventListener('click', function () { apply('en'); });
+  document.getElementById('btnFa').addEventListener('click', function () { apply('fa'); });
+  window.__setLang = apply;
+})();
+
+/* ============================ HERO BACKDROP =========================
+   Pale concrete, amber motes, one rose one. Echoes the arena's aim
+   rings. Paints once and stops when the tab is hidden or the visitor
+   asks for reduced motion. */
+(function () {
+  var c = document.getElementById('bg'), ctx = c.getContext('2d');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  var vw = 0, vh = 0, dots = [], raf = 0, t = 0;
+
+  function size() {
+    var r = c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+    vw = r.width; vh = r.height;
+    c.width = Math.round(vw * d); c.height = Math.round(vh * d);
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    dots = [];
+    for (var i = 0, n = Math.max(14, Math.min(44, Math.round(vw / 26))); i < n; i++) {
+      dots.push({ x: Math.random() * vw, y: Math.random() * vh, r: Math.random() * 1.7 + 0.7,
+        vy: -(Math.random() * 9 + 3), a: Math.random() * 0.35 + 0.12,
+        c: Math.random() < 0.16 ? '255,45,107' : '255,181,61' });
+    }
+    draw(0);
+  }
+
+  function draw(dt) {
+    t += dt;
+    var g = ctx.createLinearGradient(0, 0, 0, vh);
+    g.addColorStop(0, '#182636'); g.addColorStop(0.55, '#111C27'); g.addColorStop(1, '#0E1620');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+
+    var cx = vw * 0.5, cy = vh * 0.62;
+    ctx.lineWidth = 1;
+    for (var k = 0; k < 3; k++) {
+      var p = ((t * 0.055) + k / 3) % 1;
+      ctx.strokeStyle = 'rgba(255,181,61,' + (0.16 * (1 - p)).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 60 + p * Math.max(vw, vh) * 0.72, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    for (var i = 0; i < dots.length; i++) {
+      var d = dots[i];
+      d.y += d.vy * dt; if (d.y < -6) { d.y = vh + 6; d.x = Math.random() * vw; }
+      ctx.fillStyle = 'rgba(' + d.c + ',' + d.a + ')';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  var last = 0;
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
+    draw(dt); raf = requestAnimationFrame(frame);
+  }
+  function running(on) {
+    if (on && !raf && !reduce.matches) { last = performance.now(); raf = requestAnimationFrame(frame); }
+    else if (!on && raf) { cancelAnimationFrame(raf); raf = 0; }
+  }
+  addEventListener('resize', size, { passive: true });
+  document.addEventListener('visibilitychange', function () { running(!document.hidden); });
+  reduce.addEventListener('change', function () { running(!reduce.matches); if (reduce.matches) draw(0); });
+  size(); running(true);
+})();
+
+/* ============================== LIGHTBOX ============================
+   Focus goes in, Escape and the backdrop bring it back out, and Tab
+   cannot leave while it is open. */
+(function () {
+  var box = document.getElementById('lightbox'), img = document.getElementById('lbImg');
+  var cap = document.getElementById('lbCap'), count = document.getElementById('lbCount');
+  var btns = [].slice.call(document.querySelectorAll('#shots .shot button'));
+  var focusables = [].slice.call(box.querySelectorAll('button'));
+  var index = -1, opener = null;
+
+  function show(i) {
+    index = (i + btns.length) % btns.length;
+    var b = btns[index], im = b.querySelector('img');
+    img.src = b.dataset.full;
+    img.width = b.dataset.w; img.height = b.dataset.h;
+    img.alt = im.alt;
+    cap.textContent = b.parentNode.querySelector('figcaption').textContent;
+    count.textContent = (index + 1) + ' / ' + btns.length;
+  }
+  function open(i) {
+    opener = document.activeElement;
+    box.setAttribute('open', '');
+    document.body.style.overflow = 'hidden';
+    show(i);
+    document.getElementById('lbClose').focus();
+  }
+  function close() {
+    box.removeAttribute('open');
+    document.body.style.overflow = '';
+    img.src = '';
+    if (opener) opener.focus();
+  }
+  btns.forEach(function (b, i) { b.addEventListener('click', function () { open(i); }); });
+  document.getElementById('lbClose').addEventListener('click', close);
+  document.getElementById('lbPrev').addEventListener('click', function () { show(index - 1); });
+  document.getElementById('lbNext').addEventListener('click', function () { show(index + 1); });
+  box.addEventListener('click', function (e) { if (e.target === box) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (!box.hasAttribute('open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowRight') show(index + (document.documentElement.dir === 'rtl' ? -1 : 1));
+    else if (e.key === 'ArrowLeft') show(index + (document.documentElement.dir === 'rtl' ? 1 : -1));
+    else if (e.key === 'Tab') {
+      var first = focusables[0], last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      else if (focusables.indexOf(document.activeElement) < 0) { e.preventDefault(); first.focus(); }
+    }
+  });
+})();
+
+/* ============================= JOIN BY CODE =========================
+   Same alphabet the server uses: 32 symbols, no O, no 0, no I, no 1. */
+(function () {
+  var ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  var form = document.getElementById('joinForm');
+  var input = document.getElementById('code');
+  var err = document.getElementById('joinErr');
+  var MSG = {
+    en: { len: 'A room code is exactly 6 characters.', bad: 'That code has a character no room code uses — there is no O, 0, I or 1.' },
+    fa: { len: 'کد روم دقیقاً ۶ حرف است.', bad: 'این کد حرفی دارد که در کد روم استفاده نمی‌شود — O و ۰ و I و ۱ در آن نیست.' }
+  };
+  function lang() { return document.documentElement.lang === 'fa' ? 'fa' : 'en'; }
+
+  input.addEventListener('input', function () {
+    input.value = input.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6);
+    err.textContent = '';
+  });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = input.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+    if (code.length !== 6) { err.textContent = MSG[lang()].len; input.focus(); return; }
+    for (var i = 0; i < code.length; i++) {
+      if (ALPHABET.indexOf(code[i]) < 0) { err.textContent = MSG[lang()].bad; input.focus(); return; }
+    }
+    location.href = '/j/' + code;
+  });
+  document.addEventListener('langchange', function () { err.textContent = ''; });
+})();
+
+/* ========================== PLATFORM DETECTION ======================
+   Put the visitor's own platform first. Everything stays visible. */
+(function () {
+  var ua = navigator.userAgent || '';
+  var iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var want = /Android/.test(ua) ? 'android' : iOS ? 'ios' : 'desktop';
+  var el = document.querySelector('.plat[data-plat="' + want + '"]');
+  if (el) el.classList.add('you');
+})();
+</script>
+</body>
+</html>

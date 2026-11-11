@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The game's palette. #0E1620 is the same value the web manifest declares as
+     theme_color and background_color, so the launch splash, the system bars
+     and the first painted frame are the same colour. -->
+<resources>
+    <color name="colorPrimary">#0E1620</color>
+    <color name="colorPrimaryDark">#080D14</color>
+    <color name="colorAccent">#FFB53D</color>
+
+    <color name="splashBackground">#0E1620</color>
+    <color name="windowBackground">#0E1620</color>
+</resources>

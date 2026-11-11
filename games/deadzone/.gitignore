@@ -1,0 +1,54 @@
+node_modules/
+dist/
+.wrangler/
+/shots/
+*.log
+.DS_Store
+.env
+*.keystore
+*.jks
+android/app/build/
+android/build/
+android/.gradle/
+
+# Android signing material. The keystore and its base64 form are the one thing
+# in this repository that can never be regenerated or rotated without breaking
+# every install of the app — they belong in GitHub Secrets and in a password
+# manager, never in a commit.
+KEYSTORE_BASE64.txt
+release.keystore
+*.p12
+local.properties
+
+# Capacitor
+packages/android/android/local.properties
+packages/android/android/.idea/
+
+# Local secrets, never committed
+SECRETS.local.md
+release.keystore
+KEYSTORE_BASE64.txt
+
+# Icons and screenshots ARE committed — including the Android launcher and
+# splash densities below. The production build must not depend on Python and
+# Pillow existing in the build container, aapt fails outright on a manifest
+# that references a missing @mipmap/ic_launcher, and a web manifest pointing at
+# icons that were never generated makes the PWA uninstallable.
+# tools/gen-icons.py and packages/android/scripts/gen-android-assets.py remain
+# the source of truth for regenerating them.
+
+# Fetched by CI; see .github/workflows/android.yml
+packages/android/android/gradle/wrapper/gradle-wrapper.jar
+
+# Chat delivery scratch
+deliver/
+
+# Screenshot written by tools/livecheck.mjs on every run. Evidence that a
+# build was playable, not part of the build.
+live-play.png
+shots-ui/
+
+# Profiling scratch: the built client zipped for transfer to a test device,
+# and git bundles used to move commits to a machine that has push credentials.
+dist.zip
+push.bundle

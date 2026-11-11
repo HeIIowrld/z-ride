@@ -1,0 +1,20 @@
+{
+  "name": "@overrun/client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node tools/build-sw.mjs",
+    "preview": "vite preview --port 4173"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "three": "^0.185.0"
+  },
+  "devDependencies": {
+    "terser": "^5.36.0",
+    "vite": "^7.0.0"
+  },
+  "license": "Apache-2.0"
+}

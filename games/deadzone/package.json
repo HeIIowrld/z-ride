@@ -1,0 +1,33 @@
+{
+  "name": "overrun",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @overrun/client run dev",
+    "build": "npm --workspace @overrun/client run build",
+    "sim": "node tools/simtest.mjs",
+    "shots": "node tools/shots.mjs",
+    "press": "node tools/beauty.mjs",
+    "assets": "python3 tools/gen-icons.py && python3 packages/android/scripts/gen-android-assets.py",
+    "test:audiorate": "node tools/audiorate.mjs",
+    "test:physics": "node tools/physics.mjs",
+    "test:play": "node tools/livecheck.mjs local",
+    "test:qa": "node tools/qa.mjs",
+    "shots:ui": "node tools/uishot.mjs",
+    "shots:landing": "node tools/landingshot.mjs"
+  },
+  "license": "Apache-2.0",
+  "author": "Mohammad Mahdi Mortazavi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mahdi-mortazavi/overrun.git"
+  },
+  "homepage": "https://github.com/Mahdi-mortazavi/overrun",
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.62.3"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "appId": "dev.overrun.game",
+  "appName": "OVERRUN",
+  "webDir": "../client/dist",
+  "bundledWebRuntime": false,
+  "backgroundColor": "#0E1620",
+  "allowMixedContent": false,
+  "loggingBehavior": "none",
+  "android": {
+    "path": "android",
+    "backgroundColor": "#0E1620",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false,
+    "zoomEnabled": false,
+    "captureInput": false,
+    "adjustMarginsForEdgeToEdge": "disable",
+    "resolveServiceWorkerRequests": true,
+    "initialFocus": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "hostname": "overrun.mahdi-mortazavi-135.workers.dev",
+    "allowNavigation": [
+      "overrun.mahdi-mortazavi-135.workers.dev"
+    ],
+    "cleartext": false
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    },
+    "CapacitorCookies": {
+      "enabled": false
+    }
+  }
+}

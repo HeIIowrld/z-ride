@@ -1,0 +1,21 @@
+{
+  "name": "@overrun/android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor Android shell for OVERRUN. Ships the built PWA as bundled assets.",
+  "scripts": {
+    "sync": "node scripts/configure.mjs && cap sync android && node scripts/inject-native-bridge.mjs",
+    "icons": "python3 scripts/gen-android-assets.py",
+    "open": "cap open android",
+    "apk": "npm run sync && cd android && ./gradlew assembleRelease",
+    "aab": "npm run sync && cd android && ./gradlew bundleRelease",
+    "clean": "cd android && ./gradlew clean"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  }
+}

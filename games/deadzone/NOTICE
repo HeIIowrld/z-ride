@@ -1,0 +1,18 @@
+OVERRUN
+Copyright 2026 Mohammad Mahdi Mortazavi
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product bundles the following third-party software:
+
+  three.js — https://github.com/mrdoob/three.js
+  Copyright the three.js authors. MIT License.
+  Loaded as a build dependency of packages/client.
+
+  @capacitor/* — https://github.com/ionic-team/capacitor
+  Copyright Drifty Co. MIT License.
+  Build dependency of packages/android.
+
+Everything else in this repository — the simulation, the renderer, the audio
+engine, the procedural art, the netcode and the server — is original work by
+the copyright holder above.
