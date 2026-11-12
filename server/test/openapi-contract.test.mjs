@@ -13,7 +13,7 @@ test('OpenAPI covers exactly the implemented REST route inventory', () => {
   assert.equal(spec.openapi, '3.1.0');
   const actual = Object.entries(spec.paths).flatMap(([path,item]) => Object.keys(item).filter(m => methods.has(m)).map(m => `${m.toUpperCase()} ${path}`)).sort();
   assert.deepEqual(actual, protocol.http.map(r => `${r.method} ${r.path}`).sort());
-  assert.equal(actual.length, 58);
+  assert.equal(actual.length, 59);
   assert.equal(spec.paths['/ws'], undefined, 'WS is a separate appendix, not an HTTP operation');
   assert.equal(spec.paths['/observer/ws'], undefined, 'Observer WS is also a separate appendix');
   const ids = Object.values(spec.paths).flatMap(p => Object.entries(p).filter(([m]) => methods.has(m)).map(([,op]) => op.operationId));

@@ -43,7 +43,8 @@ public final class MainActivity extends DemoActivity {
     private LinearLayout venuePanel;
     private View arcadeViewport;
     private LinearLayout venueChoices, venueCover, venueSeats;
-    private TextView venueLabel;
+    private TextView venueLabel, venueLobbyDetail;
+    private boolean venueLobbyArt;
     private TextView venueDetail;
     private TextView venueInstruction;
     private Button venueStart, venueNext, venueItem;
@@ -114,9 +115,12 @@ public final class MainActivity extends DemoActivity {
                 ? android.view.View.VISIBLE : android.view.View.GONE);
         boolean thief = "thief".equals(response.optString("kind"));
         Game selected = thief ? Game.THIEF : Game.RELAY;
-        if (game != null && venueCoverGame != selected) {
+        if (game != null && (venueCoverGame != selected || venueLobbyArt != lobby)) {
             venueCoverGame = selected;
-            venueCover.setBackground(cover(selected));
+            venueLobbyArt = lobby;
+            venueCover.setBackground(lobby ? cover(selected) : null);
+            if (!lobby) styleVehicleCard(venueCover, selected == Game.THIEF ? 0xff1c2040 : 0xff35251f);
+            venueCover.requestLayout();
         }
         venueItem.setText(thief ? "보급품 1개로 비상 퓨즈 사용" : "보급품 1개로 15초 연장");
         String placeName = stop.optString("name", "충전소");
@@ -152,7 +156,10 @@ public final class MainActivity extends DemoActivity {
             }
             detail = stage + " · 보급품 " + response.optInt("supplies") + "개";
         }
+        venueLobbyDetail.setText(detail);
         venueDetail.setText(detail);
+        venueLobbyDetail.setVisibility(lobby ? View.VISIBLE : View.GONE);
+        venueDetail.setVisibility(lobby ? View.GONE : View.VISIBLE);
         String instruction;
         switch (phase) {
             case "LOBBY": instruction = ""; break;
@@ -188,11 +195,16 @@ public final class MainActivity extends DemoActivity {
         venuePanel.setVisibility(View.GONE);
         venueCover = column();
         venueCover.setGravity(Gravity.CENTER_VERTICAL);
-        sizeLobbyCover(venueCover);
+        venueCover.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            int height = venueLobbyArt ? Math.max(dp(152), Math.min((right - left) * 5 / 12,
+                    arcadeViewport.getHeight() * 52 / 100)) : dp(112);
+            if (venueCover.getMinimumHeight() != height) venueCover.setMinimumHeight(height);
+        });
         venueCover.setPadding(dp(28), dp(12), dp(24), dp(12));
         venuePanel.addView(venueCover);
         venueLabel = dashboardText(venueCover, 44, true);
-        venueDetail = dashboardText(venueCover, 20, false);
+        venueLobbyDetail = dashboardText(venueCover, 20, false);
+        venueDetail = dashboardText(venueCover, 32, true);
         venueInstruction = dashboardText(venuePanel, 20, true);
         venueSeats = seatStrip(venuePanel);
         venueStart = venueControl("게임 시작", "start", null);
@@ -266,6 +278,7 @@ public final class MainActivity extends DemoActivity {
         boolean deadzoneAvailable = parked && !showVenue && !routeInProgress();
         boolean showDeadzone = deadzoneAvailable && showMatchOnly;
         venuePanel.setVisibility(showVenue ? View.VISIBLE : View.GONE);
+        renderDriveGames(parked && !showVenue && !showDeadzone);
         deadzonePanel.setVisibility(showDeadzone ? View.VISIBLE : View.GONE);
         deadzoneCard.setVisibility(deadzoneAvailable && !showDeadzone
                 && (approvedPassengers() > 0 || showVehicleDiagnostics()) ? View.VISIBLE : View.GONE);
@@ -276,6 +289,79 @@ public final class MainActivity extends DemoActivity {
         if (showDeadzone && !deadzonePolling) updateSeats(deadzoneSeats, null, false);
         cabinSummary.setVisibility(showVenue || showDeadzone ? View.VISIBLE : View.INVISIBLE);
         updateJourneySummary();
+    }
+
+    private static final String[] DRIVE_IDS = {"license-quiz", "pole-jump", "raindrop"};
+    private static final String[] DRIVE_TITLES = {"운전면허 퀴즈", "폴짝 전봇대", "빗방울 캐치"};
+    private static final int[] DRIVE_ACCENTS = {0xffb8b3ff, 0xffffc591, 0xff88e3db};
+    private LinearLayout drivePanel, driveChoices;
+    private TextView driveStatus;
+    private boolean drivePending;
+
+    private void addDriveGames(LinearLayout container) {
+        drivePanel = column();
+        drivePanel.setVisibility(View.GONE);
+        drivePanel.setPadding(dp(18), dp(14), dp(18), dp(16));
+        styleVehicleCard(drivePanel, 0xff181d30);
+        dashboardText(drivePanel, 26, true).setText("주행 중 동승자 게임");
+        driveStatus = dashboardText(drivePanel, 19, false);
+        driveChoices = new LinearLayout(this);
+        boolean wide = getResources().getConfiguration().screenWidthDp >= 660;
+        driveChoices.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        drivePanel.addView(driveChoices);
+        for (int index = 0; index < DRIVE_IDS.length; index++) {
+            int game = index;
+            Button card = new Button(this);
+            card.setText(DRIVE_TITLES[index]);
+            card.setTextSize(18);
+            card.setMinHeight(dp(64));
+            styleVehicleButton(card);
+            card.setOnClickListener(view -> selectDriveGame(DRIVE_IDS[game]));
+            LinearLayout.LayoutParams layout = wide ? new LinearLayout.LayoutParams(0, -2, 1)
+                    : new LinearLayout.LayoutParams(-1, -2);
+            layout.topMargin = dp(8);
+            if (wide && index > 0) layout.setMarginStart(dp(8));
+            driveChoices.addView(card, layout);
+        }
+        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2);
+        layout.topMargin = dp(12);
+        container.addView(drivePanel, Math.max(0, container.indexOfChild(roomLabel)), layout);
+    }
+
+    private void renderDriveGames(boolean parked) {
+        if (drivePanel == null) return;
+        boolean show = parked && room != null && room.optBoolean("driveGamesAvailable") && approvedPassengers() > 0;
+        drivePanel.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+        String selection = room.optString("driveGame");
+        String message = "출발 전에 동승자에게 추천할 게임을 고르세요.";
+        for (int index = 0; index < DRIVE_IDS.length; index++) {
+            Button card = (Button) driveChoices.getChildAt(index);
+            boolean selected = DRIVE_IDS[index].equals(selection);
+            card.setEnabled(!drivePending && !selected);
+            card.setTextColor(selected ? DRIVE_ACCENTS[index] : 0xffeef0ff);
+            card.setSelected(selected);
+            if (selected) message = DRIVE_TITLES[index] + " · 출발 후 동승자 폰에 표시";
+        }
+        if (!message.contentEquals(driveStatus.getText())) driveStatus.setText(message);
+    }
+
+    private void selectDriveGame(String game) {
+        if (!foreground || !localAllowed || !connected || drivePending || room == null) return;
+        drivePending = true;
+        updateArcadeVisibility();
+        client.postApi("/api/rooms/" + room.optString("roomId") + "/drive-game",
+                newJSONObject("game", game), new RoomClient.ApiCallback() {
+            public void onResponse(JSONObject value) { main.post(() -> finishDriveSelection(false)); }
+            public void onError(String error) { main.post(() -> finishDriveSelection(true)); }
+        });
+    }
+
+    private void finishDriveSelection(boolean failed) {
+        drivePending = false;
+        updateArcadeVisibility();
+        if (failed && foreground) android.widget.Toast.makeText(this, "주차 상태와 파티 연결을 확인해 주세요.",
+                android.widget.Toast.LENGTH_SHORT).show();
     }
 
     private boolean routeInProgress() {
@@ -642,7 +728,7 @@ public final class MainActivity extends DemoActivity {
         JSONObject prior=NavigationRelayService.currentRoom();if(prior!=null)onRoom(prior);
 
     }
-    @Override protected void addVehicleControls(LinearLayout container){addVenueControls(container);addDeadzonePanel(container);if(!showVehicleDiagnostics())return;Button request=new Button(this);request.setText("충전 정보 권한 요청 (선택)");request.setContentDescription("충전 정보 권한 요청");request.setOnClickListener(v->{if(checkSelfPermission("android.car.permission.CAR_ENERGY")!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{"android.car.permission.CAR_ENERGY"},101);else if(probe!=null)probe.refresh();});container.addView(request);Button inspect=new Button(this);inspect.setText("벨트 · 공조 · 도어 · 창문 · 조명 읽기 진단");inspect.setOnClickListener(v->{if(probe!=null)probe.inspectCabin();});container.addView(inspect);addNavigationControls(container);}
+    @Override protected void addVehicleControls(LinearLayout container){addVenueControls(container);addDriveGames(container);addDeadzonePanel(container);if(!showVehicleDiagnostics())return;Button request=new Button(this);request.setText("충전 정보 권한 요청 (선택)");request.setContentDescription("충전 정보 권한 요청");request.setOnClickListener(v->{if(checkSelfPermission("android.car.permission.CAR_ENERGY")!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{"android.car.permission.CAR_ENERGY"},101);else if(probe!=null)probe.refresh();});container.addView(request);Button inspect=new Button(this);inspect.setText("벨트 · 공조 · 도어 · 창문 · 조명 읽기 진단");inspect.setOnClickListener(v->{if(probe!=null)probe.inspectCabin();});container.addView(inspect);addNavigationControls(container);}
     private void addDeadzonePanel(LinearLayout container){
         arcadeToolbar = new LinearLayout(this);
         arcadeToolbar.setGravity(Gravity.CENTER_VERTICAL);

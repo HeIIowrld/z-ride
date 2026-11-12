@@ -1,6 +1,9 @@
+import { inJourney } from './journey.js';
+
 const KEY = 'zride.passengerConfirmed';
 
 export function ensurePassenger() {
+  if (inJourney) return Promise.resolve(true);
   try { if (localStorage.getItem(KEY) === 'true') return Promise.resolve(true); } catch { /* Ask each session when storage is unavailable. */ }
   return new Promise(resolve => {
     let dialog = document.querySelector('#passenger-dialog');

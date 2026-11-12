@@ -43,3 +43,5 @@ body{background:#0b1414}button,a,input{font:inherit}button,a{-webkit-tap-highlig
   transform-origin: 50% 100%;
   transform: rotate(var(--aim, 0deg));
 }
+
+.lobby-invite[hidden] { display: none; }

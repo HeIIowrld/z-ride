@@ -7,7 +7,7 @@ export function createQuizEngine({ bank = [], now = () => Date.now(), rng = Math
   let asked = 0, correct = 0, combo = 0, maxCombo = 0, responseMs = 0;
   const byType = {}, wrongIds = [];
   function choose(event) {
-    const key = triggerKey(event); let candidates = bank.filter(q => q.trigger === key && !used.has(q.id));
+    const key = event.type === 'practice' ? 'idle' : triggerKey(event); let candidates = bank.filter(q => q.trigger === key && !used.has(q.id));
     if (!candidates.length && event.type === 'tbt') candidates = bank.filter(q => q.trigger === 'tbt:right' && !used.has(q.id));
     if (!candidates.length && event.type === 'camera') candidates = bank.filter(q => q.trigger === 'camera:section' && !used.has(q.id));
     if (!candidates.length && event.type === 'speedLimit') candidates = bank.filter(q => q.trigger === 'idle' && !used.has(q.id));

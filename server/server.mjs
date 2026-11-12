@@ -48,6 +48,7 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 
 export function createDemoServer(options = {}) {
+  const driveGames = new Set(['license-quiz', 'pole-jump', 'raindrop']);
   const phoneClient = createPhoneClientService({apiOrigin:options.browserApiOrigin??'',displayName:options.displayName??'Z-RIDE'});
   const requestPolicy=createRequestPolicy(options);
   const testAccessKey = options.testAccessKey ?? '';
@@ -99,7 +100,7 @@ export function createDemoServer(options = {}) {
         state: room.state, pauseReason: room.pauseReason, joinCode: room.joinCode,
         joinExpiresAt: room.joinExpiresAt, joinUsed: room.joinUsed,
         emptyLocks: [...room.emptyLocks], stats: room.stats, zombies: room.zombies,
-        collection: room.collection, deadzoneMatch: room.deadzoneMatch, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
+        collection: room.collection, deadzoneMatch: room.deadzoneMatch, driveGame: room.driveGame, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
         partyWorldClaims:[...(room.partyWorldClaims??[])],partyPickupClaims:[...(room.partyPickupClaims??[])],collectionRevision:room.collectionRevision??0,
         partyPickupRespawns:[...(room.partyPickupRespawns??[])],
         departedMembers: [...(room.departedMembers ?? new Map()).values()].map(m => ({ ...m, socket: undefined, receipts: [...m.receipts], collectedPickups: [...(m.collectedPickups??[])], worldClaims: [...(m.worldClaims??[])], worldReceipts: [...(m.worldReceipts??[])], gameReceipts: [...(m.gameReceipts??[])] })),
@@ -464,6 +465,8 @@ export function createDemoServer(options = {}) {
       cabin: cabin.snapshot(cabinContext(room, viewer)),
       party: { partyId: room.roomId, status: room.closedAt ? 'DISBANDED' : 'ACTIVE', route: places.routeInfo(room.roomId) },
       navigation: navigationSnapshot(room),
+      ...(phoneClient.driveGamesAvailable && !room.closedAt
+        ? { driveGamesAvailable: true, ...(room.driveGame ? { driveGame: room.driveGame } : {}) } : {}),
       ...routeSupplyView(room, viewer),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
@@ -729,6 +732,21 @@ export function createDemoServer(options = {}) {
       }
       const deadzoneRoute = path.match(/^\/api\/rooms\/([^/]+)\/deadzone$/);
       if (deadzoneRoute && req.method === 'POST') return await handleDeadzone(req, res, deadzoneRoute[1], body);
+      const driveRoute = path.match(/^\/api\/rooms\/([^/]+)\/drive-game$/);
+      if (driveRoute && req.method === 'POST') {
+        const room = roomFor(driveRoute[1]);
+        requireHost(room, authenticate(req));
+        if (!gate(room).allowed) throw fail('GATE_CLOSED', 'Select a passenger game while parked', 409);
+        if (!phoneClient.driveGamesAvailable) throw fail('DRIVE_GAMES_UNAVAILABLE', 'Passenger game assets are unavailable', 503);
+        if (!driveGames.has(body?.game)) throw fail('INVALID_GAME', 'Unknown passenger game', 400);
+        return atomic(() => {
+          if (room.driveGame !== body.game) {
+            room.driveGame = body.game;
+            change(room);
+          }
+          return result(res, 200, { game: room.driveGame });
+        });
+      }
       const venueRoute = path.match(/^\/api\/rooms\/([^/]+)\/venue-game$/);
       if (venueRoute && req.method === 'POST') {
         const session = authenticate(req);

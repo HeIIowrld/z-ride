@@ -1,3 +1,4 @@
+import { inJourney } from '../../shared/journey.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { getSeat, setSeat } from '../../shared/seat.js';
 import { addItem } from '../../shared/inventory.js';
@@ -11,7 +12,7 @@ import { sketchLine, hatchRect, drawFinger } from '../../shared/sketch.js';
 const canvas = document.querySelector('#game'), ctx = canvas.getContext('2d');
 const $ = id => document.getElementById(id), dev = new URLSearchParams(location.search).get('dev') === '1';
 let w = 0, h = 0, dpr = 1, feed, running = false, ended = false, lastFrame = 0, endReason = null;
-let speed = 42, speedLimit = null, feedDistance = 0, worldM = 0, score = 0, cleared = 0;
+let speed = inJourney ? 0 : 42, speedLimit = null, feedDistance = 0, worldM = 0, score = 0, cleared = 0;
 let perfects = 0, combo = 0, maxCombo = 0, parts = 0, startAt = 0, jump = null, lane = 1;
 let stoppedAt = 0, speeding = 0, muted = false, audio, toastTimer = 0, seed = 7139, poles = [];
 let cameraX = 0, playerScreenX = 0, warningBeepAt = 0, landedAt = 0;
@@ -207,8 +208,8 @@ function drawLowerHud() {
   ctx.fillText('시속', third * 2 + 10, top + 12); ctx.font = 'bold 17px ui-monospace'; ctx.fillText(Math.round(speed) + '', third * 2 + 10, top + 35); ctx.font = '8px system-ui'; ctx.fillText(speedLimit == null ? '제한 —' : '제한 ' + Math.round(speedLimit), third * 2 + 10, top + 47);
 }
 function onFeed(v) { speed = v.speedKmh; speedLimit = v.speedLimitKmh; feedDistance += Number(v.distanceDeltaM) || 0; updateHud(); }
-function ensureSeat() { if (getSeat()) return; setSeat(confirm('오른쪽 좌석인가요?\n확인: 오른쪽 / 취소: 왼쪽') ? 'right' : 'left'); }
-document.querySelector('#start-button').addEventListener('click', async () => { if (!await ensurePassenger()) return; ensureSeat(); if (!feed) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); } audio?.resume(); reset(); });
+function ensureSeat() { if (inJourney || getSeat()) return; setSeat(confirm('오른쪽 좌석인가요?\n확인: 오른쪽 / 취소: 왼쪽') ? 'right' : 'left'); }
+document.querySelector('#start-button').addEventListener('click', async () => { if (!await ensurePassenger()) return; ensureSeat(); if (!feed) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); } if (inJourney) speed = feed.current.speedKmh; audio?.resume(); reset(); });
 $('again').addEventListener('click', reset); $('jump').addEventListener('click', doJump); $('up').addEventListener('click', () => laneMove(1)); $('down').addEventListener('click', () => laneMove(-1));
 $('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textContent = muted ? 'OFF' : 'ON'; });
 window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); doJump(); } if (e.code === 'ArrowUp') { e.preventDefault(); laneMove(1); } if (e.code === 'ArrowDown') { e.preventDefault(); laneMove(-1); } });

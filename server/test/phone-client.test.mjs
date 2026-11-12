@@ -15,7 +15,10 @@ test('phone reference client serves only allow-listed static assets with same-or
   // old idle connections. These static-asset checks do not test keep-alive.
   const request = (path, options = {}) => fetch(base + path, { ...options, headers: { connection: 'close', ...options.headers } });
   try {
-    for (const path of ['/play', '/play/', '/play/app.js', '/play/account.js', '/play/style.css', '/play/demo', '/play/demo.js', '/play/vehicle', '/play/vehicle.js', '/play/qrcode.js', '/play/arena.js', '/play/arena.css', '/play/car', '/play/car.js', '/play/car.css', '/play/qr.js']) {
+    for (const path of ['/play', '/play/', '/play/app.js', '/play/account.js', '/play/style.css', '/play/demo', '/play/demo.js', '/play/vehicle', '/play/vehicle.js', '/play/qrcode.js', '/play/arena.js', '/play/arena.css', '/play/car', '/play/car.js', '/play/car.css', '/play/qr.js',
+      '/play/drive/style.css', '/play/drive/shared/journey.js', '/play/drive/games/license-quiz/index.html',
+      '/play/drive/games/license-quiz/questions.json', '/play/drive/games/pole-jump/index.html',
+      '/play/drive/games/raindrop/index.html']) {
       const response = await request(path);
       assert.equal(response.status, 200);
       assert.ok(response.headers.get('content-security-policy').includes("connect-src 'self'"));
@@ -30,6 +33,7 @@ test('phone reference client serves only allow-listed static assets with same-or
       assert.ok((await response.text()).length > 50);
     }
     assert.equal((await request('/play/private.env')).status, 404);
+    assert.equal((await request('/play/drive/server/index.mjs')).status, 404);
     assert.equal((await request('/play', { method: 'POST' })).status, 405);
     const head = await request('/play', { method: 'HEAD' });
     assert.equal(head.status, 200); assert.equal(await head.text(), '');

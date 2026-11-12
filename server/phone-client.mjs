@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { checkedOrigin } from './request-policy.mjs';
 
@@ -22,15 +22,38 @@ const FILES = new Map([
   ['/play/qr.js', ['qr.js', 'text/javascript; charset=utf-8']],
 ]);
 
+const DRIVE_GAMES = {
+  'license-quiz': ['questions.json', 'signs.js'],
+  'pole-jump': [],
+  raindrop: [],
+};
+const DRIVE_FILES = [
+  'style.css',
+  ...Object.entries(DRIVE_GAMES).flatMap(([game, extra]) =>
+    ['index.html', 'game.js', 'game.css', ...extra].map(file => 'games/' + game + '/' + file)),
+  ...['config', 'inventory', 'loot-client', 'loot-engine', 'loot-tracker', 'passenger', 'quiz-engine',
+    'journey', 'records', 'seat', 'sketch', 'vehicle'].map(file => 'shared/' + file + '.js'),
+  ...['items', 'loot_tables', 'points'].map(file => 'data/' + file + '.json'),
+];
+const DRIVE_TYPES = { html: 'text/html', js: 'text/javascript', css: 'text/css', json: 'application/json' };
+
 /** PHONE client: account tokens in tab sessionStorage, play tokens in memory. */
 export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={}) {
   if(apiOrigin)apiOrigin=checkedOrigin(apiOrigin);
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, {
     bytes: file.endsWith('.html')?Buffer.from(readFileSync(new URL('./phone-client/' + file, import.meta.url),'utf8').replaceAll('Z-RIDE',displayName.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;'))):readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
   }]));
+  const bundledDrive = new URL('./drive-assets/', import.meta.url);
+  const driveRoot = existsSync(bundledDrive) ? bundledDrive : new URL('../minigames/', import.meta.url);
+  const driveGamesAvailable = existsSync(driveRoot);
+  for (const file of driveGamesAvailable ? DRIVE_FILES : []) {
+    const type = DRIVE_TYPES[file.split('.').at(-1)] + '; charset=utf-8';
+    assets.set('/play/drive/' + file, { bytes: readFileSync(new URL(file, driveRoot)), type });
+  }
   assets.set('/play/qrcode.js',{bytes:readFileSync(createRequire(import.meta.url).resolve('qrcode-generator')),type:'text/javascript; charset=utf-8'});
   assets.set('/play/config.js',{bytes:Buffer.from('window.GAME_CONFIG=window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin,displayName})+');\n'),type:'text/javascript; charset=utf-8'});
   return {
+    driveGamesAvailable,
     handleHttp(req, res, path) {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
       const file = assets.get(path);

@@ -68,6 +68,15 @@
             <p id="journey-next-status" class="subtle" role="status"></p>
             <button id="journey-next-enter" type="button" class="primary"></button>
           </div>
+          <section id="drive-games" class="journey-next drive-games" hidden>
+            <h2>주행 중 동승자 게임</h2>
+            <p id="drive-recommendation" class="subtle" hidden></p>
+            <div class="drive-game-list">
+              <button type="button" data-drive-game="license-quiz"><strong>운전면허 퀴즈</strong><span>도로 상황 퀴즈</span></button>
+              <button type="button" data-drive-game="pole-jump"><strong>폴짝 전봇대</strong><span>타이밍 점프</span></button>
+              <button type="button" data-drive-game="raindrop"><strong>빗방울 캐치</strong><span>차창 빗방울 받기</span></button>
+            </div>
+          </section>
           <div id="journey-plot" aria-label="차량 주변 스팟 지도"></div>
           <p id="journey-map-status" class="subtle"></p>
           <div id="journey-spots" class="journey-spots"></div>
@@ -78,7 +87,10 @@
           </div>
           <p class="footnote">북쪽 ↑ · 차량 기준 위치도 · © OpenStreetMap contributors</p>
         </section>
-        <section id="journey-game" hidden><button id="journey-back" type="button" class="quiet">← 지도로 돌아가기</button></section>
+        <section id="journey-game" hidden>
+          <button id="journey-back" type="button" class="quiet">← 지도로 돌아가기</button>
+          <div id="drive-play" hidden></div>
+        </section>
         <details id="journey-party"><summary>파티 정보와 연습 기능</summary>
         <div class="status-grid"><article class="panel stat"><span>공동 전투</span><strong id="battle-state">대기</strong><small id="battle-reason"></small></article><article class="panel stat"><span>공동 보급품</span><strong><b id="supplies">0</b><em>개</em></strong><small id="support-state">차량 지원 대기</small></article></div>
         <section class="panel battle-panel">
