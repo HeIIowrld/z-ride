@@ -39,3 +39,23 @@
 #join-form .form-row{grid-template-columns:minmax(0,1fr)}
 
 button, input, select { touch-action: manipulation; }
+
+.drive-game-list { display: grid; gap: 8px; margin-top: 12px; }
+.drive-game-list button {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px;
+  width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid #3d4664; color: #eae6ff; background: #252843; text-align: left;
+}
+.drive-game-list button[data-drive-game="pole-jump"] { color: #ffd8b5; background: #332722; border-color: #694838; }
+.drive-game-list button[data-drive-game="raindrop"] { color: #b0efe6; background: #1c383d; border-color: #39666a; }
+.drive-game-list button.recommended { border-color: currentColor; }
+.drive-game-list span { font-size: 12px; opacity: .85; }
+#drive-play { margin-top: 8px; }
+#drive-play iframe { display: block; width: 100%; height: min(760px, calc(100dvh - 54px)); min-height: 280px; border: 0; border-radius: 12px; }
+
+#journey-venue header { display: block; padding: 10px 0; }
+#journey-venue header h2 { font-size: 23px; }
+#journey-venue[data-game="thief"] { border-color: #57559b; background: linear-gradient(155deg, #262347, #161b2a 66%); }
+#journey-venue[data-game="thief"] button { background: #565191; color: #f5f2ff; }
+#journey-venue[data-game="relay"] { border-color: #8a5943; background: linear-gradient(155deg, #3b2925, #241d20 66%); }
+#journey-venue[data-game="relay"] button { background: #ffc097; color: #2d1a13; }

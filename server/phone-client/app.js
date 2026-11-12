@@ -16,6 +16,7 @@ function inside(angle, sector) { return !!sector && ((Math.abs(angle) === 180 &&
 function online() { return socket?.readyState === WebSocket.OPEN && !!credentials && !!memberId; }
 function gateOpen() { return room?.vehicle?.playAllowed === true && room.vehicle.reportAgeMs != null && room.vehicle.reportAgeMs + Date.now() - receivedAt <= 6000; }
 function reset(clear = true) {
+  closeDriveGame();
   generation++; clearTimeout(retryTimer); clearTimeout(pending?.timer); pending = null;
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
   if (clear) { credentials = null; room = null; memberId = null; forgetSession(); }
@@ -64,7 +65,13 @@ function connect() {
   socket.onmessage = event => {
     if (current !== generation) return;
     let message; try { message = JSON.parse(event.data); } catch { return; }
-    if (message.type === 'auth.ok') { memberId = message.memberId; retry = 0; status('같은 방에 연결됨', 'live'); render(); }
+    if (message.type === 'auth.ok') {
+      memberId = message.memberId;
+      retry = 0;
+      status('같은 방에 연결됨', 'live');
+      if ($('action-result').textContent === '현재 파티에 연결 중…') result('');
+      render();
+    }
     else if (message.type === 'snapshot') {
       if (room && message.room.roomId === room.roomId && message.room.stateVersion < room.stateVersion) return;
       room = message.room; receivedAt = Date.now(); render();
@@ -85,6 +92,7 @@ function connect() {
   socket.onclose = event => {
     if (current !== generation) return;
     memberId = null;
+    closeDriveGame();
     if (pending) { clearTimeout(pending.timer); pending = null; result('연결이 끊김. 처리 결과는 재연결 후 보급품·좀비 HP로 확인해 주세요.'); }
     if ([4401, 4403, 4409, 4410, 4412, 4413].includes(event.code)) {
       const keepLegacySession = event.code === 4409 && !window.PHONE_ACCOUNT?.isAccountMode();
@@ -347,6 +355,7 @@ function showVenue(value) {
   const key = JSON.stringify([value.kind,state?.phase,state?.caseNo,state?.round,state?.step,
     state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.shown,value.paused,value.stop?.placeId,value.supplies]);
   venuePanel.hidden = !state && !value.paused && !value.stop;
+  venuePanel.dataset.game = value.kind || '';
   if(key === venueSignature)return;
   venueSignature = key;
   venuePanel.replaceChildren();
@@ -354,7 +363,9 @@ function showVenue(value) {
   const title = document.createElement('h2');
   title.textContent = value.kind === 'thief' ? '전기도둑' : value.kind === 'relay' ? '충전 릴레이' :
     value.paused ? '충전 게임 일시정지' : '충전 게임 참가 가능';
-  venuePanel.append(title);
+  const header = document.createElement('header');
+  header.append(title);
+  venuePanel.append(header);
   const info = document.createElement('p');
   venuePanel.append(info);
   if (!state) { info.textContent=value.paused ? '충전소에서 다시 연결하면 이어집니다.' :
@@ -440,6 +451,7 @@ function showJourney(view) {
   $('journey-game').dataset.view = view;
   $('journey-party').hidden = view !== 'map';
   routeGame.hidden = view !== 'supply';
+  if (view !== 'drive') closeDriveGame();
   if (view === 'map') {
     renderJourneyMap();
     void refreshJourneyMap();
@@ -449,6 +461,81 @@ $('journey-back').onclick = () => {
   showJourney('map');
   $('journey-map').scrollIntoView({ block: 'start' });
 };
+
+const driveTitles = {
+  'license-quiz': '운전면허 퀴즈',
+  'pole-jump': '폴짝 전봇대',
+  raindrop: '빗방울 캐치',
+};
+const drivePanel = $('drive-games');
+const drivePlay = $('drive-play');
+let driveFrame = null;
+
+function driveAvailable() {
+  const vehicle = room?.vehicle;
+  const me = ownMember();
+  return online() && !waitingForApprovedTicket && me?.approved
+    && ['FRONT_PASSENGER', 'REAR_LEFT', 'REAR_RIGHT'].includes(me.seat) && me.seatEvidence !== 'EMPTY'
+    && vehicle?.gear === 'D' && Number.isFinite(vehicle.speedMps)
+    && Number.isFinite(vehicle.reportAgeMs) && vehicle.reportAgeMs + Date.now() - receivedAt <= 6000;
+}
+
+function closeDriveGame() {
+  if (!driveFrame) return;
+  driveFrame.remove();
+  driveFrame = null;
+  drivePlay.hidden = true;
+  if (journeyView === 'drive') showJourney('map');
+}
+
+function sendDriveState() {
+  if (!driveAvailable() || !driveFrame) return;
+  driveFrame.contentWindow?.postMessage({
+    type: 'zride:drive-state',
+    speedKmh: room.vehicle.speedMps * 3.6,
+    seat: ownMember().seat,
+    speedLimitKmh: room.navigation?.available ? room.navigation.speedLimitKmh : null,
+    nextTurn: room.navigation?.available && room.navigation.nextTurnDistanceM <= 250 ? room.navigation.nextTurn : null,
+  }, location.origin);
+}
+
+function renderDriveGames() {
+  const available = driveAvailable();
+  drivePanel.hidden = !available;
+  if (!available) {
+    closeDriveGame();
+    return;
+  }
+  const recommendation = driveTitles[room.driveGame];
+  const note = $('drive-recommendation');
+  note.hidden = !recommendation;
+  const text = recommendation ? '차량에서 추천한 게임 · ' + recommendation : '';
+  if (note.textContent !== text) note.textContent = text;
+  for (const button of drivePanel.querySelectorAll('[data-drive-game]')) {
+    button.classList.toggle('recommended', button.dataset.driveGame === room.driveGame);
+  }
+  sendDriveState();
+}
+
+drivePanel.addEventListener('click', event => {
+  const game = event.target.closest('[data-drive-game]')?.dataset.driveGame;
+  if (!Object.hasOwn(driveTitles, game) || !driveAvailable()) return;
+  closeDriveGame();
+  driveFrame = document.createElement('iframe');
+  driveFrame.title = driveTitles[game];
+  driveFrame.src = '/play/drive/games/' + game + '/index.html';
+  driveFrame.addEventListener('load', sendDriveState);
+  drivePlay.replaceChildren(driveFrame);
+  drivePlay.hidden = false;
+  showJourney('drive');
+  $('journey-game').scrollIntoView({ block: 'start' });
+});
+window.addEventListener('message', event => {
+  if (event.origin !== location.origin || event.source !== driveFrame?.contentWindow) return;
+  if (event.data?.type === 'zride:drive-ready') sendDriveState();
+  if (event.data?.type === 'zride:drive-back') closeDriveGame();
+});
+setInterval(renderDriveGames, 1000);
 
 function selectJourneySpot(spot) {
   selectedSpot = spot;
@@ -606,6 +693,7 @@ async function refreshJourneyMap() {
 }
 
 function render() {
+  renderDriveGames();
   if (!ownMember()?.approved) {
     venuePanel.hidden = true;
     venueSignature = '';

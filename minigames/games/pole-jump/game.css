@@ -1,1 +1,7 @@
 ﻿/* Shared grayscale layout rules live in ../../style.css. */
+
+.touch-hint { display: none; }
+@media (pointer: coarse) {
+  .touch-hint { display: inline; }
+  .keyboard-hint { display: none; }
+}

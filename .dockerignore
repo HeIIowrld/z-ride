@@ -1,0 +1,18 @@
+# Build from the repository root. Allow only the server and shipped game assets.
+**
+!server/
+!server/package.json
+!server/package-lock.json
+!server/*.mjs
+!server/observer/
+!server/observer/**
+!server/phone-client/
+!server/phone-client/**
+!minigames/
+!minigames/style.css
+!minigames/games/
+!minigames/games/**
+!minigames/shared/
+!minigames/shared/**
+!minigames/data/
+!minigames/data/*.json

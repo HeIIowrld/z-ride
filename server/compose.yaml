@@ -3,8 +3,8 @@ services:
   api:
     image: ${ZRIDE_IMAGE:-zride-room-server:demo}
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: server/Dockerfile
     init: true
     environment:
       NODE_ENV: production

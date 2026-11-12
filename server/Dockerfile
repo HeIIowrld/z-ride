@@ -9,11 +9,15 @@ ENV NODE_ENV=production \
     ZRIDE_DB_PATH=/data/zride.sqlite
 WORKDIR /app
 
-COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
-COPY --chown=node:node *.mjs ./
-COPY --chown=node:node observer/ ./observer/
-COPY --chown=node:node phone-client/ ./phone-client/
+COPY --chown=node:node server/*.mjs ./
+COPY --chown=node:node server/observer/ ./observer/
+COPY --chown=node:node server/phone-client/ ./phone-client/
+COPY --chown=node:node minigames/style.css ./drive-assets/
+COPY --chown=node:node minigames/games/ ./drive-assets/games/
+COPY --chown=node:node minigames/shared/ ./drive-assets/shared/
+COPY --chown=node:node minigames/data/*.json ./drive-assets/data/
 RUN mkdir -p /data && chown node:node /data && chmod 700 /data
 
 USER node

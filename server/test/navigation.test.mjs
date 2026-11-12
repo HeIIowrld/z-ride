@@ -26,10 +26,19 @@ test('native navigation broadcasts only to approved party members, revokes demo 
  const phone=await api('/api/session',{role:'PHONE',nickname:'Navi phone'}),join=await api('/api/join',{joinCode:room.joinCode,seat:'REAR_LEFT'},phone.token);
  const p=await connect(phone.token,room.roomId),car=await connect(host.token,room.roomId);
  await car.send({type:'vehicle.report',reportSeq:1,gear:'P',ux:'ALLOWED',foreground:true});
+ const selectGame = (game, token) => fetch('http://127.0.0.1:' + address.port + base + '/drive-game', {
+   method: 'POST', headers: {'content-type': 'application/json', authorization: 'Bearer ' + token},
+   body: JSON.stringify({game}),
+ });
+ assert.deepEqual(await api(base+'/drive-game', {game:'raindrop'}, host.token), {game:'raindrop'});
+ assert.equal((await selectGame('unknown', host.token)).status, 400);
+ assert.equal(p.room.driveGame, undefined);
  await api(base+'/route',{commandId:'demo',expectedRouteRevision:0,source:'DEMO_ROUTE',geometry:[{latitude:37.5,longitude:126.9},{latitude:37.51,longitude:126.91}]},host.token);
  assert.equal((await car.send({type:'navigation.report',reportSeq:1,navigation:sample})).ok,true);
  assert.equal(p.room.navigation,undefined);
  await api(base+'/approve',{memberId:join.memberId,allowManualUnknown:true},host.token);await until(()=>p.room.navigation?.nativeRouteRevision===3);
+ assert.equal(p.room.driveGame, 'raindrop');
+ assert.equal((await selectGame('pole-jump', phone.token)).status, 403);
  assert.equal(p.room.party.route.active,false);assert.equal(p.room.navigation.geometryAvailable,false);
  assert.ok(saved.rooms.every(r=>!Object.hasOwn(r,'navigation')),'SDK location/navigation must not enter durable checkpoints');
  assert.equal((await p.send({type:'navigation.report',reportSeq:9,navigation:sample})).error.code,'ROLE_FORBIDDEN');
@@ -38,10 +47,13 @@ test('native navigation broadcasts only to approved party members, revokes demo 
  assert.equal((await car.send({type:'navigation.report',reportSeq:2,navigation:{...sample,routeRevision:4,status:'CANCELLED',destination:null}})).ok,true);
  await until(()=>p.room.navigation?.nativeRouteRevision===4);assert.equal(p.room.navigation.destination,null);
  await car.send({type:'vehicle.report',reportSeq:2,gear:'D',ux:'RESTRICTED',foreground:false,speedMps:7});
- await car.send({type:'navigation.report',reportSeq:3,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE'}});
+ await car.send({type:'navigation.report',reportSeq:3,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE',speedLimitKmh:50,nextTurn:'right',nextTurnDistanceM:100}});
+ assert.equal((await selectGame('pole-jump', host.token)).status, 409);
  await until(()=>p.room.routeSupplyAvailable);
  assert.equal(p.room.routeSupplySpot.placeId,spot.placeId);
  assert.equal(p.room.vehicle.speedMps,7);
+ assert.equal(p.room.navigation.speedLimitKmh,50);
+ assert.equal(p.room.navigation.nextTurn,'right');
  assert.equal(p.room.collection.inventory.supplies,0);
  await car.send({type:'navigation.report',reportSeq:4,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE',latitude:37.51}});
  await until(()=>p.room.routeSupplyAvailable===false);

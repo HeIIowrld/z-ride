@@ -91,6 +91,18 @@ final class NavigationProbe implements AutoCloseable {
             showWaypoint(values.isEmpty() ? null : values.get(0));
             emit("WAYPOINT_INFO");
         });}
+        @Override public void onCurrentRoadSpeedLimit(int kmh) { main.post(() -> {
+            put("speedLimitKmh", kmh > 0 && kmh <= 160 ? kmh : null);
+            emit("SPEED_LIMIT");
+        }); }
+        @Override public void onTBTInfo(java.util.List<TBTInfo> directions) { main.post(() -> {
+            TBTInfo next = directions.isEmpty() ? null : directions.get(0);
+            String turn = next == null ? null : next.getType() == TurnType.TURN_LEFT ? "left"
+                    : next.getType() == TurnType.TURN_RIGHT ? "right" : null;
+            put("nextTurn", turn);
+            put("nextTurnDistanceM", turn != null && next.getDistance() >= 0 ? next.getDistance() : null);
+            emit("TURN_GUIDANCE");
+        }); }
         @Override public void onNavigationStatus(NavigationStatus value){main.post(()->{if(!arrived){put("status",value.name());emit("NAVIGATION_STATUS");}});}
         @Override public void onCurrentLocationInfo(CurrentLocationInfo value){main.post(()->{put("nativeLatitude",value.getLatitude());put("nativeLongitude",value.getLongitude());put("nativeRouteIndex",value.getCurrentRouteIndex());if(gnssAt==0||android.os.SystemClock.elapsedRealtime()-gnssAt>10000){put("latitude",value.getLatitude());put("longitude",value.getLongitude());put("heading",value.getHeading());put("positionSource","PLEOS_NAVI_HELPER");put("locationMeasuredAt",System.currentTimeMillis());}emit("LOCATION");});}
         @Override public void onTripInfo(TripInfo value){main.post(()->{

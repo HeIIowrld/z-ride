@@ -1,7 +1,9 @@
 import { SERVER_URL } from './config.js';
+import { inJourney, journeyVehicleFeed } from './journey.js';
 const rad = degrees => degrees * Math.PI / 180;
 function distance(a, b) { const dLat = rad(b.latitude - a.latitude), dLon = rad(b.longitude - a.longitude), x = Math.sin(dLat/2)**2 + Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLon/2)**2; return 6371000 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x)); }
 export function createVehicleFeed({ dev = false, session = 'default' } = {}) {
+  if (inJourney) return journeyVehicleFeed();
   const listeners = new Map(); let stopped = false, watchId = null, socket = null, lastPosition = null, smoothSpeed = 0, speedKmh = 0, speedLimitKmh = null, vehicleSpeed = null, distanceCarry = 0, lastTick = performance.now(), wiper = null, windKmh = 0; const previous = {};
   const trigger = event => { if (!stopped) for (const callback of listeners.get('trigger') || []) { try { callback({ ...event, at: event.at ?? Date.now() }); } catch (error) { console.error(error); } } };
   const emit = payload => { if (!stopped) for (const callback of listeners.get('update') || []) { try { callback(payload); } catch (error) { console.error(error); } } };

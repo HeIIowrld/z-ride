@@ -1,5 +1,8 @@
+import { inJourney, journeySeat } from './journey.js';
+
 const KEY = 'zride.seat';
 export function getSeat() {
+  if (inJourney) return journeySeat();
   try { const value = localStorage.getItem(KEY); return value === 'left' || value === 'right' ? value : null; }
   catch { return null; }
 }

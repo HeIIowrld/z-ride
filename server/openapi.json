@@ -2230,6 +2230,29 @@
         }
       }
     },
+    "/api/rooms/{roomId}/drive-game": {
+      "parameters": [
+        {"name": "roomId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}}
+      ],
+      "post": {
+        "operationId": "recommendPassengerDriveGame",
+        "summary": "Recommend a game to the party from a connected, parked Pleos host",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {
+          "type": "object", "required": ["game"], "properties": {"game": {"$ref": "#/components/schemas/DriveGameId"}}
+        }}}},
+        "responses": {
+          "200": {"description": "Selected game", "content": {"application/json": {"schema": {
+            "type": "object", "required": ["game"], "properties": {"game": {"$ref": "#/components/schemas/DriveGameId"}}
+          }}}},
+          "400": {"description": "Unknown game", "x-error-codes": ["INVALID_GAME"]},
+          "401": {"description": "Missing or expired credential"},
+          "403": {"description": "Vehicle host membership required"},
+          "404": {"description": "Room not found"},
+          "409": {"description": "Parking gate closed or party disbanded"},
+          "503": {"description": "Durable storage unavailable"}
+        }
+      }
+    },
     "/api/rooms/{roomId}/venue-game": {
       "parameters": [
         {"name": "roomId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}}
@@ -11072,6 +11095,9 @@
           "joinExpiresAt": {
             "$ref": "#/components/schemas/EpochMillis"
           },
+          "driveGame": {
+            "$ref": "#/components/schemas/DriveGameId"
+          },
           "members": {
             "type": "array",
             "items": {
@@ -15926,9 +15952,16 @@
         ],
         "additionalProperties": false
       },
+      "DriveGameId": {
+        "type": "string",
+        "enum": ["license-quiz", "pole-jump", "raindrop"]
+      },
       "NavigationState": {
         "type": "object",
         "properties": {
+          "speedLimitKmh": {"type": "integer", "minimum": 1, "maximum": 160},
+          "nextTurn": {"enum": ["left", "right"]},
+          "nextTurnDistanceM": {"type": "number", "minimum": 0, "maximum": 1000000},
           "source": {
             "const": "PLEOS_NAVI_HELPER"
           },

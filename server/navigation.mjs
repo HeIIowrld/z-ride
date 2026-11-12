@@ -4,6 +4,13 @@ export function navigationReport(value,now=Date.now()){
   const text=(key,max=96)=>value[key]==null?null:typeof value[key]==='string'&&value[key].length<=max?value[key]:(()=>{throw fail('Invalid '+key);})();
   const number=key=>value[key]==null?null:Number.isFinite(value[key])&&value[key]>=0&&value[key]<=1e8?value[key]:(()=>{throw fail('Invalid '+key);})();
   const result={source:'PLEOS_NAVI_HELPER',sdkConnected:value.sdkConnected,owned:value.owned,nativeRouteRevision:value.routeRevision,event:text('event'),status:text('status')??'UNKNOWN',error:text('error'),destination:text('destination',128),remainingDistanceM:number('remainingDistanceM'),remainingTimeSec:number('remainingTimeSec'),geometryAvailable:false,geometryBasis:'UNAVAILABLE_NO_ROAD_POLYLINE',receivedAt:now};
+  if (Number.isInteger(value.speedLimitKmh) && value.speedLimitKmh > 0 && value.speedLimitKmh <= 160)
+    result.speedLimitKmh = value.speedLimitKmh;
+  if (result.status === 'ROUTE_DRIVE' && ['left', 'right'].includes(value.nextTurn)
+      && Number.isFinite(value.nextTurnDistanceM) && value.nextTurnDistanceM >= 0 && value.nextTurnDistanceM <= 1e6) {
+    result.nextTurn = value.nextTurn;
+    result.nextTurnDistanceM = value.nextTurnDistanceM;
+  }
   if(value.latitude!=null||value.longitude!=null){if(!Number.isFinite(value.latitude)||Math.abs(value.latitude)>90||!Number.isFinite(value.longitude)||Math.abs(value.longitude)>180)throw fail('Invalid SDK coordinate');if(Number.isFinite(value.locationAgeMs)&&value.locationAgeMs>=0&&value.locationAgeMs<=10000){result.position={latitude:value.latitude,longitude:value.longitude};result.locationAgeMs=value.locationAgeMs;result.positionSource=value.positionSource==='ANDROID_GNSS'?'ANDROID_GNSS':'PLEOS_NAVI_HELPER';}}
   return result;
 }

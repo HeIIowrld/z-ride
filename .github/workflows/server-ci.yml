@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'server/**'
+      - 'minigames/**'
       - 'data/places/**'
       - 'tools/*place*'
       - '.github/workflows/server-ci.yml'
   pull_request:
     paths:
       - 'server/**'
+      - 'minigames/**'
       - 'data/places/**'
       - 'tools/*place*'
       - '.github/workflows/server-ci.yml'

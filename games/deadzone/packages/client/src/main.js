@@ -583,8 +583,12 @@ class App {
     this.roomCode = code;
     const dash=document.getElementById('lobbyDashboard');
     dash.hidden=!this.dashboardPath; if(this.dashboardPath)dash.href=this.dashboardPath;
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const ticketKey = 'deadzone.party-ticket:' + location.pathname;
+    const partyTicket = fragment.get('party') || sessionStorage.getItem(ticketKey);
+    document.querySelector('.lobby-invite').hidden = Boolean(partyTicket);
     const invite=location.origin+'/j/'+code;
-    QRCode.toCanvas(document.getElementById('lobbyQr'),invite,{width:136,margin:2,color:{dark:'#0b1515',light:'#ffffff'}}).catch(()=>{});
+    if (!partyTicket) QRCode.toCanvas(document.getElementById('lobbyQr'),invite,{width:136,margin:2,color:{dark:'#0b1515',light:'#ffffff'}}).catch(()=>{});
     document.getElementById('inviteAddress').textContent=invite;
     document.getElementById('lobbyNetworkNote').textContent=['localhost','127.0.0.1'].includes(location.hostname)?'폰 참가 시 같은 Wi-Fi에서 Mac의 LAN 주소로 열어 QR을 생성하세요.':'';
     this.online = true;
@@ -610,10 +614,7 @@ class App {
       onKick: (k) => { this.toTitle(); this.ui.toast(k.reason==='full'?'팀 정원이 찼습니다. 다른 팀 코드를 확인해 주세요.':k.reason==='match_in_progress'?'진행 중인 경기입니다. 다음 경기에서 참가해 주세요.':'연결이 종료되었습니다. 다시 참가해 주세요.'); },
       onClose: () => { if (this.state !== 'title') this.ui.net(-1, 'off'); }
     });
-    const fragment = new URLSearchParams(location.hash.slice(1));
-    const ticketKey = 'deadzone.party-ticket:' + location.pathname;
-    const partyTicket = fragment.get('party') ?? sessionStorage.getItem(ticketKey);
-    if (fragment.has('party')) {
+    if (fragment.has('party') && partyTicket) {
       sessionStorage.setItem(ticketKey, partyTicket);
       history.replaceState(null, '', location.pathname + location.search);
     }

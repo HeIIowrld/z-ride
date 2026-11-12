@@ -6,6 +6,14 @@
   "http": [
     {
       "method": "POST",
+      "path": "/api/rooms/{roomId}/drive-game",
+      "auth": "CAR_HOST with fresh parked foreground telemetry",
+      "body": {"game": "license-quiz, pole-jump or raindrop"},
+      "response": {"game": "Selected game"},
+      "availability": "snapshot.room.driveGame is visible to approved members. Approved passenger phones open games manually in D with fresh vehicle speed and a seat not reported empty."
+    },
+    {
+      "method": "POST",
       "path": "/api/rooms/{roomId}/venue-game",
       "auth": "Approved member; host controls opening, start, progression and party supplies",
       "body": {"action": "status/open/start/next/item/ready/play/vote/submit", "kind": "thief or relay for open"},
@@ -1143,6 +1151,9 @@
       "event": "DESTINATION_INFO",
       "status": "ROUTE_DRIVE",
       "destination": "Sample destination",
+      "speedLimitKmh": 50,
+      "nextTurn": "right",
+      "nextTurnDistanceM": 150,
       "remainingDistanceM": 1000,
       "remainingTimeSec": 120,
       "latitude": 37.5,
