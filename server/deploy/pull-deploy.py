@@ -70,10 +70,28 @@ def runtime_bundle(payload):
             expanded += member.size
             if expanded > 32 * 1024 * 1024:
                 raise ValueError('Expanded source exceeds limit')
-            if len(path.parts) < 3 or path.parts[1] != 'server' or not member.isfile():
+            if len(path.parts) < 3 or not member.isfile():
                 continue
             relative = PurePosixPath(*path.parts[2:])
             name = relative.as_posix()
+            if path.parts[1] == 'minigames':
+                allowed = (
+                    name == 'style.css'
+                    or (len(relative.parts) == 3 and relative.parts[0] == 'games'
+                        and relative.parts[1] in {'license-quiz', 'pole-jump', 'raindrop'}
+                        and relative.suffix in {'.html', '.css', '.js', '.json'})
+                    or (len(relative.parts) == 2 and relative.parts[0] == 'shared' and relative.suffix == '.js')
+                    or (len(relative.parts) == 2 and relative.parts[0] == 'data'
+                        and relative.name in {'items.json', 'loot_tables.json', 'points.json'})
+                )
+                if allowed:
+                    key = 'drive-assets/' + name
+                    if key in files:
+                        raise ValueError('Duplicate runtime file')
+                    files[key] = source.extractfile(member).read()
+                continue
+            if path.parts[1] != 'server':
+                continue
             allowed = (
                 len(relative.parts) == 1 and
                 (name in {'package.json', 'package-lock.json'} or name.endswith('.mjs'))

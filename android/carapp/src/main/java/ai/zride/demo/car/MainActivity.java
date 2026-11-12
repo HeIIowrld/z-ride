@@ -330,7 +330,7 @@ public final class MainActivity extends DemoActivity {
 
     private void renderDriveGames(boolean parked) {
         if (drivePanel == null) return;
-        boolean show = parked && room != null && approvedPassengers() > 0;
+        boolean show = parked && room != null && room.optBoolean("driveGamesAvailable") && approvedPassengers() > 0;
         drivePanel.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
         String selection = room.optString("driveGame");

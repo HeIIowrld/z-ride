@@ -10,7 +10,7 @@
       "auth": "CAR_HOST with fresh parked foreground telemetry",
       "body": {"game": "license-quiz, pole-jump or raindrop"},
       "response": {"game": "Selected game"},
-      "availability": "snapshot.room.driveGame is visible to approved members. Approved passenger phones open games manually in D with fresh vehicle speed and a seat not reported empty."
+      "availability": "snapshot.room.driveGamesAvailable is true when the runtime ships the game assets. snapshot.room.driveGame is visible to approved members. Approved passenger phones open games manually in D with fresh vehicle speed and a seat not reported empty."
     },
     {
       "method": "POST",

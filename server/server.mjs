@@ -465,7 +465,8 @@ export function createDemoServer(options = {}) {
       cabin: cabin.snapshot(cabinContext(room, viewer)),
       party: { partyId: room.roomId, status: room.closedAt ? 'DISBANDED' : 'ACTIVE', route: places.routeInfo(room.roomId) },
       navigation: navigationSnapshot(room),
-      ...(room.driveGame && !room.closedAt ? { driveGame: room.driveGame } : {}),
+      ...(phoneClient.driveGamesAvailable && !room.closedAt
+        ? { driveGamesAvailable: true, ...(room.driveGame ? { driveGame: room.driveGame } : {}) } : {}),
       ...routeSupplyView(room, viewer),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
@@ -736,6 +737,7 @@ export function createDemoServer(options = {}) {
         const room = roomFor(driveRoute[1]);
         requireHost(room, authenticate(req));
         if (!gate(room).allowed) throw fail('GATE_CLOSED', 'Select a passenger game while parked', 409);
+        if (!phoneClient.driveGamesAvailable) throw fail('DRIVE_GAMES_UNAVAILABLE', 'Passenger game assets are unavailable', 503);
         if (!driveGames.has(body?.game)) throw fail('INVALID_GAME', 'Unknown passenger game', 400);
         return atomic(() => {
           if (room.driveGame !== body.game) {

@@ -474,7 +474,7 @@ let driveFrame = null;
 function driveAvailable() {
   const vehicle = room?.vehicle;
   const me = ownMember();
-  return online() && !waitingForApprovedTicket && me?.approved
+  return room?.driveGamesAvailable === true && online() && !waitingForApprovedTicket && me?.approved
     && ['FRONT_PASSENGER', 'REAR_LEFT', 'REAR_RIGHT'].includes(me.seat) && me.seatEvidence !== 'EMPTY'
     && vehicle?.gear === 'D' && Number.isFinite(vehicle.speedMps)
     && Number.isFinite(vehicle.reportAgeMs) && vehicle.reportAgeMs + Date.now() - receivedAt <= 6000;

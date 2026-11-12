@@ -2249,7 +2249,7 @@
           "403": {"description": "Vehicle host membership required"},
           "404": {"description": "Room not found"},
           "409": {"description": "Parking gate closed or party disbanded"},
-          "503": {"description": "Durable storage unavailable"}
+          "503": {"description": "Durable storage or drive game assets unavailable", "x-error-codes": ["STORAGE_UNAVAILABLE", "DRIVE_GAMES_UNAVAILABLE"]}
         }
       }
     },
@@ -11095,6 +11095,7 @@
           "joinExpiresAt": {
             "$ref": "#/components/schemas/EpochMillis"
           },
+          "driveGamesAvailable": {"type": "boolean"},
           "driveGame": {
             "$ref": "#/components/schemas/DriveGameId"
           },

@@ -59,6 +59,21 @@ with tarfile.open(archive, 'r:gz') as source:
         if not (member.isfile() or member.isdir()):
             raise SystemExit('Links and special files are prohibited')
         allowed = (len(path.parts) == 1 and (name in {'package.json', 'package-lock.json'} or name.endswith('.mjs'))) or (path.parts[0] in {'observer', 'phone-client'} and (member.isdir() or path.suffix in {'.html', '.css', '.js', '.json', '.svg'}))
+        if path.parts[0] == 'drive-assets':
+            relative = path.parts[1:]
+            allowed = (member.isdir() and (
+                relative in {(), ('games',), ('shared',), ('data',)}
+                or (len(relative) == 2 and relative[0] == 'games'
+                    and relative[1] in {'license-quiz', 'pole-jump', 'raindrop'})
+            )) or (member.isfile() and (
+                relative == ('style.css',)
+                or (len(relative) == 3 and relative[0] == 'games'
+                    and relative[1] in {'license-quiz', 'pole-jump', 'raindrop'}
+                    and path.suffix in {'.html', '.css', '.js', '.json'})
+                or (len(relative) == 2 and relative[0] == 'shared' and path.suffix == '.js')
+                or (len(relative) == 2 and relative[0] == 'data'
+                    and relative[1] in {'items.json', 'loot_tables.json', 'points.json'})
+            ))
         if not allowed:
             raise SystemExit('Unrelated file in runtime archive')
         expanded += member.size

@@ -45,13 +45,15 @@ export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={})
   }]));
   const bundledDrive = new URL('./drive-assets/', import.meta.url);
   const driveRoot = existsSync(bundledDrive) ? bundledDrive : new URL('../minigames/', import.meta.url);
-  for (const file of DRIVE_FILES) {
+  const driveGamesAvailable = existsSync(driveRoot);
+  for (const file of driveGamesAvailable ? DRIVE_FILES : []) {
     const type = DRIVE_TYPES[file.split('.').at(-1)] + '; charset=utf-8';
     assets.set('/play/drive/' + file, { bytes: readFileSync(new URL(file, driveRoot)), type });
   }
   assets.set('/play/qrcode.js',{bytes:readFileSync(createRequire(import.meta.url).resolve('qrcode-generator')),type:'text/javascript; charset=utf-8'});
   assets.set('/play/config.js',{bytes:Buffer.from('window.GAME_CONFIG=window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin,displayName})+');\n'),type:'text/javascript; charset=utf-8'});
   return {
+    driveGamesAvailable,
     handleHttp(req, res, path) {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
       const file = assets.get(path);
