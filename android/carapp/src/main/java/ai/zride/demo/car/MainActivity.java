@@ -49,6 +49,7 @@ public final class MainActivity extends DemoActivity {
     private Button venueStart, venueNext, venueItem;
     private Game venueCoverGame;
     private boolean venuePending, venueStatusPending, venueVisible;
+    private String venueStopName = "";
     private int venueActionVersion;
 
     private void requestVenue(String action, String kind) {
@@ -87,6 +88,7 @@ public final class MainActivity extends DemoActivity {
             venueCabinEffects.update(room.optString("roomId"), response, probe);
         JSONObject stop = response.optJSONObject("stop");
         venueVisible = localAllowed && foreground && connected && stop != null;
+        venueStopName = venueVisible ? stop.optString("name") : "";
         updateArcadeVisibility();
         if (!venueVisible) return;
         JSONObject game = response.optJSONObject("game");
@@ -230,6 +232,7 @@ public final class MainActivity extends DemoActivity {
     private Button destinationToolbarButton;
     private Dialog destinationDialog;
     private TextView cabinSummary;
+    private TextView journeySummary;
     private CabinPanel cabinPanel;
     private android.app.AlertDialog cabinDialog;
     private android.app.AlertDialog settingsDialog;
@@ -244,6 +247,7 @@ public final class MainActivity extends DemoActivity {
     private boolean repairQueued;
 
     @Override protected void onGameVisibilityChanged() {
+        navigationState = NavigationRelayService.currentState();
         if (arcadeToolbar != null)
             arcadeToolbar.setVisibility(foreground && localAllowed ? View.VISIBLE : View.GONE);
         if (!localAllowed && cabinDialog != null) cabinDialog.dismiss();
@@ -258,18 +262,50 @@ public final class MainActivity extends DemoActivity {
         boolean parked = foreground && localAllowed && connected;
         if (!parked) repairQueued = false;
         if (!parked) venueVisible = false;
-        boolean showVenue = parked && venueVisible && !showMatchOnly;
-        boolean showDeadzone = parked && showMatchOnly;
+        boolean showVenue = parked && venueVisible;
+        boolean deadzoneAvailable = parked && !showVenue && !routeInProgress();
+        boolean showDeadzone = deadzoneAvailable && showMatchOnly;
         venuePanel.setVisibility(showVenue ? View.VISIBLE : View.GONE);
         deadzonePanel.setVisibility(showDeadzone ? View.VISIBLE : View.GONE);
-        deadzoneCard.setVisibility(parked && !showVenue && !showDeadzone
+        deadzoneCard.setVisibility(deadzoneAvailable && !showDeadzone
                 && (approvedPassengers() > 0 || showVehicleDiagnostics()) ? View.VISIBLE : View.GONE);
         showVehicleLobby(!showDeadzone && (!showVenue || approvedPassengers() < 2));
         if (showVenue || showDeadzone) hideVehicleRoundControls();
         if (!showVehicleDiagnostics() && connected) status.setVisibility(View.GONE);
-        deadzoneStart.setEnabled(parked && !deadzonePending && approvedPassengers() > 0);
+        deadzoneStart.setEnabled(showDeadzone && !deadzonePending && approvedPassengers() > 0);
         if (showDeadzone && !deadzonePolling) updateSeats(deadzoneSeats, null, false);
         cabinSummary.setVisibility(showVenue || showDeadzone ? View.VISIBLE : View.INVISIBLE);
+        updateJourneySummary();
+    }
+
+    private boolean routeInProgress() {
+        if (navigationState == null) return false;
+        String state = navigationState.optString("status");
+        return "SEARCHING".equals(state) || "ROUTE_READY".equals(state) || "ROUTE_DRIVE".equals(state);
+    }
+
+    private void updateJourneySummary() {
+        if (journeySummary == null) return;
+        String state = navigationState == null ? "" : navigationState.optString("status");
+        String destination = navigationState == null || navigationState.isNull("destination")
+                ? "" : navigationState.optString("destination");
+        String text;
+        if (venueVisible) {
+            text = venueStopName.isEmpty() ? "충전 경유지" : "충전 중 · " + venueStopName;
+        } else if ("ARRIVED".equals(state)) {
+            text = destination.isEmpty() ? "목적지 도착" : "목적지 도착 · " + destination;
+        } else if (routeInProgress()) {
+            text = destination.isEmpty() ? "순정 내비 · 경로 확인 중" : "가는 중 · " + destination;
+            int remaining = navigationState.optInt("remainingDistanceM", -1);
+            if (!destination.isEmpty() && remaining >= 0) {
+                text += remaining < 1000 ? " · " + remaining + " m"
+                        : String.format(java.util.Locale.KOREA, " · %.1f km", remaining / 1000.0);
+            }
+        } else {
+            text = "";
+        }
+        journeySummary.setVisibility(foreground && connected && !text.isEmpty() ? View.VISIBLE : View.GONE);
+        if (!text.contentEquals(journeySummary.getText())) journeySummary.setText(text);
     }
 
     private int approvedPassengers() {
@@ -431,6 +467,11 @@ public final class MainActivity extends DemoActivity {
         JSONObject cabin=NavigationRelayService.cabin();if(cabin!=null&&showVehicleDiagnostics())applyExtraDiagnostics(cabin);
         navigationState=NavigationRelayService.currentState();sdkNavigationOwned=NavigationRelayService.sdkMode();
         updateWelcomeDestination();
+        if (routeInProgress() && showMatchOnly) {
+            showMatchOnly = false;
+            deadzonePolling = false;
+        }
+        updateArcadeVisibility();
         updateCabinPanel();
         if(navigationLabel!=null&&navigationState!=null)navigationLabel.setText("Pleos Navi SDK · "+navigationState.optString("status",navigationState.optString("event"))+" · "+navigationState.optString("destination","—")+" · "+navigationState.optString("error",""));
         if(deadzonePolling)syncDeadzone(false);
@@ -606,6 +647,15 @@ public final class MainActivity extends DemoActivity {
         arcadeToolbar = new LinearLayout(this);
         arcadeToolbar.setGravity(Gravity.CENTER_VERTICAL);
         container.addView(arcadeToolbar, Math.min(1, container.getChildCount()));
+        journeySummary = new TextView(this);
+        journeySummary.setTextColor(0xffe3e6ff);
+        journeySummary.setTextSize(18);
+        journeySummary.setMaxLines(1);
+        journeySummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        journeySummary.setPadding(dp(18), dp(10), dp(18), dp(10));
+        styleVehicleCard(journeySummary, 0xff171a29);
+        journeySummary.setVisibility(View.GONE);
+        container.addView(journeySummary, container.indexOfChild(arcadeToolbar) + 1);
         cabinButton = new Button(this);
         cabinButton.setText("차량 상태");
         styleVehicleButton(cabinButton, false);
@@ -626,6 +676,7 @@ public final class MainActivity extends DemoActivity {
         settingsButton.setOnClickListener(view -> openGameSettings());
         deadzoneCard = column();
         addGameCard(deadzoneCard, Game.DEADZONE, false, false, () -> {
+            if (routeInProgress() || venueVisible) return;
             resetMatchBoard();
             focusMatch(true);
         });

@@ -18,7 +18,8 @@
   background-size: 10% 10%;
 }
 .journey-car, .journey-pin { position: absolute; transform: translate(-50%, -50%); }
-.journey-car { left: 50%; top: 50%; margin-top: 25px; color: #b9e4ed; font-size: 11px; transition: left 0.8s linear, top 0.8s linear; }
+.journey-car { left: 50%; top: 50%; margin-top: 25px; color: #b9e4ed; font-size: 11px; transition: left 1.6s linear, top 1.6s linear; }
+@media (prefers-reduced-motion: reduce) { .journey-car { transition: none; } }
 .journey-car::before { content: ''; position: absolute; left: 50%; bottom: 120%; width: 10px; height: 10px; transform: translateX(-50%); border-radius: 50%; background: #88d7ff; }
 .journey-pin { width: 36px; height: 36px; border-radius: 50%; }
 .journey-pin, .journey-spots button { color: #eaf4ff; background: #203d4d; border: 1px solid #507889; }
