@@ -16,6 +16,14 @@
     "url": "http://10.0.2.2:8200/"
   },
   {
+    "id": "power-tug",
+    "title": "전력 줄다리기",
+    "scene": "CHARGING",
+    "players": "2–4명",
+    "summary": "폰을 연타해 전기를 우리 팀 배터리로 끌어와요",
+    "url": "http://10.0.2.2:8220/"
+  },
+  {
     "id": "parking-escape",
     "title": "주차장 좀비 탈출",
     "scene": "PARKED",
