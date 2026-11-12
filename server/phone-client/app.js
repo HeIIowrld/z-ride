@@ -479,13 +479,19 @@ function journeyActivityCopy(activity) {
 function renderJourneyMap() {
   if (journeyView !== 'map' || !ownMember()?.approved) return;
   const position = room.navigation?.position;
+  const offset = (spot, origin) => [
+    (spot.longitude - origin.longitude) * 111000 * Math.cos(origin.latitude * Math.PI / 180),
+    (spot.latitude - origin.latitude) * 111000,
+  ];
+  if (!position) mapAnchor = null;
+  else if (!mapAnchor || Math.hypot(...offset(position, mapAnchor)) > 360) mapAnchor = position;
   const supply = room.routeSupplySpot;
   const stop = room.vehicle?.playAllowed && venueStatus?.stop;
   const deadzone = room.deadzoneJoinUrl;
   const points = new Map((position ? nearbySpots : []).map(spot => [spot.placeId, spot]));
   if (supply) points.set(supply.placeId, { ...points.get(supply.placeId), ...supply, activity: 'supply' });
   if (stop) points.set(stop.placeId, { ...position, ...points.get(stop.placeId), ...stop, activity: 'charge' });
-  if (deadzone) points.set('deadzone', { ...position, placeId: 'deadzone', name: 'DEADZONE 집결지', activity: 'deadzone' });
+  if (deadzone) points.set('deadzone', { ...(mapAnchor ?? position), placeId: 'deadzone', name: 'DEADZONE 집결지', activity: 'deadzone' });
   const spots = [...points.values()].sort((a, b) => Number(Boolean(b.activity)) - Number(Boolean(a.activity))).slice(0, 10);
   const next = spots.find(spot => spot.activity);
   $('journey-next').hidden = !next;
@@ -504,33 +510,27 @@ function renderJourneyMap() {
   $('journey-supplies').textContent = room.collection?.inventory?.supplies ?? 0;
   $('journey-map-status').textContent = routeFeedback || (position
     ? '보급 스팟에 가까워지면 입장 버튼이 표시돼요.' : '차량 위치를 기다리고 있어요.');
-  const offset = (spot, origin) => [
-    (spot.longitude - origin.longitude) * 111000 * Math.cos(origin.latitude * Math.PI / 180),
-    (spot.latitude - origin.latitude) * 111000,
-  ];
-  if (!position) mapAnchor = null;
-  else if (!mapAnchor || Math.hypot(...offset(position, mapAnchor)) > 360) mapAnchor = position;
-  const signature = JSON.stringify([position, spots, selectedSpot?.placeId]);
+  let car = plot.querySelector('.journey-car');
+  if (position && !car) {
+    car = document.createElement('span');
+    car.className = 'journey-car';
+    car.textContent = '내 차량';
+    plot.append(car);
+  }
+  if (!position) car?.remove();
+  const plotted = spots.filter(spot => Number.isFinite(spot.latitude) && Number.isFinite(spot.longitude));
+  const scale = position ? Math.max(600, ...plotted.flatMap(spot => offset(spot, mapAnchor).map(Math.abs))) : 600;
+  const [carEast, carNorth] = position ? offset(position, mapAnchor) : [0, 0];
+  const carX = 50 + carEast / scale * 40, carY = 50 - carNorth / scale * 40;
+  if (position) {
+    car.style.left = carX + '%';
+    car.style.top = carY + '%';
+  }
+  const signature = JSON.stringify([mapAnchor, spots, selectedSpot?.placeId]);
   if (signature !== mapSignature) {
     mapSignature = signature;
     plot.querySelectorAll('.journey-pin').forEach(pin => pin.remove());
     list.replaceChildren();
-    let car = plot.querySelector('.journey-car');
-    if (position && !car) {
-      car = document.createElement('span');
-      car.className = 'journey-car';
-      car.textContent = '내 차량';
-      plot.append(car);
-    }
-    if (!position) car?.remove();
-    const plotted = spots.filter(spot => Number.isFinite(spot.latitude) && Number.isFinite(spot.longitude));
-    const scale = position ? Math.max(600, ...plotted.flatMap(spot => offset(spot, mapAnchor).map(Math.abs))) : 600;
-    const [carEast, carNorth] = position ? offset(position, mapAnchor) : [0, 0];
-    const carX = 50 + carEast / scale * 40, carY = 50 - carNorth / scale * 40;
-    if (position) {
-      car.style.left = carX + '%';
-      car.style.top = carY + '%';
-    }
     const plotWidth = Math.max(1, plot.clientWidth);
     const plotHeight = Math.max(1, plot.clientHeight);
     const clusters = [];
