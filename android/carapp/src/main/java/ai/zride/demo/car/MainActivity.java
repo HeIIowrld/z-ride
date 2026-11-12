@@ -169,7 +169,7 @@ public final class MainActivity extends DemoActivity {
         venueInstruction.setVisibility(instruction.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE);
         venueLabel.setVisibility(game == null ? View.GONE : View.VISIBLE);
         venueDetail.setVisibility(game == null ? View.GONE : View.VISIBLE);
-        venueChoiceTitle.setText(game == null ? placeName : "다음 게임");
+        venueChoiceTitle.setText(game == null ? "충전소 게임" : "다음 게임");
     }
 
     private Button venueControl(String text, String action, String kind) {
@@ -837,13 +837,15 @@ public final class MainActivity extends DemoActivity {
     private void addGameCard(LinearLayout row, Game game, boolean horizontal,
                              boolean second, Runnable open) {
         LinearLayout card = column();
-        card.setMinimumHeight(dp(152));
-        card.addOnLayoutChangeListener((view, left, top, right, bottom,
-                                        oldLeft, oldTop, oldRight, oldBottom) -> {
-            int height = Math.max(dp(152), Math.min((right - left) * 9 / 16,
-                    arcadeViewport.getHeight() * (horizontal ? 53 : 40) / 100));
-            if (card.getMinimumHeight() != height) card.setMinimumHeight(height);
-        });
+        card.setMinimumHeight(dp(horizontal ? 248 : 152));
+        if (!horizontal) {
+            card.addOnLayoutChangeListener((view, left, top, right, bottom,
+                                            oldLeft, oldTop, oldRight, oldBottom) -> {
+                int height = Math.max(dp(152), Math.min((right - left) * 9 / 16,
+                        arcadeViewport.getHeight() * 40 / 100));
+                if (card.getMinimumHeight() != height) card.setMinimumHeight(height);
+            });
+        }
         card.setGravity(Gravity.BOTTOM);
         card.setPadding(dp(24), dp(12), dp(20), dp(20));
         card.setBackground(cover(game));
