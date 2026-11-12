@@ -215,4 +215,6 @@ $('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textC
 window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); doJump(); } if (e.code === 'ArrowUp') { e.preventDefault(); laneMove(1); } if (e.code === 'ArrowDown') { e.preventDefault(); laneMove(-1); } });
 let touchY = null; canvas.addEventListener('touchstart', e => touchY = e.touches[0].clientY, { passive: true });
 canvas.addEventListener('touchend', e => { if (touchY == null) return; const d = e.changedTouches[0].clientY - touchY; if (Math.abs(d) > 24) laneMove(d < 0 ? 1 : -1); else doJump(); touchY = null; }, { passive: true });
+document.querySelector('#start-button').disabled = false;
+
 // Pleos integration point: forward NaviHelper onCurrentRoadSpeedLimit() and onDrivingInfo() to the server, which relays them over /vehicle WebSocket.
