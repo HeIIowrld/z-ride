@@ -99,5 +99,48 @@ window.Relay = (() => {
   };
   const secondsLeft = deadline => Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
 
-  return { PALETTE, WIDTHS, h, paper, paint, replay, connect, post, store, secondsLeft };
+  // 사람마다 색 하나. 이름 첫 글자 동그라미로 어디서나 같은 사람을 알아보게 한다
+  const COLORS = ['#ffd23f', '#5fd0c0', '#ff9aa8', '#a9bcff'];
+  function avatar(players, id, size) {
+    const index = players.findIndex(p => p.id === id), p = players[index];
+    const el = h('span', 'ava' + (size ? ' ' + size : ''), p ? [...p.name][0] : '?');
+    el.style.setProperty('--c', COLORS[(index < 0 ? 0 : index) % COLORS.length]);
+    return el;
+  }
+  function person(players, p, note, done) {
+    const li = h('li', 'person' + (done ? ' done' : '') + (p.connected === false ? ' off' : ''));
+    li.append(avatar(players, p.id), h('b', '', p.name));
+    if (note) li.append(h('span', 'note', note));
+    return li;
+  }
+  function tip(text) { const el = h('p', 'tip'); el.append(h('b', '', '팁'), h('span', '', text)); return el; }
+
+  /**
+   * 스케치북은 자리 순서대로 옆 사람에게 넘어간다(스케치북 b의 s번째 칸은 b+1+s번 사람).
+   * 그래서 지금 내 스케치북은 늘 바로 앞사람에게서 받고 바로 뒷사람에게 넘긴다.
+   */
+  function relayOf(players, id, step, steps) {
+    const n = players.length, i = players.findIndex(p => p.id === id);
+    return { from: step === 0 ? null : players[(i - 1 + n) % n], to: step + 1 >= steps ? null : players[(i + 1) % n] };
+  }
+  /** 바통 띠: 받은 사람 → 나 → 넘길 사람. 결승이면 깃발. */
+  function baton(players, id, step, steps) {
+    const { from, to } = relayOf(players, id, step, steps);
+    const strip = h('div', 'baton');
+    const node = (p, label) => { const n = h('div', 'baton-node'); if (p) n.append(avatar(players, p.id)); else n.append(h('span', 'flag', label === '단어 카드' ? '가' : '🏁')); n.append(h('small', '', p ? p.name : label)); return n; };
+    strip.append(node(from, '단어 카드'), h('span', 'baton-arrow', '→'), (() => { const n = node(players.find(p => p.id === id)); n.classList.add('me'); n.querySelector('small').textContent = '나'; return n; })(), h('span', 'baton-arrow', '→'), node(to, '결승'));
+    return strip;
+  }
+  /** 이번 판의 구간들: 그리기·맞히기가 번갈아 이어지고 마지막이 결승. */
+  function legs(step, steps, kindOf) {
+    const list = h('ol', 'legs');
+    for (let s = 0; s < steps; s++) {
+      const li = h('li', s < step ? 'past' : s === step ? 'on' : '');
+      li.append(h('small', '', s + 1 === steps ? '결승' : `${s + 1}구간`), h('b', '', kindOf(s) === 'DRAW' ? '그리기' : '맞히기'));
+      list.append(li);
+    }
+    return list;
+  }
+
+  return { PALETTE, WIDTHS, h, paper, paint, replay, connect, post, store, secondsLeft, avatar, person, tip, relayOf, baton, legs };
 })();

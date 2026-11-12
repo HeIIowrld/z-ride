@@ -49,6 +49,61 @@ window.Relay = (() => {
     return { send: message => { if (!live) return false; ws.send(JSON.stringify(message)); return true; }, isLive: () => live };
   }
 
+  // 사람마다 색을 하나씩. 이름 첫 글자 동그라미로 어디서나 같은 사람을 알아보게 한다(파티 게임의 익숙한 방식)
+  const COLORS = ['#ffd23f', '#5fd4c4', '#ff8fa3', '#a5b8ff'];
+  function avatar(players, id, size) {
+    const index = players.findIndex(p => p.id === id), p = players[index];
+    const el = h('span', 'ava' + (size ? ' ' + size : ''), p ? [...p.name][0] : '?');
+    el.style.setProperty('--c', COLORS[(index < 0 ? 0 : index) % COLORS.length]);
+    return el;
+  }
+  /** 아바타 + 이름 + 상태 한 줄. done이면 강조한다. */
+  function person(players, p, note, done) {
+    const li = h('li', 'person' + (done ? ' done' : '') + (p.connected === false ? ' off' : ''));
+    li.append(avatar(players, p.id), h('b', '', p.name));
+    if (note) li.append(h('span', 'note', note));
+    return li;
+  }
+  /**
+   * 0부터 눈금 막대에 목표 구간을 칠하고, 합계가 있으면 표시한다. 숫자 여러 개 대신 한눈에 "들어갔나/모자라나/넘쳤나".
+   */
+  function meter({ lo, hi, sum = null }) {
+    const max = Math.max(hi + 4, (sum ?? 0) + 2, 10);
+    const pct = v => Math.max(0, Math.min(100, v / max * 100));
+    const wrap = h('div', 'meter');
+    const track = h('div', 'meter-track');
+    const band = h('div', 'meter-band'); band.style.left = pct(lo - .5) + '%'; band.style.width = (pct(hi + .5) - pct(lo - .5)) + '%';
+    band.append(h('span', '', `${lo}~${hi}`));
+    track.append(band);
+    if (sum != null) {
+      const mark = h('div', 'meter-mark ' + (sum < lo ? 'low' : sum > hi ? 'high' : 'ok'));
+      mark.style.left = pct(sum) + '%'; mark.append(h('b', '', String(sum)));
+      track.append(mark);
+    }
+    const scale = h('div', 'meter-scale'); scale.append(h('span', '', '0'), h('span', '', '모자라면 정전 ← 구간 → 넘치면 과부하'), h('span', '', String(max)));
+    wrap.append(track, scale);
+    return wrap;
+  }
+  /** 필요한 순간에 한 줄로 알려 주는 도움말. 규칙 화면을 건너뛴 사람도 여기서 배운다. */
+  function tip(text) { const el = h('p', 'tip'); el.append(h('b', '', '팁'), h('span', '', text)); return el; }
+
+  // 처음엔 세 덩어리만 보여 주고, 자세한 규칙은 접어 둔다
+  const BRIEF = [
+    ['한 명은 몰래 도둑', '내 역할은 폰을 꾹 누르는 동안만 보여요. 운전자일 수도 있어요.'],
+    ['전기를 딱 맞게', '배터리가 5% 오를 때마다 구간이 떠요. 모두 카드 1장씩 몰래 내서 합계를 구간 안에 넣어요.'],
+    ['찾아서 잡기', '모자라면 정전, 넘치면 과부하. 이야기하고 투표로 도둑을 잡으면 가족 승리!'],
+  ];
+  const SOLO_BRIEF = [
+    ['둘이 한 팀, 차가 방해꾼', '차가 사건마다 몰래 −2~+2를 더해요.'],
+    ['전기를 딱 맞게', '배터리가 5% 오를 때마다 구간이 떠요. 둘이 카드를 맞춰 합계를 구간 안에 넣어요.'],
+    ['끝까지 버티기', '퓨즈 3개가 나가기 전에 사건을 모두 넘기면 승리!'],
+  ];
+  function briefList(solo) {
+    const list = h('ol', 'rules brief-rules');
+    for (const [title, text] of solo ? SOLO_BRIEF : BRIEF) { const li = h('li'); li.append(h('b', '', title), h('span', '', text)); list.append(li); }
+    return list;
+  }
+
   // 큰 화면과 폰이 같은 말로 설명한다
   const RULES = [
     ['도둑이 숨어 있어요', '우리 중 한 명은 전기 도둑이에요. 운전자일 수도 있어요. 내 역할은 폰에서 나만 봐요.'],
@@ -83,5 +138,5 @@ window.Relay = (() => {
   };
   const secondsLeft = deadline => Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
 
-  return { h, connect, post, store, secondsLeft, rulesList };
+  return { h, connect, post, store, secondsLeft, rulesList, briefList, avatar, person, meter, tip };
 })();
