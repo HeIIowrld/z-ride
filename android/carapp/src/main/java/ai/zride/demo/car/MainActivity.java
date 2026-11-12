@@ -339,7 +339,7 @@ public final class MainActivity extends DemoActivity {
             Button card = (Button) driveChoices.getChildAt(index);
             boolean selected = DRIVE_IDS[index].equals(selection);
             card.setEnabled(!drivePending && !selected);
-            card.setTextColor(selected ? DRIVE_ACCENTS[index] : 0xffeef0ff);
+            card.setTextColor(selected ? DRIVE_ACCENTS[index] : drivePending ? 0xffa6aabe : 0xff101323);
             card.setSelected(selected);
             if (selected) message = DRIVE_TITLES[index] + " · 출발 후 동승자 폰에 표시";
         }
