@@ -12,36 +12,27 @@ body{background:#0b1414}button,a,input{font:inherit}button,a{-webkit-tap-highlig
 :root{--rose:#e66b43}
 #seatAim:not([hidden]) {
   position: absolute;
-  top: calc(64px + var(--safe-t));
+  top: calc(52px + var(--safe-t));
   left: calc(12px + var(--safe-l));
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  gap: 2px;
   padding: 6px 9px;
-  border: 1px solid #608a81;
-  border-radius: 8px;
+  border: 1px solid #365264;
+  border-left: 3px solid var(--seat-color, #52f1d0);
+  border-radius: 4px;
   background: #101c26ed;
   color: #e6f8f2;
   font: 12px/1.4 system-ui, sans-serif;
 }
-#seatAimStatus { display: block; color: #86ecd1; }
+#seatAimStatus { color: #a6b7c7; }
+#seatAim[data-aim="inside"] #seatAimStatus { color: #52f1d0; }
 #seatAim:is([data-aim="outside"], [data-aim="blocked"]) #seatAimStatus { color: #ffcf86; }
-.mounted-combat #pads, .mounted-combat #vitals .sh { display: none; }
-#seatDial {
-  position: relative;
-  flex: 0 0 34px;
-  height: 34px;
-  border: 1px solid #608a81;
-  border-radius: 50%;
-  background: conic-gradient(from var(--sector-start), #338f80 0 var(--sector-width), #20303f 0);
-}
-#seatDial i {
-  position: absolute;
-  inset: 2px 15px 50%;
-  border-radius: 2px;
-  background: #fff;
-  transform-origin: 50% 100%;
-  transform: rotate(var(--aim, 0deg));
+.mounted-combat :is(#pads, #vitals .sh, #hudDashboard, #ladder, #wSwap) { display: none; }
+.mounted-combat #weapon { bottom: calc(14px + var(--safe-b)); }
+.mounted-combat #minimap { bottom: calc(48px + var(--safe-b)); }
+@media (max-width: 520px) and (orientation: portrait) {
+  .mounted-combat #topbar { width: min(40vw, 190px); }
+  .mounted-combat #pauseBtn { top: calc(52px + var(--safe-t)); }
 }
 
 .lobby-invite[hidden] { display: none; }

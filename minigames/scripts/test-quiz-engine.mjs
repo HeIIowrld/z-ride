@@ -10,6 +10,10 @@ let time = 0; const engine = createQuizEngine({ bank, now: () => time, rng: () =
 const first = engine.onTrigger({ type:'tbt', detail:{turn:'right'}, at:time }); assert.ok(first); assert.equal(engine.onTrigger({ type:'caution', detail:{kind:'speed_bump'}, at:time+1000 }),null,'60 second gap');
 time += 60_000; const second = engine.onTrigger({ type:'tbt', detail:{turn:'right'}, at:time }); assert.ok(second); assert.notEqual(first.id, second.id,'no duplicate question');
 const priorityEngine = createQuizEngine({ bank, now: () => time, rng: () => 0 }); assert.equal(priorityEngine.onTrigger({ type:'tbt', detail:{turn:'right'}, at:time })?.trigger,'tbt:right');
+const leftTurn = { type: 'tbt', detail: { turn: 'left' } };
+const leftEngine = createQuizEngine({ bank, now: () => time });
+assert.equal(leftEngine.onTrigger(leftTurn)?.id, 'q29', 'left guidance uses the existing left-turn question');
+assert.equal(leftEngine.onTrigger(leftTurn, { ignoreGap: true }), null, 'never substitutes a right-turn question');
 time += 300_000; const idle = engine.onTrigger({ type:'idle', at:time }); assert.ok(idle, 'idle question after five minutes');
 console.log('PASS questions: 40 valid, 4 choices, required fields, 5+ per trigger');
 console.log('PASS engine: 60-second gap, duplicate prevention, priority ordering, idle after five minutes');

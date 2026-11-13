@@ -19,7 +19,7 @@
 
    The orchestrator. It owns the loop, the state machine, and the translation
    layer between the simulation's events and everything the player actually
-   perceives — sound, particles, camera kicks, haptics, HUD.
+   perceives — sound, 2D effects, haptics, HUD.
 
    The loop is a fixed-timestep accumulator with interpolated rendering, and
    it runs the same way offline and online. The only difference is where the
@@ -33,28 +33,21 @@
    shotgun hit feels heavy — but only offline. Online it becomes a purely
    visual pulse, because you cannot stop time for eight people.              */
 
-import * as THREE from 'three';
 import QRCode from 'qrcode';
 import { dashboardSnapshot, difficultyFor } from '@overrun/shared/zride.js';
 import { allowsSeatAim, relativeSeatAim, seatSectors } from '@overrun/shared/seat-aim.js';
-import { CABIN, VEHICLE_SEATS, vehiclePoint, vehiclePose, windowMuzzle } from '@overrun/shared/vehicle.js';
+import { VEHICLE_SEATS, vehiclePoint, vehiclePose, windowMuzzle } from '@overrun/shared/vehicle.js';
 import { Sim } from '@overrun/shared/sim.js';
 import { T, TEAM_NAMES } from '@overrun/shared/constants.js';
 import { EV } from '@overrun/shared/events.js';
-import { WEAPONS, ENEMY_TYPES, COL } from '@overrun/shared/defs.js';
+import { ENEMY_TYPES } from '@overrun/shared/defs.js';
 import { MODES, getMode } from '@overrun/shared/modes.js';
 import { ABILITIES } from '@overrun/shared/abilities.js';
 import { UPGRADES, offerUpgrades } from '@overrun/shared/upgrades.js';
-import { clamp, lerp, damp, dist2, TAU } from '@overrun/shared/math.js';
+import { clamp, lerp, damp, dist2 } from '@overrun/shared/math.js';
 import { makeRng } from '@overrun/shared/rng.js';
 
-import { Stage } from './render/renderer.js';
-import { Arena } from './render/arena.js';
-import { Swarm } from './render/swarm.js';
-import { Particles, Rings, Quads, DamageNumbers } from './render/vfx.js';
-import { CameraRig } from './render/camera.js';
-import { buildHumanoid, buildWeapon, Animator } from './render/characters.js';
-import { aimMountedWeapon, buildVehicle } from './render/vehicle.js';
+import { Topdown } from './render/topdown.js';
 import { AudioEngine } from './audio/audio.js';
 import { Input, haptic, HAPTIC, setHaptics } from './input/input.js';
 import { UI } from './ui/ui.js';
@@ -74,8 +67,8 @@ const Save = {
 Save.load();
 
 const Settings = Object.assign({
-  shake: 1, aimAssist: 1, sensitivity: 1, haptics: true, music: true, sfx: true,
-  minimap: true, damageNumbers: true, quality: 'auto', showFps: false,
+  aimAssist: 1, haptics: true, music: true, sfx: true,
+  minimap: true, damageNumbers: true, showFps: false,
   reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches
 }, Save.data.settings || {});
 
@@ -96,16 +89,11 @@ class App {
     this.hitstop = 0;
     this.slowmo = 1;
     this.slowmoT = 0;
-    this.chroma = 0;
     this.damageFlash = 0;
-    this.damageDir = new THREE.Vector2(0, 0);
     this.lowHealth = 0;
     this.run = { score: 0, rerolls: 1, time: 0, bestCombo: 0 };
-    this.avatars = new Map();
-    this.remote = new Map();
     this.pendingChoice = null;
     this.lastFrameMs = 16;
-    this.paused = false;
   }
 
   /* ----------------------------------------------------------- BOOT */
@@ -114,10 +102,8 @@ class App {
     this.ui = new UI(this);
     this.ui.boot(0.05, 'STARTING ENGINE');
 
-    this.stage = new Stage(document.getElementById('gl'), Settings);
-    this.stage.applyTier(Settings.quality === 'auto' ? Stage.guessTier() : Settings.quality);
-    this.rig = new CameraRig(this.stage.camera);
-    this.rig.shakeScale = Settings.reducedMotion ? 0.25 : 1;
+    const canvas = document.getElementById('gl');
+    this.stage = new Topdown(canvas, Settings);
 
     await frame();
     this.ui.boot(0.25, 'POURING CONCRETE');
@@ -125,26 +111,7 @@ class App {
     // The local Sim always exists: it is the offline game, the prediction
     // engine online, and the source of world geometry in both.
     this.sim = new Sim({ seed: 20260731, mode: 'coop' });
-    this.arena = new Arena(this.stage, this.sim.world);
-
-    await frame();
-    this.ui.boot(0.5, 'ASSEMBLING THE SWARM');
-    this.swarm = new Swarm(this.stage);
-
-    await frame();
-    this.ui.boot(0.68, 'WIRING EFFECTS');
-    this.fx = new Particles(this.stage);
-    this.rings = new Rings(this.stage);
-    this.trails = new Quads(this.stage, 360, true);
-    this.beams = new Quads(this.stage, 96, true);
-    this.dmgNums = new DamageNumbers(document.getElementById('dmgLayer'), this.stage.camera);
-    this.projMesh = this.buildProjectiles();
-    this.pickupMesh = this.buildPickups();
-    this.turretMesh = this.buildTurrets();
-
-    await frame();
-    this.ui.boot(0.82, 'CALIBRATING CONTROLS');
-    this.input = new Input(document.getElementById('gl'), Settings);
+    this.input = new Input(canvas, Settings);
     this.input.onPause = () => this.togglePause();
     setHaptics(Settings.haptics);
 
@@ -158,17 +125,13 @@ class App {
     this.refreshProfileStrip();
 
     document.getElementById('titleHint').innerHTML = matchMedia('(pointer: coarse)').matches
-      ? '왼손 이동 · 오른손 조준 / 사격 · 대시로 포위 탈출'
-      : 'WASD 이동 · 마우스 조준 / 사격 · SPACE 대시<br>폰에서는 가로 화면의 터치 조작을 사용하세요.';
+      ? '차량 방은 적을 눌러 사격 · 자유 이동은 왼손 이동, 오른손 조준'
+      : '차량 방은 적을 클릭해 사격 · 자유 이동은 WASD, 마우스 조준, SPACE 대시';
 
     this.ui.el.best.textContent = 'BEST ' + Save.data.best;
 
     await frame();
-    this.ui.boot(0.95, 'WARMING SHADERS');
-    // Compile everything before the first real frame, or the opening second
-    // of the first match stutters while materials link.
-    this.stage.renderer.compile(this.stage.scene, this.stage.camera);
-    this.stage.render(0.016);
+    this.present(0, 0);
 
     this.ui.boot(1, 'READY');
     await sleep(180);
@@ -201,98 +164,6 @@ class App {
     this.lastNow = performance.now();
     requestAnimationFrame(this.loop);
   }
-
-  /* -------------------------------------------------------- SCENE BITS */
-
-  buildProjectiles() {
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
-    });
-    const m = new THREE.InstancedMesh(geo, mat, 700);
-    m.frustumCulled = false; m.count = 0; m.renderOrder = 4;
-    this.stage.scene.add(m);
-    return m;
-  }
-
-  buildPickups() {
-    const geo = new THREE.OctahedronGeometry(0.34, 0);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.6, roughness: 0.3, metalness: 0.2
-    });
-    const m = new THREE.InstancedMesh(geo, mat, 160);
-    m.frustumCulled = false; m.count = 0;
-    this.stage.scene.add(m);
-    return m;
-  }
-
-  buildTurrets() {
-    const geo = new THREE.CylinderGeometry(0.42, 0.62, 1.5, 10);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xE8EDF0, emissive: COL.amber, emissiveIntensity: 0.8, roughness: 0.4, metalness: 0.5
-    });
-    const m = new THREE.InstancedMesh(geo, mat, 12);
-    m.frustumCulled = false; m.count = 0; m.castShadow = true;
-    this.stage.scene.add(m);
-    return m;
-  }
-
-  /** One skinned figure per player, created on demand and reused. */
-  avatarFor(id, team, isLocal) {
-    let a = this.avatars.get(id);
-    if (a) return a;
-    const palette = {
-      suit: new THREE.Color(isLocal ? 0x75644b : 0x4d5c4b),
-      skin: new THREE.Color(isLocal ? 0xcda77f : 0xb58e68),
-      armor: new THREE.Color(this.mode.pvp ? TEAM_COLOR3[team] : (isLocal ? 0xa97d45 : [0x465e69,0x66504c,0x5f6648][id%3])),
-      accent: new THREE.Color(isLocal ? COL.amber : (this.mode.pvp ? TEAM_COLOR3[team] : COL.ice)),
-      dark: new THREE.Color(0x1D2730)
-    };
-    const built = buildHumanoid({ palette, emissive: palette.accent.getHex(), emissiveIntensity: 0.18 });
-    built.material.roughness=.92;built.material.metalness=0;built.material.emissiveIntensity=.015;
-    const backpack=new THREE.Mesh(new THREE.BoxGeometry(.35,.43,.22),new THREE.MeshStandardMaterial({color:0x50442e,roughness:1}));
-    backpack.position.set(0,.15,-.25);built.bones.chest.add(backpack);
-    const hair=new THREE.Mesh(new THREE.BoxGeometry(.31,.13,.29),new THREE.MeshStandardMaterial({color:0x3b3025,roughness:1}));
-    hair.position.set(0,.24,.01);built.bones.head.add(hair);
-    const group = new THREE.Group();
-    group.add(built.mesh);
-    const weapon = buildWeapon('smg');
-    built.bones.handR.add(weapon);
-    this.stage.scene.add(group);
-
-    a = {
-      group, built, weapon, weaponKind: 'smg',
-      anim: new Animator(built.bones, {
-        onFootstep: isLocal ? (foot, intensity) => this.audio.footstep(intensity) : null
-      }),
-      ring: null, isLocal
-    };
-    // Only the local player gets the combo halo — eight glowing rings would
-    // turn the arena into a disco.
-    if (isLocal) {
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.7, 0.98, 40).rotateX(-Math.PI / 2),
-        new THREE.MeshBasicMaterial({ color: COL.amber, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
-      );
-      ring.position.y = 0.03;
-      group.add(ring);
-      a.ring = ring;
-    }
-    this.avatars.set(id, a);
-    return a;
-  }
-
-  releaseAvatars(keep) {
-    for (const [id, a] of this.avatars) {
-      if (keep.has(id)) continue;
-      this.stage.scene.remove(a.group);
-      a.built.mesh.geometry.dispose();
-      a.built.material.dispose();
-      this.avatars.delete(id);
-    }
-  }
-
-  /* ------------------------------------------------------------- UI WIRING */
 
   buildModeGrid() {
     this.selectedPlayers = 1;
@@ -332,6 +203,7 @@ class App {
       <h4>THE ONLY RULE</h4>
       <p>Standing still is how you die. Everything in this game is designed around movement — your dash has invulnerability frames, your shield only regenerates when you disengage, and the arena rebuilds its cover between every wave.</p>
       <h4>CONTROLS</h4>
+      <p>차량 방에서는 색으로 표시된 좌석의 담당 방향에서 적을 눌러 사격합니다. 누르고 있으면 연사합니다.</p>
       <p>${touch
         ? '<b>Left thumb</b> anywhere on the left half moves. <b>Right thumb</b> aims and fires — or let go and the gun engages whatever you are already facing. <b>DASH</b> is bottom right.'
         : '<b>WASD</b> moves, <b>mouse</b> aims, <b>hold left click</b> to fire. <b>Space</b> dashes, <b>E</b> and <b>F</b> cast abilities, <b>Q</b> swaps weapon, <b>1–6</b> selects directly. A gamepad works too.'}</p>
@@ -380,9 +252,6 @@ class App {
   onSettingChange(k) {
     saveSettings();
     if (k === 'haptics') setHaptics(Settings.haptics);
-    if (k === 'quality') this.stage.applyTier(Settings.quality === 'auto' ? Stage.guessTier() : Settings.quality);
-    if (k === 'reducedMotion') this.rig.shakeScale = Settings.reducedMotion ? 0.25 : 1;
-    if (k === 'shake') this.rig.shakeScale = Settings.shake * (Settings.reducedMotion ? 0.25 : 1);
     if (k === 'minimap') document.getElementById('minimap').classList.toggle('hidden', !Settings.minimap);
     this.audio.ui('tick');
   }
@@ -392,7 +261,10 @@ class App {
   toTitle() {
     this.partySeat = null;
     this.mounted = false;
-    if (this.vehicleModel) this.vehicleModel.visible = false;
+    this.input.setMounted(false);
+    this.me = null;
+    this.serverState = null;
+    this.stage.reset();
     document.body.classList.remove('mounted-combat');
     document.getElementById('seatAim').hidden = true;
     this.ui.hideAllPanels();
@@ -419,7 +291,6 @@ class App {
     this.online = false;
     this.mode = getMode(modeId);
     this.sim = new Sim({ seed: (Math.random() * 0xffffffff) >>> 0, mode: modeId, partySize: this.selectedPlayers || 1 });
-    this.rebuildArena();
 
     this.localId = 1;
     const me = this.sim.addPlayer(1, { name: Save.data.name || 'YOU', team: 0 });
@@ -444,16 +315,6 @@ class App {
     if(parent!==window)parent.postMessage({type:'zride:practice'},location.origin);
   }
 
-  rebuildArena() {
-    if (this.arena) {
-      this.stage.scene.remove(this.arena.group);
-      this.arena.group.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
-      });
-    }
-    this.arena = new Arena(this.stage, this.sim.world);
-  }
-
   beginMatch() {
     this.ui.hideAllPanels();
     this.ui.el.hud.classList.remove('hidden');
@@ -463,11 +324,14 @@ class App {
     this.accumulator = 0;
     this.audio.musicOn = true;
     this.audio.setLowHealth(false);
-    this.releaseAvatars(new Set());
+    this.stage.reset();
+    this.input.clearPointers();
+    this.damageFlash = 0;
     if (this.sim.mode.waves) this.sim.director.startWave();
     Save.data.runs++;
     Save.flush();
-    lockOrientation();
+    this.checkOrientation();
+    if (!this.mounted) lockOrientation();
     requestWakeLock();
   }
 
@@ -496,6 +360,8 @@ class App {
     this.state = 'dead';
     this.audio.musicOn = false;
     this.audio.setLowHealth(false);
+    this.stage.reset();
+    this.input.clearPointers();
 
     const best = Math.max(Save.data.best, this.run.score);
     Save.data.best = best;
@@ -609,7 +475,7 @@ class App {
     this.net = new NetClient({
       onWelcome: (w) => this.onWelcome(w),
       onSnapshot: (s) => this.onSnapshot(s),
-      onEvents: (l) => this.presentEvents(l, true),
+      onEvents: (l) => this.presentEvents(l),
       onLobby: (l) => this.onLobby(l),
       onChoice: (c) => this.onChoice(c),
       onEnd: (e) => this.onMatchEnd(e),
@@ -631,22 +497,19 @@ class App {
     this.updateRiderSeats(w.players);
     if (this.partySeat) this.riderSeats.set(w.playerId, { seat: this.partySeat, name: w.you?.name });
     document.body.classList.toggle('mounted-combat', this.mounted);
+    this.input.setMounted(this.mounted);
     const seatAim = document.getElementById('seatAim');
     seatAim.hidden = true;
     if (this.partySeat) {
       const labels = { FRONT_PASSENGER: '조수석 · 전방 180°', REAR_LEFT: '뒤 왼쪽 · 후방 90°', REAR_RIGHT: '뒤 오른쪽 · 후방 90°' };
       document.getElementById('seatAimTitle').textContent = labels[this.partySeat];
-      const [start, end] = seatSectors[this.partySeat];
-      const dial = document.getElementById('seatDial');
-      dial.style.setProperty('--sector-start', start + 'deg');
-      dial.style.setProperty('--sector-width', (end - start) + 'deg');
+      seatAim.style.setProperty('--seat-color', '#' + VEHICLE_SEATS[this.partySeat].color.toString(16));
     }
     this.localId = w.playerId;
     this.mode = getMode(w.mode);
     // Rebuild the world from the server's seed. Because layout is a pure
     // function of the seed, this costs one message and zero geometry.
     this.sim = new Sim({ seed: w.seed, mode: w.mode, partySize: w.targetPlayers, authoritative: false });
-    this.rebuildArena();
     this.me = this.sim.addPlayer(w.playerId, { name: w.you && w.you.name, team: (w.you && w.you.team) || 0 });
     for (const p of w.players || []) {
       if (p.id !== w.playerId) this.sim.addPlayer(p.id, { name: p.name, team: p.team, bot: p.bot });
@@ -660,7 +523,6 @@ class App {
     if (l.reason === 'start') {
       if (l.seed && l.seed !== this.sim.seed) {
         this.sim = new Sim({ seed: l.seed, mode: this.mode.id, authoritative: false });
-        this.rebuildArena();
         this.me = this.sim.addPlayer(this.localId, { name: Save.data.name || 'YOU' });
       }
       this.beginMatch();
@@ -725,6 +587,8 @@ class App {
       this.me.team = mine.team;
       this.run.score = mine.sc;
     }
+    if (s.wave !== this.serverState?.wave && s.wave > 0) this.sim.world.layout(s.wave, !this.serverState);
+    if (s.phase === 'choice' && this.serverState?.phase !== 'choice') this.sim.world.sink();
     this.serverState = s;
   }
 
@@ -794,7 +658,6 @@ class App {
     this.slowmoT = Math.max(0, this.slowmoT - raw);
     const wantSlow = this.slowmoT > 0 && !this.online ? T.feel.slowmoScale : 1;
     this.slowmo = damp(this.slowmo, wantSlow, 12, raw);
-    this.chroma = Math.max(0, this.chroma - raw * 3.4);
     this.damageFlash = Math.max(0, this.damageFlash - raw * 1.6);
 
     const tSim = DEBUG ? performance.now() : 0;
@@ -815,16 +678,6 @@ class App {
 
     this.lastFrameMs = performance.now() - t0;
 
-    /* Adaptive quality is driven by the frame INTERVAL, not by how long our
-       own JavaScript ran.
-
-       It used to be given lastFrameMs — the time spent inside this function.
-       That number excludes everything that actually makes a frame slow on a
-       phone: the GPU finishing the previous frame, the compositor, vsync.
-       On a Mali-G71 the game sat at 9fps while measuring 8ms of its own work
-       and cheerfully concluding it could stay on the medium tier forever. The
-       adaptive system was working perfectly on a number that meant nothing. */
-    this.stage.sample(this.frameIntervalMs, raw);
     if (!this.online && this.me && now-this.lastDashboardFrame>500) {
       this.lastDashboardFrame=now;
       this.practiceChannel.postMessage(dashboardSnapshot(
@@ -858,7 +711,10 @@ class App {
     const canAim = this.mounted && matchTime !== undefined
       ? (ax, az) => windowMuzzle(this.partySeat, matchTime, ax, az)
       : null;
-    const inp = this.input.sample(dt, { player: this.me, rig: this.rig, targets, canAim });
+    const seat = this.mounted ? VEHICLE_SEATS[this.partySeat] : null;
+    const player = seat && matchTime !== undefined
+      ? vehiclePoint(vehiclePose(matchTime), seat.x, seat.z) : this.me;
+    const inp = this.input.sample(dt, { player, rig: this.stage, targets, canAim });
     if (this.input.takeWeaponCycle()) this.cycleWeapon();
 
     if (this.online) {
@@ -867,18 +723,20 @@ class App {
         const allowed = allowsSeatAim(this.partySeat, aim);
         const clear = allowed && (!canAim || canAim(inp.ax, inp.az));
         const panel = document.getElementById('seatAim');
-        const state = clear ? 'inside' : allowed ? 'blocked' : 'outside';
+        const state = !inp.fire ? 'idle' : clear ? 'inside' : allowed ? 'blocked' : 'outside';
         panel.hidden = false;
         if (panel.dataset.aim !== state) {
           panel.dataset.aim = state;
-          document.getElementById('seatAimStatus').textContent = clear ? (canAim ? '창문 사격 가능' : '사격 가능')
-            : allowed ? '차체에 가려짐' : '담당 방향으로 조준하세요';
+          document.getElementById('seatAimStatus').textContent = {
+            idle: '담당 구역의 적을 눌러 사격', inside: '사격 중',
+            blocked: '차체에 가려짐', outside: '담당 구역 밖'
+          }[state];
         }
-        document.getElementById('seatDial').style.setProperty('--aim', Math.round(aim) + 'deg');
         if (this.mounted) {
           inp.mx = inp.mz = 0;
           inp.dash = inp.ab0 = inp.ab1 = false;
         }
+        inp.fire = inp.fire && clear;
       }
       this.net.pushInput(inp, dt);
       this.net.tickPing(performance.now());
@@ -897,7 +755,7 @@ class App {
       this.sim.step(dt);
       this.run.score = this.me.score;
       if (this.me.combo > this.run.bestCombo) this.run.bestCombo = this.me.combo;
-      this.presentEvents(drainEvents(this.sim), false);
+      this.presentEvents(drainEvents(this.sim));
       this.checkLocalFlow();
     }
   }
@@ -945,62 +803,17 @@ class App {
 
   present(dt, alpha) {
     const view = this.buildView(alpha);
-    if (view.vehicle && !this.vehicleModel) {
-      this.vehicleModel = buildVehicle();
-      this.stage.scene.add(this.vehicleModel);
+    this.sim.world.animate(dt);
+    if (PROBE !== 'nogl') {
+      this.stage.render(dt, view, this.sim.world, this.partySeat, this.riderSeats,
+        this.mode.pvp, this.damageFlash);
     }
-    if (this.vehicleModel) {
-      this.vehicleModel.visible = !!view.vehicle;
-      if (view.vehicle) {
-        this.vehicleModel.position.set(view.vehicle.x, 0, view.vehicle.z);
-        this.vehicleModel.rotation.y = -view.vehicle.angle;
-      }
-    }
-    if (!view.player) { this.stage.render(dt); return; }
+    if (!view.player) return;
 
-    // world + effects
-    this.arena.update(dt, view.shrink);
-    this.arena.beginBlobs();
-    if (view.vehicle) this.arena.addBlob(view.vehicle.x, view.vehicle.z, 1.85, .9);
-    this.swarm.update(view.enemies, dt, alpha, this.arena);
-    this.renderAvatars(dt, view);
-    this.renderProjectiles(view);
-    this.renderPickups(view, dt);
-    this.renderTurrets(view);
-    this.arena.endBlobs();
-
-    this.fx.update(dt);
-    this.rings.update(dt);
-    this.dmgNums.update(dt);
-
-    // camera
-    let density = 0;
-    for (const e of view.enemies) if (dist2(e.x, e.z, view.player.x, view.player.z) < 169) density++;
-    this.rig.update(dt, {
-      x: view.player.x, z: view.player.z,
-      aimA: view.player.aimA,
-      speed: Math.hypot(view.player.vx, view.player.vz),
-      density: density / 14,
-      vehicle: view.vehicle,
-      seat: VEHICLE_SEATS[this.partySeat],
-      zoom: this.state === 'dead' ? 0.86 : 1
-    });
-    this.stage.followShadow(view.player.x, view.player.z);
     this.audio.setListener(view.player.x, view.player.z, view.player.aimA);
-
-    // grade
     const hpFrac = view.player.hp / (view.player.maxHp || 100);
     const target = view.player.alive && !view.player.down && hpFrac < 0.35 ? 1 - hpFrac / 0.35 : 0;
     this.lowHealth = damp(this.lowHealth, target, 5, dt);
-    this.stage.setGrade({
-      exposure: 1 - this.lowHealth * 0.12,
-      damage: this.damageFlash,
-      damageDir: this.damageDir,
-      chroma: this.chroma,
-      lowHealth: this.lowHealth,
-      saturation: 1.06 - this.lowHealth * 0.25
-    });
-
     const lh = this.lowHealth > 0.5;
     if (lh !== this._lastLow) { this._lastLow = lh; this.audio.setLowHealth(lh); }
     this.audio.tickMusic(view.intensity);
@@ -1014,7 +827,7 @@ class App {
         maxShield: this.me ? this.me.maxShield + this.me.mods.shieldBonus : 50,
         modifier: this.sim.director.modifier ? this.sim.director.modifier.name : ''
       });
-      this.ui.indicators(view.threats, this.rig);
+      this.ui.indicators(view.threats, this.stage);
       if (Settings.minimap && (this.frame & 1) === 0 && PROBE !== 'nomap') {
         this.ui.minimap({
           radius: this.sim.arenaRadius, shrink: view.shrink, props: this.sim.world.props,
@@ -1022,8 +835,6 @@ class App {
         });
       }
     }
-
-    if (PROBE !== 'nogl') this.stage.render(dt);
   }
 
   /** One place that decides what is on screen, whether the truth is local or
@@ -1046,14 +857,13 @@ class App {
       // local player: predicted, not interpolated
       v.player = this.me;
 
-      const blend = (a, b, t, key) => {
+      const blend = (a, b, t) => {
         const map = new Map(a.map(o => [o.e ?? o.id, o]));
         return b.map(o => {
           const p = map.get(o.e ?? o.id);
           if (!p) return o;
           return { ...o, x: lerp(p.x, o.x, t), z: lerp(p.z, o.z, t) };
         });
-        void key;
       };
       const sp = win ? blend(win.a.players, win.b.players, win.t) : s.players;
       const se = win ? blend(win.a.enemies, win.b.enemies, win.t) : s.enemies;
@@ -1088,7 +898,7 @@ class App {
       v.pickups = s.pickups.map(p => ({ x: p.x, z: p.z, kind: p.k, t: this.time }));
       v.turrets = s.turrets;
     } else {
-      v.player = this.me;
+      v.player = { ...this.me, x: lerp(this.me.px, this.me.x, alpha), z: lerp(this.me.pz, this.me.z, alpha) };
       for (const p of this.sim.players) {
         if (p === this.me) continue;
         v.mates.push({
@@ -1140,184 +950,108 @@ class App {
     );
   }
 
-  renderAvatars(dt, view) {
-    const keep = new Set();
-    const all = [{ p: view.player, local: true }, ...view.mates.map(m => ({ p: m, local: false }))];
-    for (const { p, local } of all) {
-      if (!p) continue;
-      keep.add(p.id);
-      const a = this.avatarFor(p.id, p.team || 0, local);
-      a.group.visible = p.alive !== false;
-      if (!a.group.visible) continue;
-
-      const seat = view.vehicle && (local ? this.partySeat : this.riderSeats.get(p.id)?.seat);
-      const seated = !!seat;
-      const facing = seated ? view.vehicle.angle + Math.PI / 2 : p.aimA || 0;
-      a.group.position.set(p.x, seated ? .16 : 0, p.z);
-      a.group.rotation.y = -facing + Math.PI / 2;
-
-      const src = local ? this.me : (p.sim || p);
-      a.anim.update(dt, {
-        vx: p.vx || 0, vz: p.vz || 0,
-        faceA: facing, aimA: p.aimA || 0,
-        dashing: src.dashT > 0,
-        down: !!p.down,
-        dead: p.alive === false
-      });
-      if (seated) {
-        const { hips, thighL, thighR, shinL, shinR, footL, footR } = a.built.bones;
-        hips.position.y = .75;
-        thighL.rotation.x = thighR.rotation.x = -1.3;
-        shinL.rotation.x = shinR.rotation.x = 1.25;
-        footL.rotation.x = footR.rotation.x = 0;
-      }
-
-      // weapon swap
-      const wid = WEAPONS[src.weapon || 0] ? WEAPONS[src.weapon || 0].id : 'smg';
-      if (wid !== a.weaponKind) {
-        a.built.bones.handR.remove(a.weapon);
-        a.weapon = buildWeapon(wid);
-        a.built.bones.handR.add(a.weapon);
-        a.weaponKind = wid;
-      }
-      if (seated || a.weaponMounted) aimMountedWeapon(a.weapon, seat, seated ? view.vehicle : null, p.aimA || 0);
-      a.weaponMounted = seated;
-
-      // i-frame flicker, exactly as loud as it needs to be
-      const iframe = src.iframe > 0 && src.dashT <= 0;
-      a.group.visible = seated || !iframe || (Math.floor(this.time * 28) % 2 === 0);
-
-      if (a.ring) {
-        a.ring.visible = !seated;
-        const k = clamp((p.combo || 0) / T.combo.maxRung, 0, 1);
-        a.ring.material.opacity = 0.28 + k * 0.55;
-        a.ring.scale.setScalar(1 + k * 0.7);
-      }
-      if (!seated) this.arena.addBlob(p.x, p.z, 0.85, 1);
-    }
-    this.releaseAvatars(keep);
-  }
-
-  renderProjectiles(view) {
-    const m = this.projMesh;
-    const d = DUMMY;
-    let n = 0;
-    this.trails.begin();
-    for (const p of view.projectiles) {
-      if (n >= 700) break;
-      const a = Math.atan2(p.vz, p.vx);
-      const spd = Math.hypot(p.vx, p.vz);
-      d.position.set(p.x, 1.0, p.z);
-      d.rotation.set(0, -a, 0);
-      d.scale.set(Math.min(3.6, 0.5 + spd * 0.022), p.size, p.size);
-      d.updateMatrix();
-      m.setMatrixAt(n, d.matrix);
-      m.setColorAt(n, TMPC.setHex(p.color).multiplyScalar(2.0));
-      n++;
-      this.trails.push(
-        p.x - Math.cos(a) * spd * 0.014, 0.62, p.z - Math.sin(a) * spd * 0.014,
-        a, Math.min(4.6, spd * 0.05), p.size * 6, p.color, 0.8
-      );
-    }
-    m.count = n;
-    m.instanceMatrix.needsUpdate = true;
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    this.trails.end();
-  }
-
-  renderPickups(view, dt) {
-    void dt;
-    const m = this.pickupMesh;
-    const d = DUMMY;
-    let n = 0;
-    for (const p of view.pickups) {
-      if (n >= 160) break;
-      const t = this.time * 2 + (p.eid || n);
-      d.position.set(p.x, 0.72 + Math.sin(t * 3) * 0.16, p.z);
-      d.rotation.set(t * 0.8, t * 1.2, 0);
-      d.scale.setScalar(1 + Math.sin(t * 4) * 0.08);
-      d.updateMatrix();
-      m.setMatrixAt(n, d.matrix);
-      const c = p.kind === 'health' ? COL.ice : p.kind === 'surge' ? COL.rose : COL.amber;
-      m.setColorAt(n, TMPC.setHex(c));
-      n++;
-      this.arena.addBlob(p.x, p.z, 0.3, 0.5);
-    }
-    m.count = n;
-    m.instanceMatrix.needsUpdate = true;
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }
-
-  renderTurrets(view) {
-    const m = this.turretMesh;
-    const d = DUMMY;
-    let n = 0;
-    for (const t of view.turrets) {
-      const fade = t.life < 1 ? t.life : 1;
-      d.position.set(t.x, 0.75, t.z);
-      d.rotation.set(0, -t.a, 0);
-      d.scale.setScalar(fade);
-      d.updateMatrix();
-      m.setMatrixAt(n++, d.matrix);
-      this.arena.addBlob(t.x, t.z, 0.6, 0.9);
-    }
-    m.count = n;
-    m.instanceMatrix.needsUpdate = true;
-  }
-
   /* ----------------------------------------------------- EVENT → FEEDBACK
 
      This is where the game acquires its texture. Every one of these lines is
      a decision about what the player should feel, and they all fire inside
      the same frame as the thing that caused them.                          */
 
-  presentEvents(list, remote) {
+  presentEvents(list) {
     for (const e of list) {
+      this.stage.event(e);
       switch (e.t) {
-        case EV.SHOT: this.onShot(e, remote); break;
-        case EV.HIT: this.onHit(e); break;
-        case EV.KILL: this.onKill(e); break;
-        case EV.EXPLODE: this.onExplode(e); break;
-        case EV.DASH: this.onDash(e); break;
-        case EV.HURT: this.onHurt(e); break;
-        case EV.HEAL:
-          if (Settings.damageNumbers) this.dmgNums.add(e.x, 2.2, e.z, e.v, 'heal');
+        case EV.PROP_BREAK:
+          if (this.online && this.sim.world.props[e.i]) this.sim.world.props[e.i].alive = false;
+          break;
+        case EV.SHOT: {
+          this.audio.shot(e.w, e.x, e.z);
+          if (e.eid !== undefined) this.audio.enemyShot(e.x, e.z);
+          if (e.id === this.localId) {
+            if (e.shake > 0.3) haptic(HAPTIC.shootHeavy);
+            else if ((this.frame & 3) === 0) haptic(HAPTIC.shootLight);
+          }
+          break;
+        }
+        case EV.HIT:
+          if (e.by === this.localId) {
+            this.audio.hit(e.x, e.z, !!e.crit);
+            if (e.crit) { this.hitstop = Math.max(this.hitstop, 0.026); haptic(HAPTIC.crit); }
+            else if ((this.frame & 3) === 0) haptic(HAPTIC.hit);
+          }
+          break;
+        case EV.KILL: {
+          if (e.silent) break;
+          const local = e.by === this.localId;
+          const elite = !!e.elite || !!e.boss;
+          this.audio.kill(local ? e.combo || 0 : 0, e.x, e.z, elite);
+          if (local) {
+            this.hitstop = Math.max(this.hitstop, e.boss ? 0.09 : elite ? 0.07 : 0.022);
+            haptic(elite ? HAPTIC.killElite : HAPTIC.kill);
+          }
+          if (elite) this.audio.explode(e.x, e.z, !!e.boss);
+          break;
+        }
+        case EV.EXPLODE: this.audio.explode(e.x, e.z, e.r > 7); break;
+        case EV.DASH:
+          this.audio.dash(e.x, e.z);
+          if (e.id === this.localId) haptic(HAPTIC.dash);
+          break;
+        case EV.HURT:
+          if (e.id === this.localId) {
+            this.audio.hurt(e.x, e.z);
+            haptic(HAPTIC.hurt);
+            this.hitstop = Math.max(this.hitstop, 0.03);
+            this.damageFlash = Settings.reducedMotion ? 0.35 : 1;
+          }
           break;
         case EV.PICKUP:
-          this.fx.burst(e.x, 1.0, e.z, 6, 5, e.kind === 'health' ? COL.ice : COL.amber, 0.32, 0.24);
           if (e.id === this.localId) { this.audio.pickup(e.kind); haptic(HAPTIC.pickup); }
           break;
         case EV.BANNER:
-          this.ui.banner(/^WAVE \d+$/.test(e.a)?'감염체 웨이브 '+e.a.split(' ')[1]:e.clear?'구역 확보':e.a,
-            e.clear?'보급품을 고르고 다음 무리를 대비하세요.':/^WAVE \d+$/.test(e.a)?'좀비의 접근을 막고 함께 살아남으세요.':e.b);
-          if (e.big) { this.rig.rumble(0.5); this.audio.wave(false); }
+          this.ui.banner(/^WAVE \d+$/.test(e.a) ? '감염체 웨이브 ' + e.a.split(' ')[1] : e.clear ? '구역 확보' : e.a,
+            e.clear ? '보급품을 고르고 다음 무리를 대비하세요.' : /^WAVE \d+$/.test(e.a) ? '좀비의 접근을 막고 함께 살아남으세요.' : e.b);
+          if (e.big) this.audio.wave(false);
           if (e.clear) { this.audio.wave(true); if (!this.online) this.slowmoT = 1.1; }
           break;
-        case EV.WAVE: break;
-        case EV.TELEGRAPH: this.onTelegraph(e); break;
-        case EV.SPAWN:
-          this.rings.add(e.x, e.z, 0.4, 2.4, 0.34, e.elite ? COL.amber : COL.rose);
+        case EV.TELEGRAPH:
+          if (e.kind === 'spawn') this.audio.spawnWarn(e.x, e.z);
+          else if (['slam', 'lunge', 'suicide'].includes(e.kind)) this.audio.telegraph(e.x, e.z);
           break;
-        case EV.ABILITY: this.onAbility(e); break;
-        case EV.BOUNCE:
-          this.fx.burst(e.x, 0.9, e.z, 4, 5, e.c, 0.24, 0.16);
+        case EV.ABILITY:
+          this.audio.ability(e.x ?? this.me.x, e.z ?? this.me.z);
+          if (e.ability === 'shock' && !this.online) this.hitstop = Math.max(this.hitstop, 0.06);
+          if (e.ability === 'overdrive') this.ui.banner('OVERDRIVE', 'SIX SECONDS');
+          if (e.id === this.localId) haptic(HAPTIC.ability);
           break;
-        case EV.PROP_BREAK:
-          this.fx.burst(e.x, 1.0, e.z, 22, 9, 0xD9A45B, 0.4, 0.7, -26);
-          this.fx.smoke(e.x, 1.0, e.z, 6, 2, 0xC8BFAE, 1.2, 1.4);
-          this.rig.rumble(0.12);
+        case EV.DOWN:
+          this.ui.killFeed(`<b>${displayName(e.id, this)}</b> <span class="vs">DOWN</span>`, 'death');
+          if (e.id === this.localId) {
+            this.audio.down();
+            haptic(HAPTIC.down);
+            if (!this.online) this.slowmoT = 0.9;
+          }
           break;
-        case EV.DOWN: this.onDown(e); break;
         case EV.REVIVE:
-          this.rings.add(e.x, e.z, 0.5, 4, 0.6, COL.ice);
-          this.fx.burst(e.x, 1.2, e.z, 26, 8, COL.ice, 0.5, 0.6, -4);
           if (e.id === this.localId) this.audio.revive();
           break;
-        case EV.RESPAWN:
-          this.rings.add(e.x, e.z, 0.5, 5, 0.5, COL.ice);
-          this.fx.burst(e.x, 1.2, e.z, 30, 10, COL.ice, 0.5, 0.5, -6);
+        case EV.DIE: {
+          this.audio.explode(e.x, e.z, true);
+          const victim = displayName(e.id, this);
+          const killer = e.by == null ? null : displayName(e.by, this);
+          this.ui.killFeed(
+            killer ? `<b>${killer}</b> <span class="vs">▸</span> <b>${victim}</b>`
+              : `<b>${victim}</b> <span class="vs">ELIMINATED</span>`,
+            e.by === this.localId ? 'mine' : e.id === this.localId ? 'death' : ''
+          );
+          if (e.id === this.localId) {
+            haptic(HAPTIC.down);
+            if (!this.online) {
+              this.slowmoT = 1.4;
+              if (!this.mode.respawn) setTimeout(() => this.endRun('died'), 200);
+            }
+          }
           break;
-        case EV.DIE: this.onDie(e); break;
+        }
         case EV.STREAK:
           if (e.id === this.localId) {
             this.audio.streak();
@@ -1326,221 +1060,6 @@ class App {
           }
           break;
         case EV.MATCH_END: this.matchWinner = e.winner; break;
-        default: break;
-      }
-    }
-  }
-
-  onShot(e, remote) {
-    const local = e.id === this.localId;
-    this.audio.shot(e.w, e.x, e.z);
-    const w = WEAPONS.find(x => x.id === e.w);
-    const color = w ? w.color : COL.rose;
-    const height = this.mounted && this.riderSeats.has(e.id) ? CABIN.windowY : 1.12;
-    this.fx.burst(e.x, height, e.z, w && w.pellets > 3 ? 14 : 6, 9, color, 0.44, 0.14, 0, { cone: e.a, spread: 0.7 });
-    this.fx.smoke(e.x, height, e.z, 2, 1.2, 0xBFC8CE, 0.5, 0.5);
-    if (local) {
-      const a = this.avatars.get(this.localId);
-      if (a) a.anim.kick(w ? 0.4 + w.shake : 0.4);
-      this.rig.impulse(e.a + Math.PI, (e.shake || 0.1) * 0.9);
-      this.rig.kickFov((e.shake || 0.1) * 3.4);
-      this.chroma = Math.max(this.chroma, (e.shake || 0) * 0.6);
-      if (w && w.shake > 0.3) haptic(HAPTIC.shootHeavy); else if ((this.frame & 3) === 0) haptic(HAPTIC.shootLight);
-    } else if (!remote) {
-      const a = this.avatars.get(e.id);
-      if (a) a.anim.kick(0.4);
-    }
-    if (e.eid !== undefined) this.audio.enemyShot(e.x, e.z);
-  }
-
-  onHit(e) {
-    if (Settings.damageNumbers) {
-      this.dmgNums.add(e.x, e.y || 1.6, e.z, e.dmg, e.crit ? 'crit' : e.armored ? 'armor' : '');
-    }
-    this.fx.burst(e.x, e.y || 1.4, e.z, e.crit ? 10 : 4, e.crit ? 10 : 6, e.crit ? COL.amber : COL.bone, 0.3, 0.2);
-    if (e.by === this.localId) {
-      this.audio.hit(e.x, e.z, !!e.crit);
-      if (e.crit) { this.hitstop = Math.max(this.hitstop, 0.026); haptic(HAPTIC.crit); }
-      else if ((this.frame & 3) === 0) haptic(HAPTIC.hit);
-    }
-  }
-
-  onKill(e) {
-    if (e.silent) return;
-    const r = e.r || 0.7;
-    const elite = !!e.elite || !!e.boss;
-    this.fx.burst(e.x, 1.0 + r * 0.6, e.z, e.boss ? 110 : elite ? 50 : 18, 10 + r * 4,
-      elite ? 0x9fba55 : 0x793f30, 0.45 + r * 0.2, 0.5);
-    this.fx.smoke(e.x, 0.9, e.z, elite ? 10 : 3, 2.4, 0x82916a, 1.1, 1.1);
-    this.rings.add(e.x, e.z, r, r * (e.boss ? 12 : 5), 0.4, elite ? COL.amber : COL.rose);
-    if (elite) this.arena.scorch(e.x, e.z, r * 2.2);
-
-    if (e.by === this.localId) {
-      this.audio.kill(e.combo || 0, e.x, e.z, elite);
-      this.hitstop = Math.max(this.hitstop, e.boss ? 0.09 : elite ? 0.07 : 0.022);
-      this.rig.rumble(e.boss ? 0.8 : elite ? 0.5 : 0.14);
-      haptic(elite ? HAPTIC.killElite : HAPTIC.kill);
-      if (elite) this.audio.explode(e.x, e.z, !!e.boss);
-    } else {
-      this.audio.kill(0, e.x, e.z, elite);
-    }
-  }
-
-  onExplode(e) {
-    const c = e.c || (e.hostile ? COL.rose : COL.amber);
-    this.rings.add(e.x, e.z, 0.6, e.r * 2, 0.36, c);
-    this.fx.burst(e.x, 0.9, e.z, Math.min(70, 18 + e.r * 4), e.r * 2.4, c, 0.6, 0.5, -20);
-    this.fx.smoke(e.x, 0.8, e.z, Math.min(24, 6 + e.r * 2), e.r * 0.7, 0x9AA4AC, 1.6, 1.7);
-    this.audio.explode(e.x, e.z, e.r > 7);
-    this.arena.scorch(e.x, e.z, e.r * 0.8);
-    const d = Math.hypot(e.x - this.me.x, e.z - this.me.z);
-    if (d < e.r * 3) {
-      this.rig.impulse(Math.atan2(e.z - this.me.z, e.x - this.me.x), clamp(0.5 - d / (e.r * 6), 0.05, 0.5));
-      this.chroma = Math.max(this.chroma, 0.6);
-    }
-  }
-
-  onDash(e) {
-    this.rings.add(e.x, e.z, 0.6, 3.6, 0.32, COL.ice);
-    this.fx.burst(e.x, 0.9, e.z, 16, 10, COL.ice, 0.5, 0.36, -6, { cone: Math.atan2(-e.dz, -e.dx), spread: 1.2 });
-    this.audio.dash(e.x, e.z);
-    if (e.id === this.localId) {
-      this.rig.kickFov(3.4);
-      this.rig.impulse(Math.atan2(-e.dz, -e.dx), 0.14);
-      haptic(HAPTIC.dash);
-    }
-  }
-
-  onHurt(e) {
-    this.fx.burst(e.x, 1.1, e.z, 10, 6, COL.rose, 0.4, 0.3);
-    if (e.id !== this.localId) return;
-    this.audio.hurt(e.x, e.z);
-    haptic(HAPTIC.hurt);
-    this.rig.rumble(0.34);
-    this.hitstop = Math.max(this.hitstop, 0.03);
-    this.chroma = Math.max(this.chroma, 1);
-    this.damageFlash = 1;
-    if (e.sx !== undefined) {
-      const a = Math.atan2(e.sz - e.z, e.sx - e.x);
-      // Convert a world direction into a screen direction for the grade pass.
-      const s = this.rig.project(e.x + Math.cos(a) * 6, 1, e.z + Math.sin(a) * 6, PROJ);
-      const dx = s.x - window.innerWidth / 2, dy = s.y - window.innerHeight / 2;
-      const l = Math.hypot(dx, dy) || 1;
-      this.damageDir.set(dx / l, -dy / l);
-      this.rig.impulse(a, 0.22);
-    }
-    const av = this.avatars.get(this.localId);
-    if (av) av.anim.impulse(Math.random() * TAU, 0.6);
-  }
-
-  onTelegraph(e) {
-    switch (e.kind) {
-      case 'spawn':
-        this.rings.add(e.x, e.z, 3.2, 0.8, e.d, COL.rose);
-        this.audio.spawnWarn(e.x, e.z);
-        break;
-      case 'slam':
-        this.rings.add(e.x, e.z, e.r * 0.4, e.r, e.d, COL.rose);
-        this.audio.telegraph(e.x, e.z);
-        break;
-      case 'suicide':
-        this.rings.add(e.x, e.z, e.r * 1.4, e.r * 0.5, e.d, 0xFF7A3D);
-        this.rings.add(e.x, e.z, 0.5, e.r, e.d, COL.rose, 0.07, 2);
-        this.audio.telegraph(e.x, e.z);
-        break;
-      case 'lunge': {
-        // A line, not a circle: the shape of the telegraph is the shape of
-        // the threat, and a stalker threatens a line.
-        const len = e.r || 9;
-        for (let i = 0; i <= 5; i++) {
-          const t = i / 5;
-          this.fx.emit(e.x + Math.cos(e.a) * len * t, 0.4, e.z + Math.sin(e.a) * len * t,
-            0, 0.5, 0, 0.5, e.d, 1, 0.18, 0.42, 0, 0.4, 0);
-        }
-        this.audio.telegraph(e.x, e.z);
-        break;
-      }
-      case 'shoot':
-        this.rings.add(e.x, e.z, 1.6, 0.7, e.d, COL.rose);
-        break;
-      case 'charge':
-        this.rings.add(e.x, e.z, 3.0, 0.9, e.d, COL.ice);
-        break;
-      default: break;
-    }
-  }
-
-  onAbility(e) {
-    this.audio.ability(e.x || this.me.x, e.z || this.me.z);
-    switch (e.ability) {
-      case 'shock':
-        this.rig.rumble(0.5);
-        if (!this.online) this.hitstop = Math.max(this.hitstop, 0.06);
-        break;
-      case 'blink':
-        for (let i = 0; i <= 14; i++) {
-          const t = i / 14;
-          this.fx.burst(lerp(e.x, e.tx, t), 1.1, lerp(e.z, e.tz, t), 3, 5, COL.ice, 0.4, 0.3, 0);
-        }
-        this.rig.rumble(0.35);
-        break;
-      case 'chain':
-        if (e.path) {
-          for (let i = 1; i < e.path.length; i++) {
-            const [ax, az] = e.path[i - 1], [bx, bz] = e.path[i];
-            for (let k = 0; k <= 8; k++) {
-              const t = k / 8;
-              this.fx.emit(lerp(ax, bx, t), 1.1 + Math.random() * 0.3, lerp(az, bz, t),
-                (Math.random() - 0.5) * 4, Math.random() * 3, (Math.random() - 0.5) * 4,
-                0.4, 0.25, 0.44, 0.89, 1, 0, 4);
-            }
-          }
-        }
-        break;
-      case 'well':
-        this.rings.add(e.x, e.z, 9, 1, e.dur || 2.6, COL.rose);
-        break;
-      case 'bubble':
-        this.rings.add(e.x, e.z, e.r * 1.9, e.r * 2, e.dur || 4.2, COL.ice);
-        break;
-      case 'overdrive':
-        this.ui.banner('OVERDRIVE', 'SIX SECONDS');
-        this.rig.kickFov(5);
-        break;
-      default: break;
-    }
-    if (e.id === this.localId) haptic(HAPTIC.ability);
-  }
-
-  onDown(e) {
-    this.rings.add(e.x, e.z, 0.5, 4, 0.6, COL.rose);
-    this.fx.burst(e.x, 1.1, e.z, 30, 7, COL.rose, 0.5, 0.6);
-    const name = e.id === this.localId ? 'YOU' : nameFor(e.id, this);
-    this.ui.killFeed(`<b>${name}</b> <span class="vs">DOWN</span>`, 'death');
-    if (e.id === this.localId) {
-      this.audio.down();
-      haptic(HAPTIC.down);
-      this.rig.rumble(0.7);
-      if (!this.online) this.slowmoT = 0.9;
-    }
-  }
-
-  onDie(e) {
-    this.fx.burst(e.x, 1.2, e.z, 62, 15, COL.amber, 0.6, 0.9);
-    this.rings.add(e.x, e.z, 1, 22, 0.8, COL.amber);
-    this.audio.explode(e.x, e.z, true);
-    const victim = e.id === this.localId ? 'YOU' : nameFor(e.id, this);
-    const killer = e.by == null ? null : (e.by === this.localId ? 'YOU' : nameFor(e.by, this));
-    this.ui.killFeed(
-      killer ? `<b>${killer}</b> <span class="vs">▸</span> <b>${victim}</b>` : `<b>${victim}</b> <span class="vs">ELIMINATED</span>`,
-      e.by === this.localId ? 'mine' : e.id === this.localId ? 'death' : ''
-    );
-    if (e.id === this.localId) {
-      this.rig.rumble(0.8);
-      haptic(HAPTIC.down);
-      if (!this.online) {
-        this.slowmoT = 1.4;
-        if (!this.mode.respawn) setTimeout(() => this.endRun('died'), 200);
       }
     }
   }
@@ -1548,13 +1067,14 @@ class App {
   /* -------------------------------------------------------------- SYSTEM */
 
   checkOrientation() {
-    const portrait = window.innerHeight > window.innerWidth && matchMedia('(pointer: coarse)').matches;
-    document.getElementById('rotate').classList.toggle('show', portrait && ['play','choice','paused'].includes(this.state));
+    const portrait = !this.mounted && window.innerHeight > window.innerWidth && matchMedia('(pointer: coarse)').matches;
+    document.getElementById('rotate').classList.toggle('show', portrait && ['play', 'choice', 'pause'].includes(this.state));
     if (portrait && this.state === 'play' && !this.online) this.togglePause();
   }
 
   onVisibility() {
     if (document.hidden) {
+      this.input.clearPointers();
       if (this.state === 'play' && !this.online) this.togglePause();
       this.audio.suspend();
     } else {
@@ -1582,16 +1102,14 @@ class App {
     // only for ?debug=1, because most of it is meaningless without the code.
     if (!DEBUG) {
       el.textContent = `${Math.round(1000 / Math.max(0.1, med))} fps   ${med.toFixed(1)}ms   p90 ${p90.toFixed(1)}ms\n` +
-        `${this.stage.tier}  dpr ${this.stage.dpr.toFixed(2)}\n`;
+        `2D  dpr ${this.stage.dpr.toFixed(2)}\n`;
       return;
     }
 
-    const info = this.stage.info.render;
     el.textContent =
       `frame ${med.toFixed(1)}ms (${Math.round(1000 / Math.max(0.1, med))} fps)  p90 ${p90.toFixed(1)}ms\n` +
       `cpu ${this.lastFrameMs.toFixed(2)}  sim ${(this.simMs || 0).toFixed(2)}  pres ${(this.presentMs || 0).toFixed(2)}  steps ${this.lastSteps || 0}\n` +
-      `draws ${info.calls}  tris ${info.triangles}\n` +
-      `tier ${this.stage.tier}  dpr ${this.stage.dpr.toFixed(2)}\n` +
+      `tier 2D  dpr ${this.stage.dpr.toFixed(2)}\n` +
       `enemies ${this.sim.aliveEnemies}  wave ${this.sim.director.wave}\n` +
       `intensity ${this.sim.director.intensity.toFixed(2)}  challenge ${this.sim.director.challenge.toFixed(2)}\n` +
       (this.online ? `ping ${this.net.ping}ms  tick ${this.net.serverTick}\n` : 'offline\n');
@@ -1608,10 +1126,6 @@ const DEBUG = new URLSearchParams(location.search).has('debug');
    bracket around your own code. Being able to remove one whole subsystem and
    re-measure is the only way to find out which one is actually costing you. */
 const PROBE = new URLSearchParams(location.search).get('probe') || '';
-const DUMMY = new THREE.Object3D();
-const TMPC = new THREE.Color();
-const PROJ = { x: 0, y: 0, behind: false };
-const TEAM_COLOR3 = [0x4FC3F7, 0xFF7043, 0xAED581, 0xBA68C8];
 const BOT_NAMES = ['VIPER', 'ASH', 'KESTREL', 'NOMAD', 'RIVET', 'ONYX', 'FLINT'];
 
 function drainEvents(sim) {
@@ -1625,6 +1139,12 @@ function nameFor(id, app) {
   if (riderName) return riderName;
   const p = app.sim.playerById(id);
   return p ? p.name : 'RUNNER';
+}
+
+function displayName(id, app) {
+  return id === app.localId ? 'YOU' : nameFor(id, app).replace(/[&<>]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;'
+  })[char]);
 }
 
 function endReason(over) {

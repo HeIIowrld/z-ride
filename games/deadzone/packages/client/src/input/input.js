@@ -56,6 +56,8 @@ export class Input {
 
     this.moveStick = null;   // {id, ox, oy, x, y}
     this.aimStick = null;
+    this.mounted = false;
+    this.aimPoint = null;
     this.state = {
       mx: 0, mz: 0, ax: 1, az: 0,
       fire: false, dash: false, ab0: false, ab1: false, weapon: 0
@@ -88,18 +90,30 @@ export class Input {
       }
     });
     addEventListener('keyup', (e) => { this.keys[e.code] = false; });
-    addEventListener('blur', () => { this.keys = Object.create(null); this.mouse.down = false; });
+    addEventListener('blur', () => {
+      this.keys = Object.create(null);
+      this.clearPointers();
+    });
 
     const down = (e) => {
       if (e.pointerType === 'mouse') {
         this.mouse.present = true;
         this.lastScheme = 'mouse';
+        this.mouse.x = e.clientX;
+        this.mouse.y = e.clientY;
         if (e.button === 0) this.mouse.down = true;
         if (e.button === 2) this.pendingDash = true;
         return;
       }
       this.touching = true;
       this.lastScheme = 'touch';
+      if (this.mounted) {
+        if (this.aimPoint?.id != null) return;
+        this.aimPoint = { id: e.pointerId, x: e.clientX, y: e.clientY, startedAt: performance.now() };
+        this._tapFire = 0;
+        this.canvas.setPointerCapture?.(e.pointerId);
+        return;
+      }
       const half = window.innerWidth * 0.5;
       const s = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY, t: performance.now(), moved: false };
       if (e.clientX < half && !this.moveStick) this.moveStick = s;
@@ -109,6 +123,11 @@ export class Input {
       if (e.pointerType === 'mouse') {
         this.mouse.x = e.clientX; this.mouse.y = e.clientY;
         this.mouse.present = true;
+        return;
+      }
+      if (this.aimPoint?.id === e.pointerId) {
+        this.aimPoint.x = e.clientX;
+        this.aimPoint.y = e.clientY;
         return;
       }
       const s = (this.moveStick && e.pointerId === this.moveStick.id) ? this.moveStick
@@ -128,6 +147,17 @@ export class Input {
     };
     const up = (e) => {
       if (e.pointerType === 'mouse') { if (e.button === 0) this.mouse.down = false; return; }
+      if (this.aimPoint?.id === e.pointerId) {
+        if (e.type === 'pointerup') {
+          this.aimPoint.id = null;
+          // A short tap must span both the input packet and the server tick.
+          this._tapFire = Math.max(0, 0.12 - (performance.now() - this.aimPoint.startedAt) / 1000);
+        } else {
+          this.aimPoint = null;
+          this._tapFire = 0;
+        }
+        return;
+      }
       if (this.moveStick && e.pointerId === this.moveStick.id) this.moveStick = null;
       if (this.aimStick && e.pointerId === this.aimStick.id) {
         // A tap with no drag is "shoot where I am already looking".
@@ -147,6 +177,17 @@ export class Input {
     addEventListener('gamepadconnected', (e) => { this.gamepadIndex = e.gamepad.index; });
     addEventListener('gamepaddisconnected', () => { this.gamepadIndex = null; });
 
+    this._tapFire = 0;
+  }
+
+  setMounted(mounted) {
+    this.mounted = mounted;
+    this.clearPointers();
+  }
+
+  clearPointers() {
+    this.moveStick = this.aimStick = this.aimPoint = null;
+    this.mouse.down = false;
     this._tapFire = 0;
   }
 
@@ -205,7 +246,14 @@ export class Input {
     /* ---- aim ---- */
     let ax = s.ax, az = s.az, wantFire = false;
 
-    if (this.aimStick) {
+    const point = this.mounted && this.lastScheme === 'touch' ? this.aimPoint : null;
+    if (point) {
+      const g = ctx.rig.screenToGround(point.x, point.y, TMPV);
+      const dx = g.x - ctx.player.x, dz = g.z - ctx.player.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 0.2) { ax = dx / d; az = dz / d; }
+      wantFire = d > 0.2 && (point.id !== null || this._tapFire > 0);
+    } else if (this.aimStick) {
       const st = this.aimStick;
       const dx = st.x - st.ox, dy = st.y - st.oy;
       const d = Math.hypot(dx, dy);
@@ -236,11 +284,12 @@ export class Input {
     // Touch autofire: if the player is not touching the right side at all,
     // the character still engages anything it is already facing. Holding a
     // fire button on a phone is a tax on the thumb that aims.
-    if (this.lastScheme === 'touch' && !this.aimStick) {
+    if (!this.mounted && this.lastScheme === 'touch' && !this.aimStick) {
       wantFire = this._tapFire > 0 || this._autoTargetInCone(ctx, ax, az);
     }
 
-    const assisted = this._assist(ctx, ax, az);
+    const directAim = this.mounted && this.lastScheme !== 'gamepad';
+    const assisted = directAim ? { x: ax, z: az } : this._assist(ctx, ax, az);
     s.ax = assisted.x; s.az = assisted.z;
     s.fire = wantFire;
 
