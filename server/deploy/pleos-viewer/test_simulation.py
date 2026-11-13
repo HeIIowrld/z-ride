@@ -1,6 +1,6 @@
 import json,unittest
 from unittest.mock import patch
-from simulation import Simulator,START,at_distance
+from simulation import EmulatorLocationError,Simulator,START,at_distance
 
 class SimulationTests(unittest.TestCase):
     def setUp(self):
@@ -50,5 +50,49 @@ class SimulationTests(unittest.TestCase):
             return original(i,*args,**kwargs)
         self.sim.private=partial
         result=self.act('destination');self.assertEqual(reads,2);self.assertEqual(result['routeStatus'],'PENDING')
+
+    def test_custom_route_can_seek_and_change_rate_without_resetting_position(self):
+        end={'latitude':37.529,'longitude':126.919}
+        self.act('destination',route='custom',start=START,end=end,rate=2)
+        self.sim.tick(1,100)
+        sought=self.act('seek',progress=.5)
+        self.assertEqual(sought['state'],'PARKED')
+        self.assertAlmostEqual(sought['position']['latitude'],(START['latitude']+end['latitude'])/2)
+        self.assertNotIn('roomId',sought)
+        self.act('start',rate=2)
+        self.sim.states[1]['lastTick']=100
+        self.sim.tick(1,101)
+        before=self.sim.snapshot(1)
+        sped=self.act('start',rate=10)
+        self.assertEqual(sped['position'],before['position'])
+        self.assertEqual(sped['rate'],10)
+        self.assertEqual(self.act('seek',progress=1)['state'],'ARRIVED')
+        with self.assertRaisesRegex(ValueError,'ROUTE_FINISHED'):self.act('start')
+
+    def test_invalid_custom_geometry_is_rejected_before_emulator_write(self):
+        for end in [START,{'latitude':0,'longitude':0}]:
+            with self.assertRaisesRegex(ValueError,'INVALID_ROUTE_LENGTH'):
+                self.act('destination',route='custom',start=START,end=end)
+        with self.assertRaisesRegex(ValueError,'INVALID_PARAMETERS'):
+            self.act('destination',route='custom',start=START,end={'latitude':float('nan'),'longitude':0})
+        self.assertEqual(self.commands,[])
+
+    def test_unsupported_console_uses_android_test_provider_and_releases_it(self):
+        sim=Simulator()
+        commands=[]
+        def adb(i,*args):
+            commands.append(args)
+            return "KO: unknown command, try 'help'" if args[:1]==('emu',) else ''
+        sim.adb=adb
+        sim.geo(1,START,0)
+        sim.geo(1,START,30)
+        sim.clear_geo(1)
+        self.assertEqual(sum('add-test-provider' in args for args in commands),1)
+        self.assertEqual(sum('set-test-provider-location' in args for args in commands),2)
+        self.assertIn('remove-test-provider',commands[-2])
+        self.assertEqual(commands[-1][-1],'default')
+        self.assertFalse(sim.mock_gps)
+        sim.adb=lambda *args:'KO: other failure'
+        with self.assertRaises(EmulatorLocationError):sim.geo(1,START,0)
 
 if __name__=='__main__':unittest.main()
