@@ -1,3 +1,5 @@
+@import url("./shared/ply.css");
+
 :root{color-scheme:light;--bg:#fff;--panel:#fff;--line:#171717;--muted:#555;--ink:#171717;--paper:#fff}*{box-sizing:border-box}body{margin:0;background:#fff;color:#171717;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}button,a{color:inherit}.hidden{display:none!important}
 .hub{max-width:760px;margin:auto;padding:22px 24px}.topbar,.brand,.section-heading,.hub-actions,.card-copy,.best-row,footer{display:flex;align-items:center;justify-content:space-between}.brand{text-decoration:none;font-weight:800;gap:10px}.brand small{display:block;font-size:10px;font-weight:500}.brand-mark{width:38px;height:38px;border:2px solid #171717;border-radius:9px;display:grid;place-items:center;font-size:21px}.offline,.eyebrow,.game-tag,.coming-tag{font:600 10px ui-monospace,monospace;letter-spacing:.08em}.offline,.inventory-chip,.seat-chip{border:2px solid #171717;border-radius:8px;padding:8px 11px}.welcome{position:relative;margin:22px 0;padding:26px;border:2px solid #171717;border-radius:12px;min-height:185px;overflow:hidden}.welcome>div:first-child{position:relative;z-index:1}.welcome h1{font-size:32px;line-height:1.2;margin:0}.welcome h1 em{font-style:normal;text-decoration:underline}.intro{font-size:12px;max-width:340px;line-height:1.6}.welcome-art{position:absolute;inset:0 0 0 55%;opacity:.7}.wire,.mini-pole,.hill,.sun{position:absolute;border:2px solid #222}.wire{top:35%;width:100%;transform:rotate(8deg)}.mini-pole{height:130%;left:50%;top:25%;transform:rotate(-2deg)}.mini-pole:before{content:'';position:absolute;top:18%;left:-30px;width:60px;border-top:2px solid}.ninja{position:absolute;right:27%;bottom:24%;width:17px;height:31px;border:2px solid;border-radius:10px 10px 6px 6px}.section-heading{margin:24px 0 12px}.section-heading h2{font-size:20px;margin:0}.inventory-chip{font-size:10px}.inventory-chip span,.inventory-chip b{color:#171717}.seat-chip{background:#fff;font:inherit;font-size:11px}.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.game-card,.coming-card{border:2px solid #171717;border-radius:11px;overflow:hidden;color:inherit;text-decoration:none;background:#fff}.game-art{height:145px;position:relative;overflow:hidden;background:#fff;border-bottom:1px solid #777}.game-art:after{content:'';position:absolute;bottom:24px;width:100%;border-top:1px solid #555}.game-tag{position:absolute;top:10px;left:12px}.art-pole{position:absolute;left:48%;top:31px;height:120px;border-left:3px solid}.art-pole:before{content:'';position:absolute;left:-28px;top:17px;width:58px;border-top:3px solid}.art-platform{position:absolute;left:45%;top:80px;width:34px;border-top:3px solid}.art-person{position:absolute;left:40%;top:65px;width:12px;height:27px;border:2px solid;border-radius:8px}.art-label{position:absolute;right:23px;top:55px;font:700 18px monospace;transform:rotate(-8deg)}.rain-sketch{font-size:42px;letter-spacing:12px}.card-copy{padding:13px 15px}.card-copy h3{font-size:15px;margin:0 0 4px}.card-copy p,.coming-card p{font-size:10px;color:#444;margin:0}.play-arrow{font-size:21px}.best-row{margin:0 15px 12px;border-top:1px solid #888;padding-top:8px;font-size:10px;gap:8px}.best-row strong{font-weight:600}.coming-card{min-height:200px}footer{margin-top:22px;font-size:9px;gap:14px}dialog{border:2px solid #171717;border-radius:12px;background:#fff;color:#171717;padding:23px;width:min(420px,calc(100% - 28px))}dialog::backdrop{background:#0007}.close{float:right;background:#fff;border:1px solid #171717;border-radius:5px}.seat-options{display:grid;gap:9px;margin-top:18px}.seat-options button{display:grid;grid-template-columns:40px 1fr;text-align:left;align-items:center;background:#fff;border:2px solid #171717;border-radius:8px;padding:11px}.seat-options span{grid-row:span 2;font-size:22px}.seat-options small{font-size:10px}.seat-options button:hover,.seat-options button:focus{background:#171717;color:#fff}
 .game-page{min-height:100dvh;background:#fff;color:#171717}.game-nav{height:48px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #aaa}.back-link{font-size:12px;text-decoration:none}.nav-title{font-weight:700;font-size:13px}.icon-button{background:#fff;border:2px solid #171717;border-radius:7px;width:35px;height:32px}.stage-wrap,.rain-wrap{width:min(100%,520px);margin:0 auto;padding:5px}.stage,.rain-stage{position:relative;height:calc(100dvh - 60px);min-height:520px;max-height:900px;overflow:hidden;border:5px solid #171717;border-radius:28px;background:#fff}.stage canvas,.rain-stage canvas{display:block;width:100%;height:100%;touch-action:none}.hud,.rain-hud{position:absolute;z-index:3;top:9px;left:12px;right:12px;display:flex;align-items:flex-start;gap:9px;color:#171717;pointer-events:none}.hud-score{display:flex;flex-direction:column;gap:3px;min-width:43px}.hud-score strong{line-height:1.1}.hud-score small,.rain-hud small{font:9px ui-monospace,monospace}.hud-score strong,.rain-hud strong{font-size:20px}.hud-stats{display:flex;gap:8px;padding:5px 8px;border:1px solid #555;border-radius:5px;background:#fff;font-size:10px}.speed-sign{margin-left:auto;border:1px solid #171717;background:#fff;padding:5px 7px;display:flex;gap:5px;font-size:9px}.speed-sign>span{font:10px monospace}.speed-sign div{display:flex;flex-direction:column}.speed-sign b{font:700 13px monospace}.speed-sign small{font-size:8px}.toast,.rain-toast{position:absolute;z-index:5;top:28%;left:0;right:0;text-align:center;font-weight:700;font-size:16px;opacity:0;transition:opacity .15s}.toast.show,.rain-toast.show{opacity:1}.pause-layer{position:absolute;z-index:6;inset:0;background:#ffffffd9;display:grid;place-items:center}.pause-layer.hidden{display:none}.pause-card{text-align:center}.overlay,.rain-overlay{position:absolute;z-index:8;inset:0;display:grid;place-items:center;background:#ffffffdf;padding:18px}.overlay.hidden,.rain-overlay.hidden{display:none!important}.overlay-card,.rain-overlay article{width:min(360px,calc(100% - 18px));max-height:calc(100% - 20px);overflow:auto;padding:20px;background:#fff;border:2px solid #171717;border-radius:10px;color:#171717}.overlay-card h1,.rain-overlay h1{font-size:40px;line-height:1.05;margin:0}.overlay-card h1 em,.rain-overlay h1 em{font-style:normal;text-decoration:underline}.overlay-card>p:not(.eyebrow),.rain-overlay p:not(.eyebrow){font-size:11px;line-height:1.65}.overlay-card>small,.rain-overlay small{display:block;text-align:center;font-size:9px;margin-top:8px}.key-hint{display:flex;align-items:center;gap:6px;font-size:10px;margin:12px 0}.key-hint kbd{border:1px solid #171717;padding:3px 5px}.primary-button,.secondary-button{min-height:39px;padding:8px 13px;border:2px solid #171717;border-radius:7px;background:#fff;color:#171717;font:700 12px system-ui;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer}.primary-button{width:100%}.primary-button:hover,.secondary-button:hover,.drop-button:hover,.jump-control:hover{background:#171717;color:#fff}.result-card h2,.rain-overlay h2{margin:0}.result-score,.rain-final{display:flex;align-items:center;justify-content:space-between;border-block:1px solid #777;padding:8px 0}.result-score strong,.rain-final strong{font-size:25px}.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:10px 0}.result-grid div{display:flex;flex-direction:column;font-size:10px}.result-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.new-best{font-size:10px!important}.jump-control,.height-control,.drop-button{position:absolute;z-index:5;bottom:12px;background:#fff;border:2px solid #171717;border-radius:7px;padding:9px 12px;font:600 11px system-ui}.jump-control{right:12px}.height-control{left:12px;display:flex;align-items:center;gap:7px}.height-control button{background:white;border:1px solid #171717;border-radius:4px;min-width:27px;min-height:27px}.orientation-note{display:none}.rain-hud{justify-content:flex-start;flex-wrap:wrap;gap:6px;font-size:9px}.rain-hud>*{padding:3px 5px;background:#fff;border:1px solid #777}.rain-hud> b{display:flex;flex-direction:column}.rain-hud #mode{margin-left:auto}.rain-overlay article{text-align:center}.rain-overlay .secondary-button{margin-top:8px}.drop-button{right:12px}.vehicle-dev{position:fixed;z-index:20;right:8px;top:55px;width:170px;padding:9px;background:#fff;border:2px solid #171717;border-radius:7px;color:#171717;font:10px system-ui}.vehicle-dev strong{display:block;margin-bottom:5px}.vehicle-dev label{display:block;margin:6px 0}.vehicle-dev output{float:right}.vehicle-dev input[type=range]{display:block;width:100%;height:15px;accent-color:#171717}.vehicle-dev .check{display:flex;align-items:center;gap:6px}.vehicle-dev .check input{accent-color:#171717}
@@ -9,3 +11,66 @@
 .vehicle-dev.collapsed{width:38px;height:38px;padding:0;overflow:hidden}.vehicle-dev-toggle{position:absolute;right:2px;top:2px;width:30px;height:30px;padding:0;background:#fff;border:1px solid #171717;border-radius:5px;font-size:16px}
 .loot-nav,.loot-page>header,.garage-page>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:2px solid #171717}.loot-nav{font-size:12px}.loot-nav a,.loot-page header a,.garage-page header a{color:inherit}.loot-page,.garage-page{max-width:1000px;margin:auto;padding-bottom:40px}.loot-page main,.garage-page main{padding:18px}.loot-tabs{display:flex;flex-wrap:wrap;gap:8px;padding:12px 18px}.loot-tabs button,.garage-page button{background:white;border:1px solid #171717;padding:8px 12px;border-radius:6px}.loot-tabs .active{background:#171717;color:white}.loot-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}.loot-card{display:flex;gap:12px;align-items:flex-start;border:1px solid #171717;border-radius:8px;padding:12px}.loot-card h2,.loot-card h3,.loot-card p{margin:3px 0;font-size:13px}.loot-card p,.loot-card small{font-size:10px}.loot-card.rarity-uncommon{border-width:3px}.loot-card.rarity-rare{border:3px double #171717;outline:1px dashed #171717;outline-offset:2px}.loot-card.rarity-regional{clip-path:polygon(3% 0,97% 0,100% 14%,97% 28%,100% 42%,97% 56%,100% 70%,97% 84%,100% 100%,3% 100%,0 84%,3% 70%,0 56%,3% 42%,0 28%,3% 14%)}.item-icon{width:40px;height:40px;flex:none}.item-icon svg{width:100%;height:100%}.silhouette{color:#888;filter:grayscale(1)}.loot-toast{position:fixed;z-index:50;top:12px;left:50%;transform:translate(-50%,-150%);background:white;border:2px solid #171717;padding:10px 16px;border-radius:8px;transition:transform .2s}.loot-toast.show{transform:translate(-50%,0)}.garage-grid{display:grid;grid-template-columns:2fr 1fr;gap:18px}.car-wire{width:100%;max-height:240px;fill:none;stroke:#171717;stroke-width:5}.car-wire text{stroke:none;fill:#171717;font:18px system-ui}.slot-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.slot-row{display:grid;gap:4px;font-size:11px}.slot-row select{max-width:100%;padding:7px;background:white;border:1px solid #171717}.hidden{display:none!important}
 @media(max-width:650px){.loot-nav{flex-wrap:wrap}.garage-grid{grid-template-columns:1fr}.slot-list{grid-template-columns:repeat(2,1fr)}}
+
+/* PLY game controls and overlays. The game canvases keep their sketch palette. */
+.game-page { background: var(--ply-bg); color: var(--ply-ink); }
+.game-page .game-nav {
+  border-color: var(--ply-line); background: var(--ply-surface);
+  font-size: 14px;
+}
+.game-page .nav-title { font-size: 14px; }
+.game-page .back-link { color: var(--ply-primary); }
+.game-page :is(.primary-button, .secondary-button, .icon-button, .drop-button, .jump-control) {
+  border-radius: 10px; font-weight: 800;
+}
+.game-page :is(.primary-button, .secondary-button) { min-height: 44px; }
+.game-page .primary-button {
+  border-color: var(--ply-primary); background: var(--ply-primary); color: var(--ply-primary-ink);
+}
+.game-page .primary-button:disabled { opacity: .55; cursor: default; }
+.game-page :is(.secondary-button, .icon-button) {
+  border: 1px solid var(--ply-line); background: var(--ply-surface); color: var(--ply-ink);
+}
+.game-page :is(button, a):focus-visible { outline: 2px solid var(--ply-primary); outline-offset: 3px; }
+.game-page :is(.overlay, .rain-overlay, .pause-layer) { background: #09121bd1; }
+.game-page :is(.overlay-card, .rain-overlay article) {
+  border: 1px solid var(--ply-line); border-radius: var(--ply-radius);
+  background: var(--ply-surface); color: var(--ply-ink);
+}
+.game-page :is(.overlay-card, .rain-overlay) h1 {
+  font-size: clamp(26px, 7vw, 34px); line-height: 1.2;
+}
+.game-page :is(.overlay-card, .rain-overlay) h1 em { text-decoration: none; color: var(--ply-primary); }
+.game-page :is(.overlay-card, .rain-overlay article)>p { font-size: 13px; }
+.game-page .eyebrow { color: var(--ply-primary); }
+.game-page .quiz-stage {
+  background: var(--ply-surface); border: 1px solid var(--ply-line); border-radius: var(--ply-radius);
+}
+.game-page .quiz-banner, .game-page .choices button {
+  color: var(--ply-ink); background: #182c3a; border: 1px solid var(--ply-line); border-radius: 10px;
+}
+.game-page .choices button:is(:hover, :focus-visible) { border-color: var(--ply-primary); }
+.game-page :is(.muted, .quiz-foot) { color: var(--ply-muted); }
+.game-page .timer-track i { background: var(--ply-primary); }
+.loot-toast {
+  background: var(--ply-surface); color: var(--ply-ink);
+  border: 1px solid var(--ply-line); border-radius: var(--ply-radius);
+  width: max-content; max-width: calc(100% - 24px);
+}
+.ply-bag { background: var(--ply-bg); color: var(--ply-ink); }
+.ply-bag > header { border-bottom-color: var(--ply-line); }
+.ply-bag h1 { margin: 0; font-size: 21px; }
+.ply-bag #bag-note { padding-inline: 18px; color: var(--ply-muted); font-size: 13px; }
+.ply-bag .loot-tabs button {
+  min-height: 44px; border-radius: 10px; color: var(--ply-ink);
+  background: var(--ply-surface); border: 1px solid var(--ply-line);
+}
+.ply-bag .loot-tabs button[aria-pressed="true"] {
+  color: var(--ply-primary-ink); background: var(--ply-primary); border-color: var(--ply-primary);
+}
+.ply-bag .loot-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.ply-bag .loot-card {
+  border-color: var(--ply-line); border-radius: var(--ply-radius); background: var(--ply-surface);
+}
+.ply-bag .loot-card h3 { font-size: 15px; }
+.ply-bag .loot-card :is(p, small) { color: var(--ply-muted); font-size: 12px; }

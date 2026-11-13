@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#09121b">
-  <title>Z-RIDE · 동승자</title>
+  <title>PLY · 동승자</title>
+  <link rel="stylesheet" href="/play/drive/shared/ply.css">
   <link rel="stylesheet" href="/play/style.css">
+  <script type="module" src="/play/drive/shared/item-icons.js"></script>
   <script src="/play/account.js" defer></script>
   <link rel="stylesheet" href="/play/arena.css">
   <script src="/play/app.js" defer></script>
@@ -14,10 +16,10 @@
 </head>
 <body>
   <main>
-    <header><a class="wordmark" href="/play">Z<span>—</span>RIDE</a><span class="tag">동승자</span></header>
+    <header><a class="wordmark" href="/play">PLY</a><span class="tag">동승자</span></header>
     <div id="connection" class="connection" role="status">방에 참가해 주세요</div>
     <section id="account-panel" class="panel">
-      <p class="eyebrow">PHONE ACCOUNT</p><h1>로그인하고 차량에 참가</h1>
+      <h1>로그인하고 차량에 참가</h1>
       <p id="account-status" class="subtle" role="status">계정 설정 확인 중…</p>
       <div id="account-signin">
         <label>닉네임<input id="account-nickname" maxlength="24" autocomplete="nickname" placeholder="게임에서 사용할 이름"></label>
@@ -34,7 +36,7 @@
       <p class="footnote">계정은 이 탭의 세션 저장소에 보관됨. 게스트는 탭을 닫거나 저장소를 지우면 복구할 수 없음. Google 연결 후에는 같은 Google 계정으로 다시 로그인할 수 있음.</p>
     </section>
     <section id="login-panel" class="panel login">
-      <p class="eyebrow">SQUAD LINK</p><h1>같이 타고, 같이 지킨다.</h1>
+      <h1>같이 타고, 같이 지킨다.</h1>
       <p id="join-description" class="subtle">로그인 후 차량 화면의 QR을 찍어 주세요. 아이폰 Safari에서도 앱 설치 없이 참가할 수 있음.</p>
       <form id="join-form">
         <p id="invite-status" class="subtle" role="status">차량 QR을 기다리는 중</p>
@@ -57,13 +59,14 @@
     </section>
 
     <section id="game" hidden>
-      <div class="squad-head"><div><p class="eyebrow">CONNECTED SQUAD</p><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">파티 탈퇴</button></div>
+      <div class="squad-head"><div><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">파티 탈퇴</button></div>
       <section id="pending-panel" class="panel" hidden><h2>차량에서 자리 확인 중</h2><p class="subtle">차량 앱에서 이 참가자를 승인하면 수집과 전투에 참여할 수 있음.</p></section>
       <section id="approved-content" hidden>
         <section id="journey-map" class="panel journey-map">
-          <div class="section-heading"><h2>여행 지도</h2><span class="pill">보급품 <b id="journey-supplies">0</b>개</span></div>
+          <div class="section-heading"><h2>여행 지도</h2><span class="item-inline"><ply-supply-icon></ply-supply-icon><span>파티 보급품 <b id="journey-supplies">0</b>개</span></span></div>
+          <button id="journey-bag" class="quiet journey-bag" type="button" hidden>아이템 가방</button>
           <div id="journey-next" class="journey-next" hidden>
-            <p id="journey-next-label" class="eyebrow"></p>
+            <div class="item-inline"><ply-supply-icon id="journey-next-icon" hidden></ply-supply-icon><p id="journey-next-label" class="eyebrow"></p></div>
             <h2 id="journey-next-name"></h2>
             <p id="journey-next-status" class="subtle" role="status"></p>
             <button id="journey-next-enter" type="button" class="primary"></button>
@@ -81,7 +84,7 @@
           <p id="journey-map-status" class="subtle"></p>
           <div id="journey-spots" class="journey-spots"></div>
           <div id="journey-place" class="journey-place" hidden>
-            <h2 id="journey-place-name"></h2>
+            <div class="item-inline"><ply-supply-icon id="journey-place-icon" hidden></ply-supply-icon><h2 id="journey-place-name"></h2></div>
             <p id="journey-place-status" class="subtle"></p>
             <button id="journey-enter" type="button" class="primary" hidden></button>
           </div>
@@ -90,6 +93,7 @@
         <section id="journey-game" hidden>
           <button id="journey-back" type="button" class="quiet">← 지도로 돌아가기</button>
           <div id="drive-play" hidden></div>
+          <div id="journey-bag-view" hidden></div>
         </section>
         <details id="journey-party"><summary>파티 정보와 연습 기능</summary>
         <div class="status-grid"><article class="panel stat"><span>공동 전투</span><strong id="battle-state">대기</strong><small id="battle-reason"></small></article><article class="panel stat"><span>공동 보급품</span><strong><b id="supplies">0</b><em>개</em></strong><small id="support-state">차량 지원 대기</small></article></div>
@@ -132,8 +136,8 @@
         <button id="arena-fire" type="button" class="arena-fire" aria-label="사격">사격</button>
       </div>
     </section>
-    <div id="item-toast" class="item-toast" hidden role="status" aria-live="polite"><span id="item-toast-icon"></span><div><b id="item-toast-title"></b><p id="item-toast-text"></p></div></div>
-    <footer>Z-RIDE <a href="/observer">관제 ↗</a></footer>
+    <div id="item-toast" class="item-toast" hidden role="status" aria-live="polite"><ply-supply-icon></ply-supply-icon><div><b id="item-toast-title"></b><p id="item-toast-text"></p></div></div>
+    <footer>PLY <a href="/observer">관제 ↗</a></footer>
   </main>
 </body>
 </html>

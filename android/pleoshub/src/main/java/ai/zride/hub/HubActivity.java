@@ -37,7 +37,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Z-RIDE 게임 허브. 게임 목록을 보여 주고, 고른 게임의 큰 화면(웹 페이지)을 WebView로 띄운다.
+ * PLY 게임 허브. 게임 목록을 보여 주고, 고른 게임의 큰 화면(웹 페이지)을 WebView로 띄운다.
  * 모든 게임은 같은 창구 window.ZRideCar(브리지 v1)로 차 신호를 받고 실내 연출을 요청한다.
  * 실내 연출은 P단·UX 허용·화면 표시 중일 때만 적용하고, 그 밖에는 원래 값으로 되돌린다.
  * 명세: games/sdk/README.md
@@ -187,7 +187,7 @@ public final class HubActivity extends Activity implements DrivingGate.Listener 
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(48, 40, 48, 40);
-        TextView title = text("Z-RIDE 게임", 34, Color.WHITE);
+        TextView title = text("PLY 게임", 34, Color.WHITE);
         column.addView(title);
         column.addView(text("차에 탄 가족이 폰으로 같이 해요. 실내 조명·공조는 P단에서만 바뀌어요.", 18, MUTED), margins(0, 8, 0, 28));
         for (JSONObject g : games) {

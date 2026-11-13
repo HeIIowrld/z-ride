@@ -49,7 +49,7 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
 
 export function createDemoServer(options = {}) {
   const driveGames = new Set(['license-quiz', 'pole-jump', 'raindrop']);
-  const phoneClient = createPhoneClientService({apiOrigin:options.browserApiOrigin??'',displayName:options.displayName??'Z-RIDE'});
+  const phoneClient = createPhoneClientService({apiOrigin:options.browserApiOrigin??'',displayName:options.displayName??'PLY'});
   const requestPolicy=createRequestPolicy(options);
   const testAccessKey = options.testAccessKey ?? '';
   if (typeof testAccessKey !== 'string' || testAccessKey.length > 1024) throw new Error('testAccessKey must be a string up to 1024 characters');
@@ -560,7 +560,7 @@ export function createDemoServer(options = {}) {
     reviewToken: options.placeReviewToken ?? '', roomFor, memberFor, requireHost, passengerSeat,
     snapshot, change, gate, closeSocket, pause, collectionChanged, notify: notifyWorld,
     eventChanged:instanceId=>{for(const room of rooms.values())if(!room.closedAt&&places.events.projection(room).instanceId===instanceId){try{places.events.assertPlayable(room);}catch{pause(room,'EVENT_NOT_ACTIVE');}change(room);}notifyWorld();} });
-  const displayName=options.displayName??'Z-RIDE';
+  const displayName=options.displayName??'PLY';
   if(typeof displayName!=='string'||!displayName.trim()||displayName.length>64||/[\u0000-\u001f]/.test(displayName))throw new Error('Invalid display name');
   const accountApi=createAccountApi({accounts,partyApi,rooms,sessions,places,isSecure:requestPolicy.isSecure,accountTlsRequired:publicOrigin.startsWith('https://'),roomFor,snapshot,pause,change,closeSocket,clientConfig:{displayName,apiOrigin:publicOrigin,phoneJoinUrl:options.phonePublicUrl??(publicOrigin?publicOrigin+'/play':''),sessionAccessKeyRequired:!!testAccessDigest,auth:accounts.describe()}});
   async function deadzoneRequest(path, init) {

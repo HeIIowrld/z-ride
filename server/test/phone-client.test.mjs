@@ -16,7 +16,8 @@ test('phone reference client serves only allow-listed static assets with same-or
   const request = (path, options = {}) => fetch(base + path, { ...options, headers: { connection: 'close', ...options.headers } });
   try {
     for (const path of ['/play', '/play/', '/play/app.js', '/play/account.js', '/play/style.css', '/play/demo', '/play/demo.js', '/play/vehicle', '/play/vehicle.js', '/play/qrcode.js', '/play/arena.js', '/play/arena.css', '/play/car', '/play/car.js', '/play/car.css', '/play/qr.js',
-      '/play/drive/style.css', '/play/drive/shared/journey.js', '/play/drive/games/license-quiz/index.html',
+      '/play/drive/style.css', '/play/drive/bag.html', '/play/drive/shared/bag.js',
+      '/play/drive/shared/item-icons.js', '/play/drive/shared/ply.css', '/play/drive/shared/journey.js', '/play/drive/games/license-quiz/index.html',
       '/play/drive/games/license-quiz/questions.json', '/play/drive/games/pole-jump/index.html',
       '/play/drive/games/raindrop/index.html']) {
       const response = await request(path);

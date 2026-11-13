@@ -3,7 +3,7 @@
     <uses-permission android:name="android.car.permission.CAR_POWERTRAIN" />
     <uses-feature android:name="android.hardware.type.automotive" android:required="true" />
     <!-- 차량 신호는 표준 AAOS API(UX 제한·기어)만 읽는다. Pleos(ai.pleos.playground.car)와 일반 AAOS 둘 다 설치되도록 둘 다 optional. -->
-    <application android:label="Z-RIDE" android:icon="@drawable/ic_zride" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:dataExtractionRules="@xml/no_data_transfer" android:fullBackupContent="@xml/no_legacy_backup">
+    <application android:label="PLY" android:icon="@drawable/ic_zride" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:dataExtractionRules="@xml/no_data_transfer" android:fullBackupContent="@xml/no_legacy_backup">
         <uses-library android:name="android.car" android:required="false" />
         <uses-library android:name="ai.pleos.playground.car" android:required="false" />
         <activity android:name=".HostActivity" android:exported="true" android:launchMode="singleTask">

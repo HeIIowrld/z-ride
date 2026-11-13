@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const apiOrigin=window.ZRIDE_CONFIG?.apiOrigin||location.origin;
+const driveAssets = new URL('drive/', document.currentScript.src);
 const seats = { FRONT_PASSENGER: '앞 동승석 · 전방 사수', REAR_LEFT: '뒤 왼쪽 · 좌측 방어', REAR_RIGHT: '뒤 오른쪽 · 우측 방어', DRIVER: '운전자 · 지원 담당' };
 const states = { LOBBY: '시작 대기', READY: '시작 준비', PLAYING: '전투 진행', PAUSED: '전투 중지', CLEARED: '거점 공략 완료', PENDING: '승인 대기' };
 const gateNames = { CAR_DISCONNECTED: '차량 연결 끊김', APP_INACTIVE: '차량 앱 비활성', LEASE_EXPIRED: '차량 보고 만료', UX_RESTRICTED: '주행 중 전투 제한', UX_UNKNOWN: '차량 UX 확인 중', GEAR_NOT_P: '주차 후 전투 가능', GEAR_UNKNOWN: '차량 기어 확인 중', MEMBER_PENDING: '차량 승인 대기' };
@@ -69,7 +70,7 @@ function connect() {
       memberId = message.memberId;
       retry = 0;
       status('같은 방에 연결됨', 'live');
-      if ($('action-result').textContent === '현재 파티에 연결 중…') result('');
+      if (['현재 파티에 연결 중…', '다시 연결하는 중…'].includes($('action-result').textContent)) result('');
       render();
     }
     else if (message.type === 'snapshot') {
@@ -192,12 +193,15 @@ deadzoneLink.hidden = true;
 $('journey-place').append(deadzoneLink);
 
 const routeGame = document.createElement('section');
-routeGame.className = 'panel';
+routeGame.className = 'panel ply-game-panel';
 routeGame.hidden = true;
 let activeRouteChallenge;
 let routeRequestPending = false;
 const routeStart = document.createElement('button');
-routeStart.textContent = '경로 보급품 찾기';
+routeStart.textContent = '도전 시작';
+const routeTitle = document.createElement('h2');
+routeTitle.className = 'item-inline';
+routeTitle.append(document.createElement('ply-supply-icon'), '경로 보급품');
 const routeMessage = document.createElement('p');
 const routeSpeed = document.createElement('p');
 const routeButtons = document.createElement('div');
@@ -208,7 +212,7 @@ routeConfirmation.type = 'checkbox';
 const routePassenger = document.createElement('label');
 routePassenger.className = 'check';
 routePassenger.append(routeConfirmation, document.createTextNode('동승자입니다'));
-routeGame.append(routeSpeed, routePassenger, routeStart, routeMessage, routeButtons);
+routeGame.append(routeTitle, routeSpeed, routePassenger, routeStart, routeMessage, routeButtons);
 $('journey-game').append(routeGame);
 
 routeStart.onclick = async () => {
@@ -247,7 +251,7 @@ routeStart.onclick = async () => {
             if (active !== credentials) return;
             routeFeedback = receipt.outcome === 'MISSED'
               ? '이번 스팟은 놓쳤어요. 다음 스팟에서 도전하세요.'
-              : '보급품 획득 · 파티 보급품 ' + receipt.supplies + '개';
+              : '공통 아이템 획득 · 파티 보급품 ' + receipt.supplies + '개';
           } catch {
             if (active === credentials) routeFeedback = '이번 도전이 종료됐어요. 다음 스팟에서 도전하세요.';
           } finally {
@@ -279,7 +283,7 @@ routeStart.onclick = async () => {
 
 const venuePanel = document.createElement('section');
 venuePanel.id = 'journey-venue';
-venuePanel.className = 'panel';
+venuePanel.className = 'panel ply-game-panel';
 venuePanel.hidden = true;
 $('journey-game').append(venuePanel);
 let venuePoll = null, venueSubmitting = false, venueSignature = '';
@@ -348,37 +352,89 @@ function sketch(existing) {
   venuePanel.append(canvas);
   return {strokes};
 }
+function updateVenueRoster(roster, state) {
+  const members = new Map(room.members.map(member => [member.memberId, member]));
+  roster.replaceChildren(...state.players.map(player => {
+    const member = members.get(player.id);
+    const connected = member?.connected && member.approved && member.seatEvidence !== 'EMPTY';
+    const row = document.createElement('li');
+    const name = document.createElement('strong');
+    name.textContent = player.name + (player.id === state.me ? ' (나)' : '');
+    const seat = document.createElement('small');
+    seat.textContent = seats[member?.seat]?.split(' · ')[0] ?? '';
+    const status = document.createElement('span');
+    status.textContent = !connected ? '연결 대기' : player.done ? '준비 완료' : '연결됨';
+    row.append(name, seat, status);
+    return row;
+  }));
+}
+
 function showVenue(value) {
   venueStatus = value;
   renderJourneyMap();
   const state = value.game;
+  const lobby = ['LOBBY', 'BRIEFING'].includes(state?.phase);
   const key = JSON.stringify([value.kind,state?.phase,state?.caseNo,state?.round,state?.step,
-    state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.shown,value.paused,value.stop?.placeId,value.supplies]);
+    state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.book,
+    state?.reveal?.shown,state?.result?.saved,value.paused,value.stop?.placeId]);
   venuePanel.hidden = !state && !value.paused && !value.stop;
   venuePanel.dataset.game = value.kind || '';
-  if(key === venueSignature)return;
+  const supplyText = '파티 보급품 ' + value.supplies + '개';
+  if (key === venueSignature) {
+    const count = venuePanel.querySelector('.venue-supply-count');
+    if (count) count.textContent = supplyText;
+    const roster = venuePanel.querySelector('.venue-roster');
+    if (roster) updateVenueRoster(roster, state);
+    return;
+  }
   venueSignature = key;
   venuePanel.replaceChildren();
-  if(venuePanel.hidden)return;
+  if (venuePanel.hidden) return;
   const title = document.createElement('h2');
   title.textContent = value.kind === 'thief' ? '전기도둑' : value.kind === 'relay' ? '충전 릴레이' :
-    value.paused ? '충전 게임 일시정지' : '충전 게임 참가 가능';
+    value.paused ? '충전 게임 일시정지' : '충전소 대기실';
   const header = document.createElement('header');
   header.append(title);
   venuePanel.append(header);
   const info = document.createElement('p');
+  info.className = 'game-status';
+  info.setAttribute('role', 'status');
   venuePanel.append(info);
-  if (!state) { info.textContent=value.paused ? '충전소에서 다시 연결하면 이어집니다.' :
-    '차량 화면에서 전기도둑 또는 충전 릴레이를 선택하면 여기에 표시됩니다.';return; }
-  const me = state.players?.find(p=>p.id===state.me);
-  info.textContent = '파티 보급품 ' + value.supplies + '개';
-  if(!me){info.textContent='이번 경기 참가자 목록을 차량에서 확인해 주세요.';return;}
+  if (!state) {
+    info.textContent = value.paused ? '같은 충전소에서 다시 연결하면 이어져요.'
+      : '차량 화면에서 게임을 선택하면 여기에 표시돼요.';
+    return;
+  }
+  const supplyCount = document.createElement('p');
+  supplyCount.className = 'item-inline';
+  const count = document.createElement('span');
+  count.className = 'venue-supply-count';
+  count.textContent = supplyText;
+  supplyCount.append(document.createElement('ply-supply-icon'), count);
+  header.append(supplyCount);
+  const me = state.players?.find(player => player.id === state.me);
+  if (lobby) {
+    const roster = document.createElement('ul');
+    roster.className = 'venue-roster';
+    roster.setAttribute('aria-label', '같은 파티 참가자');
+    updateVenueRoster(roster, state);
+    venuePanel.append(roster);
+  }
+  if (!me) {
+    info.textContent = '이번 경기 참가자 목록을 차량에서 확인해 주세요.';
+    return;
+  }
+  if (state.phase === 'LOBBY') {
+    info.textContent = '같은 파티에 참가했어요. 차량에서 게임을 시작하면 이어져요.';
+    return;
+  }
   if(value.kind === 'thief'){
     if(state.phase==='BRIEFING'){
-      info.textContent += state.solo ? ' · 차량이 숨은 값을 더해요.' : ' · 내 역할 ' + (state.role==='THIEF'?'도둑':'가족');
-      if(!me.done)venueButton('준비 완료','ready');
+      info.textContent = state.solo ? '차량이 숨은 값을 더해요.' : '내 역할 ' + (state.role==='THIEF'?'도둑':'가족');
+      if (me.done) info.textContent += ' · 다른 동승자를 기다리는 중';
+      else venueButton('준비 완료','ready');
     } else if(state.phase==='CASE'&&!me.done){
-      info.textContent += ' · 목표 합계 ' + state.range.lo + '~' + state.range.hi;
+      info.textContent = '목표 합계 ' + state.range.lo + '~' + state.range.hi;
       const watch = document.createElement('select');
       watch.setAttribute('aria-label','살펴볼 동승자');
       watch.append(new Option('살펴보지 않기',''));
@@ -397,17 +453,17 @@ function showVenue(value) {
         ()=>({card:index,watch:watch.value||null,prank:prank.value})));
     } else if(state.phase==='RESULT'){
       const round=state.result;
-      info.textContent += ' · 합계 '+round.sum+' / 목표 '+round.lo+'~'+round.hi+' · '+
+      info.textContent = '합계 '+round.sum+' / 목표 '+round.lo+'~'+round.hi+' · '+
         (round.saved?'보급품으로 복구':{LOW:'정전',HIGH:'과부하',OK:'충전 성공'}[round.outcome]);
     } else if(state.phase==='VOTE'&&!me.done){
       state.players.filter(p=>p.id!==state.me).forEach(p=>venueButton(p.name+'에게 투표','vote',{suspect:p.id}));
       venueButton('기권','vote',{suspect:'SKIP'});
-    } else if(state.phase==='END')info.textContent += ' · ' + ({FAMILY:'가족 승리',THIEF:'도둑 승리',CAR:'차량 승리'}[state.winner]);
-    else if(state.clue)info.textContent += ' · ' + state.clue;
+    } else if(state.phase==='END')info.textContent = ({FAMILY:'가족 승리',THIEF:'도둑 승리',CAR:'차량 승리'}[state.winner]);
+    else if(state.clue)info.textContent = state.clue;
   }else if(state.phase==='PLAY'&&state.task&&!state.submitted){
     const task=state.task;
     if(task.kind==='DRAW'){
-      info.textContent += ' · 그릴 단어 ' + task.prompt;
+      info.textContent = '그릴 단어 ' + task.prompt;
       const drawing=sketch();
       venueButton('그림 제출','submit',()=>({step:task.step,drawing}));
     }else{
@@ -418,16 +474,18 @@ function showVenue(value) {
       venuePanel.append(input);
       venueButton('정답 제출','submit',()=>({step:task.step,text:input.value}));
     }
-  }else if(state.reveal){
-    info.textContent += ' · 공개 단어 ' + state.reveal.word;
+  } else if (state.phase === 'PLAY' && state.submitted) {
+    info.textContent = '제출 완료 · 다른 동승자를 기다리는 중';
+  } else if(state.reveal){
+    info.textContent = '공개 단어 ' + state.reveal.word;
     for(const entry of state.reveal.entries){
       if(entry.drawing)sketch(entry.drawing);
       if(entry.text){const line=document.createElement('p');line.textContent=entry.text;venuePanel.append(line);}
     }
-  }else if(state.phase==='END')info.textContent += ' · 전달 성공 ' + state.family.success + ' / ' + state.family.total;
+  }else if(state.phase==='END')info.textContent = '전달 성공 ' + state.family.success + ' / ' + state.family.total;
 }
 setInterval(() => {
-  if (room?.vehicle?.playAllowed || !venuePanel.hidden) void venueAction();
+  if (room?.vehicle?.playAllowed || journeyView === 'charge') void venueAction();
 }, 1500);
 
 let journeyView = 'map';
@@ -450,6 +508,8 @@ function showJourney(view) {
   $('journey-game').hidden = view === 'map';
   $('journey-game').dataset.view = view;
   $('journey-party').hidden = view !== 'map';
+  $('journey-bag-view').hidden = view !== 'bag';
+  if (view !== 'bag') $('journey-bag-view').replaceChildren();
   routeGame.hidden = view !== 'supply';
   if (view !== 'drive') closeDriveGame();
   if (view === 'map') {
@@ -460,6 +520,15 @@ function showJourney(view) {
 $('journey-back').onclick = () => {
   showJourney('map');
   $('journey-map').scrollIntoView({ block: 'start' });
+};
+
+$('journey-bag').onclick = () => {
+  const frame = document.createElement('iframe');
+  frame.title = '아이템 가방';
+  frame.src = new URL('bag.html?journey=1', driveAssets).href;
+  $('journey-bag-view').replaceChildren(frame);
+  showJourney('bag');
+  $('journey-game').scrollIntoView({ block: 'start' });
 };
 
 const driveTitles = {
@@ -523,7 +592,7 @@ drivePanel.addEventListener('click', event => {
   closeDriveGame();
   driveFrame = document.createElement('iframe');
   driveFrame.title = driveTitles[game];
-  driveFrame.src = '/play/drive/games/' + game + '/index.html';
+  driveFrame.src = new URL('games/' + game + '/index.html', driveAssets).href;
   driveFrame.addEventListener('load', sendDriveState);
   drivePlay.replaceChildren(driveFrame);
   drivePlay.hidden = false;
@@ -554,7 +623,7 @@ function enterJourneyActivity(spot) {
 }
 
 function journeyActivityCopy(activity) {
-  if (activity === 'supply') return ['이동 중 보급 스팟', '동승자 미니게임에서 파티 보급품을 얻을 수 있어요.', '보급품 미니게임 입장'];
+  if (activity === 'supply') return ['공통 아이템 · 보급품', '도전에 성공하면 파티 보급품을 얻어요.', '보급품 도전 열기'];
   if (activity === 'deadzone') return ['DEADZONE 집결지', '파티의 좌석으로 협동 전투에 참가해요.', 'DEADZONE 입장'];
   const gameName = venueStatus.kind === 'thief' ? '전기도둑' : '충전 릴레이';
   if (venueStatus.game?.phase === 'END') return ['충전소', gameName + '이 끝났어요.', '결과 보기'];
@@ -584,6 +653,7 @@ function renderJourneyMap() {
   $('journey-next').hidden = !next;
   if (next) {
     const [label, description, action] = journeyActivityCopy(next.activity);
+    $('journey-next-icon').hidden = next.activity !== 'supply';
     $('journey-next-label').textContent = label;
     $('journey-next-name').textContent = journeySpotName(next);
     const status = $('journey-next-status');
@@ -594,6 +664,7 @@ function renderJourneyMap() {
   }
   const plot = $('journey-plot');
   const list = $('journey-spots');
+  $('journey-bag').hidden = room.driveGamesAvailable !== true;
   $('journey-supplies').textContent = room.collection?.inventory?.supplies ?? 0;
   $('journey-map-status').textContent = routeFeedback || (position
     ? '보급 스팟에 가까워지면 입장 버튼이 표시돼요.' : '차량 위치를 기다리고 있어요.');
@@ -624,8 +695,13 @@ function renderJourneyMap() {
     for (const [index, spot] of spots.entries()) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = (index + 1) + ' · ' + journeySpotName(spot);
-      button.className = spot.activity ? 'spot-active' : '';
+      const label = spot.activity === 'supply' ? journeySpotName(spot) : (index + 1) + ' · ' + journeySpotName(spot);
+      button.textContent = label;
+      if (spot.activity === 'supply') {
+        button.classList.add('item-inline');
+        button.prepend(document.createElement('ply-supply-icon'));
+      }
+      button.classList.toggle('spot-active', Boolean(spot.activity));
       button.setAttribute('aria-pressed', String(selectedSpot?.placeId === spot.placeId));
       button.onclick = () => selectJourneySpot(spot);
       list.append(button);
@@ -650,7 +726,17 @@ function renderJourneyMap() {
       pin.className = 'journey-pin' + (markers.some(({spot}) => spot.activity) ? ' spot-active' : '');
       pin.style.left = x + '%';
       pin.style.top = y + '%';
-      pin.textContent = markers.length > 1 ? '+' + markers.length : String(marker.index + 1);
+      if (marker.spot.activity === 'supply') {
+        pin.classList.add('supply-pin');
+        pin.append(document.createElement('ply-supply-icon'));
+        if (markers.length > 1) {
+          const count = document.createElement('span');
+          count.className = 'cluster-count';
+          count.textContent = markers.length;
+          count.setAttribute('aria-hidden', 'true');
+          pin.append(count);
+        }
+      } else pin.textContent = markers.length > 1 ? '+' + markers.length : String(marker.index + 1);
       pin.setAttribute('aria-label', markers.length > 1
         ? markers.length + '개 장소 · 다음 장소 ' + marker.button.textContent : marker.button.textContent);
       pin.setAttribute('aria-pressed', String(selected >= 0));
@@ -662,6 +748,7 @@ function renderJourneyMap() {
   $('journey-place').hidden = !current;
   deadzoneLink.hidden = current?.activity !== 'deadzone';
   if (!current) return;
+  $('journey-place-icon').hidden = current.activity !== 'supply';
   $('journey-place-name').textContent = journeySpotName(current);
   const status = $('journey-place-status');
   const enter = $('journey-enter');
@@ -744,7 +831,10 @@ function render() {
     const collected = room.collection.collectedPickupIds.includes(pickup.pickupId), button = document.createElement('button');
     button.type = 'button'; button.className = 'pickup'; button.dataset.collected = String(collected);
     const title = document.createElement('b'); title.textContent = pickup.title; const label = document.createElement('span'); label.textContent = collected ? '수집 완료 ✓' : '보급품 +' + pickup.amount;
-    button.append(title, label); button.addEventListener('click', () => command('mobile.collect', { pickupId: pickup.pickupId, passengerConfirmed: $('passenger-confirm').checked })); return button;
+    const item = document.createElement('span');
+    item.className = 'item-inline';
+    item.append(document.createElement('ply-supply-icon'), title);
+    button.append(item, label); button.addEventListener('click', () => command('mobile.collect', { pickupId: pickup.pickupId, passengerConfirmed: $('passenger-confirm').checked })); return button;
   }));
   $('participant-count').textContent = room.members.filter(member => member.connected).length + ' / ' + room.members.length + ' 연결';
   $('members').replaceChildren(...room.members.map(member => { const li = document.createElement('li'); const label = document.createElement('b'); label.textContent = member.nickname + (member.memberId === memberId ? ' (나)' : ''); const detail = document.createElement('span'); detail.textContent = (seats[member.seat] || member.seat) + ' · ' + (member.connected ? '접속' : '오프라인'); li.append(label, detail); return li; }));

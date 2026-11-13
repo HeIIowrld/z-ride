@@ -48,6 +48,18 @@ class TrustedMainTests(unittest.TestCase):
             self.assertEqual(set(archive.getnames()), PULL.REQUIRED)
             self.assertTrue(all(member.mode == 0o644 for member in archive))
 
+    def test_packages_game_and_bag_assets_for_the_production_extractor(self):
+        names = ('style.css', 'bag.html', 'shared/ply.css', 'shared/bag.js',
+                 'shared/item-icons.js', 'data/items.json', 'games/raindrop/index.html')
+        entries = []
+        for name in (*names, 'shared/private.css', 'codex.html', 'data/private.json'):
+            item = tarfile.TarInfo('z-ride-SHA/minigames/' + name)
+            item.size = 1
+            entries.append((item, b'x'))
+        with tarfile.open(fileobj=io.BytesIO(PULL.runtime_bundle(self.source(entries)))) as archive:
+            self.assertEqual(set(archive.getnames()) - PULL.REQUIRED,
+                             {'drive-assets/' + name for name in names})
+
     def test_rejects_links_traversal_duplicates_and_missing_runtime(self):
         link = tarfile.TarInfo('z-ride-SHA/server/phone-client/link.js')
         link.type, link.linkname = tarfile.SYMTYPE, '/etc/shadow'

@@ -1,0 +1,34 @@
+:root {
+  --ply-ink: #eef6ff;
+  --ply-muted: #a6b7c7;
+  --ply-bg: #09121b;
+  --ply-surface: #101f2b;
+  --ply-line: #365264;
+  --ply-primary: #52f1d0;
+  --ply-primary-ink: #062b29;
+  --ply-radius: 12px;
+  --ply-common: #52f1d0;
+  --ply-specialized: #ffd094;
+}
+
+.item-badge {
+  --item-accent: var(--ply-common);
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: #173b39;
+  color: var(--item-accent);
+}
+
+.item-badge[data-scope="specialized"] {
+  --item-accent: var(--ply-specialized);
+  background: #3a2a23;
+  border-radius: 50%;
+}
+
+.item-badge svg { display: block; width: 65%; height: 65%; }
+.item-inline { display: inline-flex; gap: .45rem; align-items: center; }
+.item-inline .item-badge { width: 1.6rem; height: 1.6rem; }
