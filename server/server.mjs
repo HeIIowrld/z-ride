@@ -455,6 +455,7 @@ export function createDemoServer(options = {}) {
       },
       zombies: room.zombies.map(z => ({ ...z })),
       effects: effects.snapshot(room.roomId),
+      ...(viewer.role === 'CAR_HOST' ? { deadzoneAvailable: Boolean(deadzoneOrigin) && !room.closedAt } : {}),
       ...(viewer.approved && !room.closedAt && linkedDeadzone(room)?.state !== 'ended' && linkedDeadzone(room) &&
           (!linkedDeadzone(room).partySeats || linkedDeadzone(room).partySeats[viewer.memberId]) ? {
         deadzoneJoinUrl: deadzoneOrigin + '/j/' + linkedDeadzone(room).code +

@@ -38,6 +38,8 @@ test('native navigation broadcasts only to approved party members, revokes demo 
  assert.equal(p.room.navigation,undefined);
  await api(base+'/approve',{memberId:join.memberId,allowManualUnknown:true},host.token);await until(()=>p.room.navigation?.nativeRouteRevision===3);
  assert.equal(p.room.driveGame, 'raindrop');
+ assert.equal(car.room.deadzoneAvailable, false);
+ assert.equal(p.room.deadzoneAvailable, undefined);
  assert.equal((await selectGame('pole-jump', phone.token)).status, 403);
  assert.equal(p.room.party.route.active,false);assert.equal(p.room.navigation.geometryAvailable,false);
  assert.ok(saved.rooms.every(r=>!Object.hasOwn(r,'navigation')),'SDK location/navigation must not enter durable checkpoints');

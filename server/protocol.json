@@ -31,6 +31,7 @@
       "method": "POST",
       "path": "/api/rooms/{roomId}/deadzone",
       "auth": "CAR_HOST with fresh parked foreground vehicle",
+      "availability": "snapshot.room.deadzoneAvailable is exposed to the vehicle host. Show DEADZONE entry only when true.",
       "body": {
         "create": "optional boolean",
         "enableAmbient": "optional boolean, local user opt-in",

@@ -276,7 +276,8 @@ public final class MainActivity extends DemoActivity {
         if (!parked) repairQueued = false;
         if (!parked) venueVisible = false;
         boolean showVenue = parked && venueVisible;
-        boolean deadzoneAvailable = parked && !showVenue && !routeInProgress();
+        boolean deadzoneAvailable = parked && room != null && room.optBoolean("deadzoneAvailable")
+                && !showVenue && !routeInProgress();
         boolean showDeadzone = deadzoneAvailable && showMatchOnly;
         venuePanel.setVisibility(showVenue ? View.VISIBLE : View.GONE);
         renderDriveGames(parked && !showVenue && !showDeadzone);

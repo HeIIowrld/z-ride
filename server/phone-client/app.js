@@ -433,6 +433,8 @@ function showVenue(value) {
       info.textContent = state.solo ? '차량이 숨은 값을 더해요.' : '내 역할 ' + (state.role==='THIEF'?'도둑':'가족');
       if (me.done) info.textContent += ' · 다른 동승자를 기다리는 중';
       else venueButton('준비 완료','ready');
+    } else if (state.phase === 'CHARGING') {
+      info.textContent = '충전 중 · 배터리 ' + state.nextAt + '%에서 다음 사건이 열려요.';
     } else if(state.phase==='CASE'&&!me.done){
       info.textContent = '목표 합계 ' + state.range.lo + '~' + state.range.hi;
       const watch = document.createElement('select');

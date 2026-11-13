@@ -312,6 +312,7 @@ test('DEADZONE uses the approved party and emits only one ambient cue per cleare
   const origin = 'http://127.0.0.1:' + upstream.address().port;
   const f = await fixture(t, { deadzoneOrigin: origin, startRound: false });
   const path = '/api/rooms/' + f.room.roomId + '/deadzone';
+  await f.car.wait(value => value.type === 'snapshot' && value.room.deadzoneAvailable === true);
   assert.equal((await f.api(path, { create: true }, f.phone.token)).status, 403);
   assert.equal((await f.api(path, { create: true, enableAmbient: true }, f.host.token)).status, 200);
   await f.passenger.wait(value => value.type === 'snapshot' && value.room.deadzoneJoinUrl === origin + '/j/ABC234');

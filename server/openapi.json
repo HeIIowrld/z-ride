@@ -11095,6 +11095,10 @@
           "joinExpiresAt": {
             "$ref": "#/components/schemas/EpochMillis"
           },
+          "deadzoneAvailable": {
+            "type": "boolean",
+            "description": "Vehicle host projection indicating whether the DEADZONE service is configured for this active party."
+          },
           "driveGamesAvailable": {"type": "boolean"},
           "driveGame": {
             "$ref": "#/components/schemas/DriveGameId"
