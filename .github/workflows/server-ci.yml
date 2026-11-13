@@ -60,7 +60,7 @@ jobs:
         run: |
           python3 deploy/test_archive.py
           python3 deploy/test_pull_deploy.py
-          git archive --format=tar.gz --prefix=z-ride-ci/ HEAD > "$RUNNER_TEMP/zride-source.tar.gz"
+          git -C .. archive --format=tar.gz --prefix=z-ride-ci/ HEAD > "$RUNNER_TEMP/zride-source.tar.gz"
           python3 -c "import runpy, sys; from pathlib import Path; runpy.run_path('deploy/pull-deploy.py')['runtime_bundle'](Path(sys.argv[1]).read_bytes())" "$RUNNER_TEMP/zride-source.tar.gz"
           python3 deploy/pleos-viewer/test_viewer.py
           python3 deploy/pleos-viewer/test_simulation.py
