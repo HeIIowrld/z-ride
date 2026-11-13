@@ -16,8 +16,7 @@
 </head>
 <body>
   <main>
-    <header><a class="wordmark" href="/play">PLY</a><span class="tag">동승자</span></header>
-    <div id="connection" class="connection" role="status">방에 참가해 주세요</div>
+    <header class="app-header"><a class="wordmark" href="/play">PLY</a><span id="connection" class="connection" role="status">파티 연결 전</span></header>
     <section id="account-panel" class="panel">
       <h1>로그인하고 차량에 참가</h1>
       <p id="account-status" class="subtle" role="status">계정 설정 확인 중…</p>
@@ -36,7 +35,7 @@
       <p class="footnote">계정은 이 탭의 세션 저장소에 보관됨. 게스트는 탭을 닫거나 저장소를 지우면 복구할 수 없음. Google 연결 후에는 같은 Google 계정으로 다시 로그인할 수 있음.</p>
     </section>
     <section id="login-panel" class="panel login">
-      <h1>같이 타고, 같이 지킨다.</h1>
+      <h1>차량 파티 참가</h1>
       <p id="join-description" class="subtle">로그인 후 차량 화면의 QR을 찍어 주세요. 아이폰 Safari에서도 앱 설치 없이 참가할 수 있음.</p>
       <form id="join-form">
         <p id="invite-status" class="subtle" role="status">차량 QR을 기다리는 중</p>
@@ -60,11 +59,16 @@
 
     <section id="game" hidden>
       <div class="squad-head"><div><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">파티 탈퇴</button></div>
-      <section id="pending-panel" class="panel" hidden><h2>차량에서 자리 확인 중</h2><p class="subtle">차량 앱에서 이 참가자를 승인하면 수집과 전투에 참여할 수 있음.</p></section>
+      <section id="pending-panel" class="panel" hidden><h2>좌석 승인 대기</h2><p class="subtle">차량 화면에서 내 좌석을 승인해 주세요.</p></section>
       <section id="approved-content" hidden>
         <section id="journey-map" class="panel journey-map">
-          <div class="section-heading"><h2>여행 지도</h2><span class="item-inline"><ply-supply-icon></ply-supply-icon><span>파티 보급품 <b id="journey-supplies">0</b>개</span></span></div>
-          <button id="journey-bag" class="quiet journey-bag" type="button" hidden>아이템 가방</button>
+          <div class="section-heading map-heading">
+            <h2>여행 지도</h2>
+            <div class="map-tools"><span class="item-inline"><ply-supply-icon></ply-supply-icon><span>파티 보급품 <b id="journey-supplies">0</b></span></span>
+              <button id="journey-bag" class="quiet journey-bag" type="button" hidden>가방</button></div>
+          </div>
+          <div id="journey-plot" aria-label="차량 주변 지도"><span class="map-north" aria-hidden="true">북 ↑</span></div>
+          <p id="journey-map-status" class="map-status" role="status"></p>
           <div id="journey-next" class="journey-next" hidden>
             <div class="item-inline"><ply-supply-icon id="journey-next-icon" hidden></ply-supply-icon><p id="journey-next-label" class="eyebrow"></p></div>
             <h2 id="journey-next-name"></h2>
@@ -72,7 +76,7 @@
             <button id="journey-next-enter" type="button" class="primary"></button>
           </div>
           <section id="drive-games" class="journey-next drive-games" hidden>
-            <h2>주행 중 동승자 게임</h2>
+            <h2>동승자 게임</h2>
             <p id="drive-recommendation" class="subtle" hidden></p>
             <div class="drive-game-list">
               <button type="button" data-drive-game="license-quiz"><strong>운전면허 퀴즈</strong><span>도로 상황 퀴즈</span></button>
@@ -80,18 +84,16 @@
               <button type="button" data-drive-game="raindrop"><strong>빗방울 캐치</strong><span>차창 빗방울 받기</span></button>
             </div>
           </section>
-          <div id="journey-plot" aria-label="차량 주변 스팟 지도"></div>
-          <p id="journey-map-status" class="subtle"></p>
-          <div id="journey-spots" class="journey-spots"></div>
+          <details class="map-places"><summary>주변 장소</summary><div id="journey-spots" class="journey-spots"></div></details>
           <div id="journey-place" class="journey-place" hidden>
             <div class="item-inline"><ply-supply-icon id="journey-place-icon" hidden></ply-supply-icon><h2 id="journey-place-name"></h2></div>
             <p id="journey-place-status" class="subtle"></p>
             <button id="journey-enter" type="button" class="primary" hidden></button>
           </div>
-          <p class="footnote">북쪽 ↑ · 차량 기준 위치도 · © OpenStreetMap contributors</p>
+          <p class="footnote">© OpenStreetMap contributors</p>
         </section>
         <section id="journey-game" hidden>
-          <button id="journey-back" type="button" class="quiet">← 지도로 돌아가기</button>
+          <button id="journey-back" type="button" class="quiet">‹ 지도</button>
           <div id="drive-play" hidden></div>
           <div id="journey-bag-view" hidden></div>
         </section>

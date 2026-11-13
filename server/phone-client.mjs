@@ -8,6 +8,7 @@ const FILES = new Map([
   ['/play/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/play/account.js', ['account.js', 'text/javascript; charset=utf-8']],
   ['/play/style.css', ['style.css', 'text/css; charset=utf-8']],
+  ...['thief', 'relay', 'deadzone'].map(game => ['/play/' + game + '.webp', [game + '.webp', 'image/webp']]),
   ['/play/vehicle', ['vehicle.html', 'text/html; charset=utf-8']],
   ['/play/vehicle/', ['vehicle.html', 'text/html; charset=utf-8']],
   ['/play/vehicle.js', ['vehicle.js', 'text/javascript; charset=utf-8']],
@@ -71,7 +72,7 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
       }
       res.writeHead(200, {
         'content-type': file.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; img-src data:; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src 'self' https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
+        'content-security-policy': "default-src 'none'; img-src 'self' data:; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src 'self' https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
         'cross-origin-opener-policy': 'same-origin-allow-popups',
         'referrer-policy': 'strict-origin-when-cross-origin', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       });

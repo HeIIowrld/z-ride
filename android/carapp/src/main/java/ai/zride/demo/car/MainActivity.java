@@ -23,9 +23,9 @@ import android.widget.TextView;
 
 public final class MainActivity extends DemoActivity {
     private enum Game {
-        THIEF("전기도둑", "숨은 도둑을 찾아라", R.drawable.arcade_thief, 0xffc0baff),
-        RELAY("충전 릴레이", "그림이 정답까지 이어질까?", R.drawable.arcade_relay, 0xffffc097),
-        DEADZONE("DEADZONE", "한 대의 차량, 세 방향의 전투", R.drawable.arcade_deadzone, 0xffff796c);
+        THIEF("전기도둑", "목표 합계에 맞춰 충전하고 도둑을 찾아라.", R.drawable.arcade_thief, 0xffc0baff),
+        RELAY("충전 릴레이", "그림과 답을 넘겨 처음 단어를 맞혀라.", R.drawable.arcade_relay, 0xffffc097),
+        DEADZONE("DEADZONE", "각자 맡은 방향에서 차량을 지켜라.", R.drawable.arcade_deadzone, 0xffff796c);
 
         final String title, description;
         final int art, accent;
@@ -43,7 +43,7 @@ public final class MainActivity extends DemoActivity {
     private LinearLayout venuePanel;
     private View arcadeViewport;
     private LinearLayout venueChoices, venueCover, venueSeats;
-    private TextView venueLabel, venueLobbyDetail;
+    private TextView venuePhase, venueLabel, venueLobbyDetail;
     private boolean venueLobbyArt;
     private TextView venueDetail;
     private TextView venueInstruction;
@@ -100,7 +100,10 @@ public final class MainActivity extends DemoActivity {
         boolean lobby = "LOBBY".equals(phase) || "BRIEFING".equals(phase);
         venueSeats.setVisibility(lobby ? View.VISIBLE : View.GONE);
         if (lobby) updateSeats(venueSeats, game, "BRIEFING".equals(phase));
-        venueStart.setVisibility("LOBBY".equals(phase) ? android.view.View.VISIBLE : android.view.View.GONE);
+        venueStart.setVisibility("LOBBY".equals(phase) ? View.VISIBLE : View.GONE);
+        venueStart.setEnabled(approvedPassengers() >= 2 && !venuePending);
+        venuePhase.setText("BRIEFING".equals(phase) ? "역할 확인" : "대기실");
+        venuePhase.setVisibility(lobby ? View.VISIBLE : View.GONE);
         boolean next = java.util.Arrays.asList("RESULT","TALK","VERDICT","REVEAL","ROUND_END").contains(phase);
         venueNext.setVisibility(next ? android.view.View.VISIBLE : android.view.View.GONE);
         switch (phase) {
@@ -162,13 +165,15 @@ public final class MainActivity extends DemoActivity {
         venueDetail.setVisibility(lobby ? View.GONE : View.VISIBLE);
         String instruction;
         switch (phase) {
-            case "LOBBY": instruction = "동승자 폰에 로비가 열렸어요. 준비되면 게임을 시작하세요."; break;
-            case "BRIEFING": instruction = "동승자는 폰에서 역할을 확인하고 준비를 눌러 주세요."; break;
-            case "CASE": instruction = "동승자는 폰에서 카드를 선택해 주세요."; break;
+            case "LOBBY": instruction = approvedPassengers() < 2
+                    ? "동승자 2명 필요 · 연결 " + approvedPassengers() + "명"
+                    : "동승자 " + approvedPassengers() + "명 연결"; break;
+            case "BRIEFING": instruction = "폰에서 역할 확인 후 준비"; break;
+            case "CASE": instruction = "폰에서 카드 선택"; break;
             case "TALK": instruction = "함께 이야기한 뒤 차량에서 투표를 열어 주세요."; break;
             case "VOTE": instruction = "동승자는 폰에서 투표해 주세요."; break;
-            case "PLAY": instruction = "동승자는 폰에서 그림이나 정답을 제출해 주세요."; break;
-            case "END": instruction = "결과를 확인한 뒤 다음 게임을 선택할 수 있어요."; break;
+            case "PLAY": instruction = "폰에서 그림 또는 정답 제출"; break;
+            case "END": instruction = ""; break;
             default: instruction = choose && approvedPassengers() < 2
                     ? "동승자 두 명이 연결되면 함께 플레이할 수 있어요." : "";
         }
@@ -202,11 +207,12 @@ public final class MainActivity extends DemoActivity {
         });
         venueCover.setPadding(dp(28), dp(12), dp(24), dp(12));
         venuePanel.addView(venueCover);
-        venueLabel = dashboardText(venueCover, 44, true);
+        venuePhase = dashboardText(venueCover, 16, true);
+        venueLabel = dashboardText(venueCover, 40, true);
         venueLobbyDetail = dashboardText(venueCover, 20, false);
         venueDetail = dashboardText(venueCover, 32, true);
-        venueInstruction = dashboardText(venuePanel, 20, true);
         venueSeats = seatStrip(venuePanel);
+        venueInstruction = dashboardText(venuePanel, 17, false);
         venueStart = venueControl("게임 시작", "start", null);
         venueNext = venueControl("다음", "next", null);
         venueItem = venueControl("보급품 사용", "item", null);
@@ -229,7 +235,7 @@ public final class MainActivity extends DemoActivity {
     }
 
     private TextView leaderboard;
-    private TextView matchSummary, vehicleHealth;
+    private TextView matchPhase, matchSummary, vehicleHealth;
     private android.widget.ProgressBar healthMeter;
     private LinearLayout healthCard;
     private LinearLayout ranking;
@@ -455,7 +461,8 @@ public final class MainActivity extends DemoActivity {
                     deadzoneStart.setVisibility(View.GONE);
                     deadzoneSeats.setVisibility(View.GONE);
                     ranking.setVisibility(View.VISIBLE);
-                    leaderboard.setText(ended ? "DEADZONE 결과" : "DEADZONE");
+                    matchPhase.setText(ended ? "경기 결과" : "playing".equals(match.optString("state")) ? "전투 중" : "대기실");
+                    leaderboard.setText("DEADZONE");
                     focusMatch(true);
                     matchSummary.setText("웨이브 " + match.optInt("wave") + "   ·   팀 점수 " + match.optInt("score"));
                     var players = match.optJSONArray("players");
@@ -780,7 +787,8 @@ public final class MainActivity extends DemoActivity {
         title.setPadding(dp(28), dp(12), dp(24), dp(12));
         title.setBackground(cover(Game.DEADZONE));
         deadzonePanel.addView(title);
-        leaderboard = dashboardText(title, 48, true);
+        matchPhase = dashboardText(title, 16, true);
+        leaderboard = dashboardText(title, 40, true);
         matchSummary = dashboardText(title, 21, true);
         deadzoneSeats = seatStrip(deadzonePanel);
         healthCard = column();
@@ -970,7 +978,8 @@ public final class MainActivity extends DemoActivity {
         for (int index = 0; index < SEATS.length; index++) {
             LinearLayout tile = column();
             tile.setPadding(dp(16), dp(10), dp(16), dp(10));
-            styleVehicleCard(tile, 0xff191d31);
+            GradientDrawable seatSurface = destinationSurface(0xff191f27, 0xff465461, 6);
+            tile.setBackground(seatSurface);
             LinearLayout.LayoutParams layout = wide ? new LinearLayout.LayoutParams(0, -2, 1)
                     : new LinearLayout.LayoutParams(-1, -2);
             layout.topMargin = dp(8);
@@ -980,6 +989,7 @@ public final class MainActivity extends DemoActivity {
             TextView label = dashboardText(tile, 19, true);
             label.setSingleLine(true);
             label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            dashboardText(tile, 15, false);
         }
         container.addView(seats);
         return seats;
@@ -999,11 +1009,12 @@ public final class MainActivity extends DemoActivity {
         for (int index = 0; index < SEATS.length; index++) {
             TextView label = (TextView) ((LinearLayout) seats.getChildAt(index)).getChildAt(1);
             JSONObject member = seatMember(SEATS[index]);
-            String message = "빈 좌석";
+            TextView seatStatus = (TextView) ((LinearLayout) seats.getChildAt(index)).getChildAt(2);
+            String message = "—";
+            String state = "빈 자리";
             int color = 0xffa5acc9;
             if (member != null) {
                 JSONObject player = gamePlayer(game, member.optString("memberId"));
-                String state;
                 if (!member.optBoolean("approved")) state = "승인 대기";
                 else if (!member.optBoolean("connected")) state = "연결 끊김";
                 else if (game != null && player == null) state = "미참가";
@@ -1011,10 +1022,11 @@ public final class MainActivity extends DemoActivity {
                     state = briefing ? (player != null && player.optBoolean("done") ? "준비 완료" : "준비 중") : "연결됨";
                     color = 0xffa8efce;
                 }
-                message = member.optString("nickname") + " · " + state;
+                message = member.optString("nickname");
             }
             if (!message.contentEquals(label.getText())) label.setText(message);
-            label.setTextColor(color);
+            if (!state.contentEquals(seatStatus.getText())) seatStatus.setText(state);
+            seatStatus.setTextColor(color);
         }
     }
 
@@ -1029,6 +1041,7 @@ public final class MainActivity extends DemoActivity {
     }
 
     private void resetMatchBoard() {
+        matchPhase.setText("대기실");
         leaderboard.setText(Game.DEADZONE.title);
         matchSummary.setText(Game.DEADZONE.description);
         deadzoneStart.setVisibility(View.VISIBLE);

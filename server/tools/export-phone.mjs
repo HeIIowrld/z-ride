@@ -11,9 +11,9 @@ let html=await readFile(new URL('../phone-client/index.html',import.meta.url),'u
 html=html.replaceAll('PLY',displayName.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;'));
 html=html.replaceAll('/play/', './');
 html=html.replace('href="/play"','href="./"').replace('href="/observer"','href="'+origin+'/observer"');
-html=html.replace('<meta name="theme-color"',`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src 'self' https://accounts.google.com/gsi/; connect-src 'self' ${origin} ${origin.replace(/^http/,'ws')} https://accounts.google.com/gsi/; base-uri 'none'; form-action 'self'">\n  <meta name="referrer" content="strict-origin-when-cross-origin">\n  <meta name="theme-color"`);
+html=html.replace('<meta name="theme-color"',`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src 'self' https://accounts.google.com/gsi/; connect-src 'self' ${origin} ${origin.replace(/^http/,'ws')} https://accounts.google.com/gsi/; base-uri 'none'; form-action 'self'">\n  <meta name="referrer" content="strict-origin-when-cross-origin">\n  <meta name="theme-color"`);
 await writeFile(target+'/index.html',html);
-for(const file of ['app.js','account.js','style.css','arena.js','arena.css'])await writeFile(target+'/'+file,await readFile(new URL('../phone-client/'+file,import.meta.url)));
+for(const file of ['app.js','account.js','style.css','arena.js','arena.css','thief.webp','relay.webp','deadzone.webp'])await writeFile(target+'/'+file,await readFile(new URL('../phone-client/'+file,import.meta.url)));
 for (const file of DRIVE_FILES) {
   const destination = resolve(target, 'drive', file);
   await mkdir(dirname(destination), {recursive: true});
