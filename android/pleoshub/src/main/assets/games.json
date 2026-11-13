@@ -24,6 +24,14 @@
     "url": "http://10.0.2.2:8220/"
   },
   {
+    "id": "volt-rush",
+    "title": "볼트 러시",
+    "scene": "CHARGING",
+    "players": "2–4명",
+    "summary": "선을 깔며 가운데 충전기에 먼저 닿아요",
+    "url": "http://10.0.2.2:8230/"
+  },
+  {
     "id": "parking-escape",
     "title": "주차장 좀비 탈출",
     "scene": "PARKED",
