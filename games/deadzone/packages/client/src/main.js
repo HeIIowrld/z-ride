@@ -52,6 +52,8 @@ import { Input, haptic, HAPTIC, setHaptics } from './input/input.js';
 import { UI } from './ui/ui.js';
 import { NetClient } from './net/client.js';
 
+const DEMO = import.meta.env.MODE === 'demo';
+
 /* ------------------------------------------------------------- SETTINGS */
 
 const Save = {
@@ -123,9 +125,11 @@ class App {
     this.ui.buildSettings(Settings, (k) => this.onSettingChange(k));
     this.refreshProfileStrip();
 
-    document.getElementById('titleHint').innerHTML = matchMedia('(pointer: coarse)').matches
-      ? '차량 방은 적을 눌러 사격 · 자유 이동은 왼손 이동, 오른손 조준'
-      : '차량 방은 적을 클릭해 사격 · 자유 이동은 WASD, 마우스 조준, SPACE 대시';
+    const touch = matchMedia('(pointer: coarse)').matches;
+    document.getElementById('titleHint').textContent = DEMO
+      ? (touch ? '왼쪽 이동 · 오른쪽 조준과 사격' : 'WASD 이동 · 마우스 조준과 사격 · SPACE 대시')
+      : (touch ? '차량 방은 적을 눌러 사격 · 자유 이동은 왼손 이동, 오른손 조준'
+        : '차량 방은 적을 클릭해 사격 · 자유 이동은 WASD, 마우스 조준, SPACE 대시');
 
     this.ui.el.best.textContent = 'BEST ' + Save.data.best;
 
@@ -157,7 +161,7 @@ class App {
     const path = location.pathname.match(/\/j\/([A-Za-z0-9]{4,8})/);
     const q = new URLSearchParams(location.search);
     const code = (path && path[1]) || q.get('room');
-    if (code) setTimeout(() => this.joinRoom(code.toUpperCase()), 400);
+    if (!DEMO && code) setTimeout(() => this.joinRoom(code.toUpperCase()), 400);
 
     this.loop = this.loop.bind(this);
     this.lastNow = performance.now();
@@ -177,11 +181,10 @@ class App {
       <div class="party-picker" role="group" aria-label="참가 인원">
       ${[1,2,3,4].map(n=>`<button type="button" data-players="${n}" aria-pressed="${n===1}"><b>${n}</b><span>명</span></button>`).join('')}</div>
       <div class="difficulty-note"><span id="difficultyLabel">생존자</span><b id="difficultyValue">좀비 출현량 ×1.00</b></div>
-      <button class="z-primary" id="zCreate">협동 방 만들기 <span>↗</span></button>
-      <button class="z-secondary" id="zPractice">혼자 체험하기</button>
+      ${DEMO ? '' : '<button class="z-primary" id="zCreate">협동 방 만들기 <span>↗</span></button>'}
+      <button class="${DEMO ? 'z-primary' : 'z-secondary'}" id="zPractice">혼자 체험하기</button>
       <p id="practiceNote" class="fineprint">선택한 인원에 맞게 AI 동료를 채워 체험합니다.</p>
-      <a class="dashboard-entry" href="/infected.html" target="_blank" rel="noopener">감염체 도감 <span>↗</span></a>
-      <a class="dashboard-entry" href="/dashboard" target="_blank" rel="noopener">차량 대시보드 열기 <span>↗</span></a>`;
+      ${DEMO ? '' : '<a class="dashboard-entry" href="/infected.html" target="_blank" rel="noopener">감염체 도감 <span>↗</span></a><a class="dashboard-entry" href="/dashboard" target="_blank" rel="noopener">차량 대시보드 열기 <span>↗</span></a>'}`;
     const name = document.getElementById('survivorName'); name.value = Save.data.name || '';
     const saveName = () => { Save.data.name = name.value.trim().slice(0,18) || '생존자'; Save.flush(); };
     host.querySelectorAll('[data-players]').forEach(button => button.onclick = () => {
@@ -192,7 +195,13 @@ class App {
       document.getElementById('difficultyValue').textContent='좀비 출현량 ×'+d.spawnMultiplier.toFixed(2);
       document.getElementById('zPractice').textContent=this.selectedPlayers===1?'혼자 체험하기':`AI 동료 ${this.selectedPlayers-1}명과 체험하기`;
     });
-    document.getElementById('zCreate').onclick=()=>{saveName();this.createRoom('coop');};
+    if (DEMO) {
+      document.getElementById('joinCodeBtn').classList.add('hidden');
+      document.getElementById('hudDashboard').hidden = true;
+      document.querySelector('.wordmark').href = '/play';
+    } else {
+      document.getElementById('zCreate').onclick=()=>{saveName();this.createRoom('coop');};
+    }
     document.getElementById('zPractice').onclick=()=>{saveName();this.startLocal('coop');};
   }
 
@@ -202,7 +211,7 @@ class App {
       <h4>THE ONLY RULE</h4>
       <p>Standing still is how you die. Everything in this game is designed around movement — your dash has invulnerability frames, your shield only regenerates when you disengage, and the arena rebuilds its cover between every wave.</p>
       <h4>CONTROLS</h4>
-      <p>차량 방에서는 색으로 표시된 좌석의 담당 방향에서 적을 눌러 사격합니다. 누르고 있으면 연사합니다.</p>
+      ${DEMO ? '' : '<p>차량 방에서는 색으로 표시된 좌석의 담당 방향에서 적을 눌러 사격합니다. 누르고 있으면 연사합니다.</p>'}
       <p>${touch
         ? '<b>Left thumb</b> anywhere on the left half moves. <b>Right thumb</b> aims and fires — or let go and the gun engages whatever you are already facing. <b>DASH</b> is bottom right.'
         : '<b>WASD</b> moves, <b>mouse</b> aims, <b>hold left click</b> to fire. <b>Space</b> dashes, <b>E</b> and <b>F</b> cast abilities, <b>Q</b> swaps weapon, <b>1–6</b> selects directly. A gamepad works too.'}</p>
@@ -210,8 +219,7 @@ class App {
       <p>Every kill ratchets it up and raises your fire rate. Getting hit costs you most of it. It decays in ${T.combo.window} seconds, so it is a reason to keep pushing rather than a reason to be careful.</p>
       <h4>TELEGRAPHS</h4>
       <p>Every enemy attack warns you for at least a quarter of a second, in colour and in sound. If it is rose, it can kill you. Nothing decorative is ever rose.</p>
-      <h4>ONLINE</h4>
-      <p><b>Online</b> finds you a match. <b>Room</b> gives you a six-character code — send it to a friend and they join instantly, no account needed.</p>`;
+      ${DEMO ? '' : '<h4>ONLINE</h4><p><b>Room</b> gives you a six-character code to share with friends.</p>'}`;
   }
 
   refreshProfileStrip() {
@@ -330,7 +338,7 @@ class App {
     Save.data.runs++;
     Save.flush();
     this.checkOrientation();
-    if (!this.mounted) lockOrientation();
+    if (!this.mounted && !DEMO) lockOrientation();
     requestWakeLock();
   }
 
@@ -1066,7 +1074,7 @@ class App {
   /* -------------------------------------------------------------- SYSTEM */
 
   checkOrientation() {
-    const portrait = !this.mounted && window.innerHeight > window.innerWidth && matchMedia('(pointer: coarse)').matches;
+    const portrait = !DEMO && !this.mounted && window.innerHeight > window.innerWidth && matchMedia('(pointer: coarse)').matches;
     document.getElementById('rotate').classList.toggle('show', portrait && ['play', 'choice', 'pause'].includes(this.state));
     if (portrait && this.state === 'play' && !this.online) this.togglePause();
   }
@@ -1247,5 +1255,5 @@ app.boot().catch(err => {
 // Secure contexts only, which includes localhost — the old check was https
 // alone, so the service worker never registered during local development and
 // the offline path could not be tested without deploying it.
-if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));
+if (!DEMO && 'serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));
 
