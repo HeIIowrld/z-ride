@@ -18,6 +18,8 @@ import urllib.request
 REPOSITORY = 'HeIIowrld/z-ride'
 ROOT = Path('/srv/zride')
 MAX_DOWNLOAD = 16 * 1024 * 1024
+# The public source includes the place catalog, even though the runtime omits it.
+MAX_EXPANDED_SOURCE = 64 * 1024 * 1024
 REQUIRED = {
     'package.json', 'package-lock.json', 'server.mjs', 'world.mjs',
     'state-store.mjs', 'effects.mjs', 'game-state.mjs', 'cabin.mjs', 'places.mjs', 'party-api.mjs', 'auth-providers.mjs', 'request-policy.mjs', 'event-ledger.mjs', 'accounts.mjs', 'account-api.mjs', 'observer.mjs', 'observer/index.html',
@@ -68,7 +70,7 @@ def runtime_bundle(payload):
             if path.parts[0] != prefix or not (member.isdir() or member.isfile()):
                 raise ValueError('Unexpected source entry')
             expanded += member.size
-            if expanded > 32 * 1024 * 1024:
+            if expanded > MAX_EXPANDED_SOURCE:
                 raise ValueError('Expanded source exceeds limit')
             if len(path.parts) < 3 or not member.isfile():
                 continue
