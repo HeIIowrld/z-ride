@@ -437,17 +437,14 @@ export class UI {
 
   buildSettings(settings, onChange) {
     const rows = [
-      { k: 'shake', label: 'SCREEN SHAKE', type: 'range', min: 0, max: 1.5, step: 0.05 },
       { k: 'aimAssist', label: 'AIM ASSIST', type: 'range', min: 0, max: 1.5, step: 0.05 },
-      { k: 'sensitivity', label: 'AIM SENSITIVITY', type: 'range', min: 0.4, max: 2, step: 0.05 },
       { k: 'haptics', label: 'HAPTICS', type: 'toggle' },
       { k: 'music', label: 'MUSIC', type: 'toggle' },
       { k: 'sfx', label: 'SOUND', type: 'toggle' },
       { k: 'minimap', label: 'MINIMAP', type: 'toggle' },
       { k: 'damageNumbers', label: 'DAMAGE NUMBERS', type: 'toggle' },
       { k: 'reducedMotion', label: 'REDUCED MOTION', type: 'toggle' },
-      { k: 'showFps', label: 'SHOW FPS', type: 'toggle' },
-      { k: 'quality', label: 'QUALITY', type: 'cycle', values: ['auto', 'low', 'med', 'high', 'ultra'] }
+      { k: 'showFps', label: 'SHOW FPS', type: 'toggle' }
     ];
     const host = this.el.settingsList;
     host.innerHTML = '';
@@ -465,7 +462,7 @@ export class UI {
         inp.value = settings[r.k];
         inp.oninput = () => { settings[r.k] = +inp.value; onChange(r.k); };
         row.appendChild(inp);
-      } else if (r.type === 'toggle') {
+      } else {
         const b = document.createElement('div');
         const paint = () => {
           b.className = 'tog' + (settings[r.k] ? ' on' : '');
@@ -473,17 +470,6 @@ export class UI {
         };
         paint();
         b.onclick = () => { settings[r.k] = !settings[r.k]; paint(); onChange(r.k); };
-        row.appendChild(b);
-      } else {
-        const b = document.createElement('div');
-        b.className = 'tog on';
-        b.textContent = String(settings[r.k]).toUpperCase();
-        b.onclick = () => {
-          const i = r.values.indexOf(settings[r.k]);
-          settings[r.k] = r.values[(i + 1) % r.values.length];
-          b.textContent = String(settings[r.k]).toUpperCase();
-          onChange(r.k);
-        };
         row.appendChild(b);
       }
       host.appendChild(row);
