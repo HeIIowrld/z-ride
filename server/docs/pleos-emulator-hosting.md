@@ -8,6 +8,7 @@
 | https://hyundai.hjpark.net/vehicles/1 | 실제 Pleos 1 화면·클릭·드래그·스크롤 |
 | https://hyundai.hjpark.net/vehicles/2 | 실제 Pleos 2, 별도 파티 |
 | https://hyundai.hjpark.net/vehicles/3 | 실제 Pleos 3, 별도 파티 |
+| https://hyundai.hjpark.net/vehicles/phone | 실제 Android 14 동승자 에뮬레이터. Chrome의 PLY를 웹에서 조작 |
 | /vehicles/status.json | 별도 viewer 서비스의 공개 상태 요약. 게임 REST 55개와 별도 운영 경로 |
 
 ## 용량과 실행 범위
@@ -34,11 +35,13 @@ CT317: RAM 제한20GiB, 8 CPU, rootfs64GiB. AVD 서비스는 MemoryMax7500M/Memo
 
 ## 이동·경로 변경 시험
 
-차량 페이지의 ‘이동·경로 변경 시뮬레이션’을 펼쳐 목적지A/B → 목적지 설정 → 서버 APPLIED 확인 → 이동 시작 → 다른 목적지 선택·경로 변경 → 주차 또는 안내 취소 순으로 시험한다. 10/30/60km/h와 시간1/5/10배를 선택한다. D·UX 제한에서는 차량 게임/QR을 숨기며, 주차 P로 복귀해야 협동 게임과 승인을 진행한다. 폰 수집은 승인된 동승자의 기존 계정·월드 API를 사용한다.
+차량 앱에서 여정을 시작해 동승자 QR을 발급한 다음, [Pleos 1](https://hyundai.hjpark.net/vehicles/1)의 **여정 시나리오**를 펼친다. 여의도 동·서쪽, 짧은 보급품 시연, 직접 설정 중에서 고른다. 직접 설정은 위도, 경도 순의 출발점과 도착점을 직선으로 잇는다. **경로 적용** 후 **시작**을 누른다. 10/30/60km/h와 1/2/5/10배속을 선택할 수 있다. 배속은 위치 진행에 적용되며 표시 차량 속도는 그대로다. 중간 위치로 이동하면 P에 정차하고, 시작을 누르면 그 위치에서 재개한다.
 
-운영용 `GET/POST /vehicles/simulation/{1|2|3}`는 고정 동작만 받는다. POST는 같은 Origin과 JSON, expectedRevision 일치가 필요하다. 액션: destination/reroute/start/pause/park/cancel. 좌표·URL·ADB 문자열을 임의로 입력받지 않는다. 차량별 잠금과 revision으로 중복·동시 조작 충돌을 구분한다. 오류 시 이동을 중단하고 P 복귀를 시도한다. 서비스 재시작 때 시뮬레이터 상태는 초기화되며 자동 이동을 재개하지 않는다.
+**시나리오 링크 복사**로 프리셋 또는 직접 입력한 좌표, 차량 속도, 배속을 공유한다. 링크를 열면 설정만 채운다. 실제 재생은 진행자가 누른다. 같은 차량 화면과 재생 상태는 팀원이 함께 볼 수 있다. 실제 폰은 차량 QR로 참가한다. [공유 Android](https://hyundai.hjpark.net/vehicles/phone)에서는 QR에서 복사한 초대 링크를 넣고 **Android에서 열기**를 누른다. Android Chrome에서 게스트로 좌석을 신청하고 차량에서 승인한다. D·UX 제한에서는 차량 게임과 QR을 숨기고 주차 P에서 다시 표시한다.
 
-GPS는 Android Emulator geo fix로 넣고 기어·속도는 공식 Virtual Console에 반영한다. 디버그 차량 APK의 private `demo-route.json` bridge는 자신의 메모리 내 HOST 인증으로 기존 POST /api/rooms/{id}/route를 호출한다. 결과 영수증이 확인되기 전에는 이동을 시작하지 않는다. 서버 경로 변경은 승인된 폰의 snapshot.party.route revision/source/active로 즉시 전달하며 실제 경로 geometry는 방송하지 않는다. 폰은 revision 변경 후 기존 route/spots를 재조회한다. 경로 변경은 현재 위치에서 출발하며 도착 시 자동 P, 취소는 source=NONE으로 서버 경로를 비운다.
+운영용 `GET/POST /vehicles/simulation/{1|2|3}`는 고정 동작만 받는다. POST는 같은 Origin과 JSON, expectedRevision 일치가 필요하다. 액션은 destination/reroute/start/pause/park/cancel/seek다. 직접 설정은 위경도 숫자 두 쌍을 받고, seek는 0부터 1까지의 진행률을 받는다. 차량별 잠금과 revision으로 중복·동시 조작 충돌을 구분한다. 오류 시 이동을 중단하고 P 복귀를 시도한다. 서비스 재시작 때 시뮬레이터 상태는 초기화되며 자동 이동을 재개하지 않는다.
+
+GPS는 Android Emulator geo fix 또는 Pleos AVD의 Android 테스트 위치 공급자로 넣고, 기어·속도는 공식 Virtual Console에 반영한다. 테스트 위치 공급자는 여정 종료와 viewer 종료 때 해제한다. 디버그 차량 APK의 private `demo-route.json` bridge는 자신의 메모리 내 HOST 인증으로 기존 POST /api/rooms/{id}/route를 호출한다. 결과 영수증이 확인되기 전에는 이동을 시작하지 않는다. 서버 경로 변경은 승인된 폰의 snapshot.party.route revision/source/active로 즉시 전달하며 실제 경로 geometry는 방송하지 않는다. 폰은 revision 변경 후 기존 route/spots를 재조회한다. 경로 변경은 현재 위치에서 출발하며 도착 시 자동 P, 취소는 source=NONE으로 서버 경로를 비운다.
 
 **두 경로는 여의도 일대 합성 시험 좌표이며 도로망·통행 가능성을 검증한 길찾기 결과가 아니다.** 출처는 DEMO_ROUTE다. 내장 내비 앱에 실제 목적지를 입력하거나 Pleos Navigation SDK의 길찾기·재탐색 callback을 연결한 결과가 아니며, 실제 SDK callback 연동은 팀 차량 앱 구현에서 이 기존 route API로 교체한다. 에뮬레이터 GPS를 바꿔도 실물 폰의 GPS나 아이템 획득 위치 증명은 바꾸지 않는다. GPS 이동만으로 아이템/보상이 자동 지급되지 않는다.
 
@@ -49,6 +52,8 @@ SDK 이미지·실행 파일·AVD 사용자 데이터·APK·개인 키는 저장
 PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicle@1`로 각 대를 관리한다. 상태/로그는 CT317의 `pleos-viewer.service`, `pleos-vehicle@1.service`, `/home/emulator/logs/`에서 확인한다. SDK는 /opt/android-sdk, AVD는 /home/emulator/.android/avd에 있다. 서비스를 추가로 시작하기 전에 실제 호스트 메모리를 확인한다.
 
 소스: deploy/pleos-viewer. 같은 디렉토리의 unittest는 사용자10/최신성/비공개 값 제외/경로 탈출/제어 API 부재를 검사한다. 실제 기동·SDK 신호·WSS 화면은 별도로 확인한다.
+
+공유 Android는 CT317의 별도 `PLY_Phone` AVD와 `ply-phone.service`를 사용한다. 2GiB RAM·x86_64 Google APIs API 34 시스템 이미지에서 Chrome을 실행한다. 설치 파일은 `start-phone.sh`, `ply-phone.service`다. 기존 Pleos 화면과 같은 noVNC 프록시를 쓰고, Android의 초대 입력은 운영 PLY QR 형식만 받는다.
 
 [Pleos 설치·실행](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/setup-connect-sdk-emulator) · [Pleos AVD 구성/GPU](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/configure-pleos-connect-emulator) · [Pleos 앱 시작/RAM4GiB](https://document.pleos.ai/en/docs/pleos-only/getting-started) · [Android Linux KVM](https://developer.android.com/studio/run/emulator-acceleration).
 

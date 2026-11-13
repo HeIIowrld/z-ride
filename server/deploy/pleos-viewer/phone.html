@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PLY · Android 동승자</title>
+  <link rel="stylesheet" href="/vehicles/style.css">
+  <script type="module" src="/vehicles/viewer.js"></script>
+  <script type="module" src="/vehicles/phone.js"></script>
+</head>
+<body class="viewer">
+  <header><a href="/vehicles/1">← Pleos 차량 1</a><h1 id="title">Android 동승자</h1><a href="/play" target="_blank" rel="noopener">폰에서 PLY 열기 ↗</a></header>
+  <p id="status" role="status">Android 에뮬레이터 연결 중…</p>
+  <form id="phone-invite" class="journey-controls">
+    <label>차량 QR의 초대 링크 <input id="phone-invite-link" type="url" autocomplete="off" required></label>
+    <button type="submit">Android에서 열기</button>
+    <span id="phone-invite-status" role="status"></span>
+  </form>
+  <div id="screen"></div>
+  <p class="muted">Android의 Chrome에서 동승자 PLY를 실행합니다. 다른 폰도 차량 QR로 같은 여정에 참가할 수 있습니다.</p>
+</body>
+</html>

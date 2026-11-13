@@ -33,7 +33,7 @@ class ViewerTests(unittest.TestCase):
     def test_public_http_exposes_no_control_or_arbitrary_file_endpoint(self):
         server=viewer.ThreadingHTTPServer(('127.0.0.1',0),viewer.Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();base='http://127.0.0.1:'+str(server.server_port)
         try:
-            for path in ['/','/1','/2','/3','/viewer.js']:
+            for path in ['/','/1','/2','/3','/viewer.js','/phone','/phone.js','/scenarios.json']:
                 with urllib.request.urlopen(base+path) as r:self.assertEqual(r.status,200)
             for path in ['/4','/novnc/../../etc/passwd','/novnc/%2Fetc/passwd','/control','/viewer.py']:
                 with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(base+path)
@@ -41,5 +41,15 @@ class ViewerTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(urllib.request.Request(base+'/control',data=b'{}'))
             self.assertEqual(error.exception.code,404)
         finally:server.shutdown();server.server_close();thread.join()
+
+    def test_android_only_opens_an_exact_ply_invite(self):
+        invite='https://hyundai.hjpark.net/play#invite='+'a'*32
+        with patch.object(viewer,'command',return_value='Starting: Intent') as command:
+            self.assertEqual(viewer.open_phone_invite({'invite':invite}),{'opened':True})
+            self.assertEqual(command.call_args.args[0][-3:],[invite,'-p','com.android.chrome'])
+            for bad in [invite+';id',invite.replace('/play','/vehicles/1'),invite.replace('hyundai','example')]:
+                with self.assertRaisesRegex(ValueError,'INVALID_COMMAND'):
+                    viewer.open_phone_invite({'invite':bad})
+            self.assertEqual(command.call_count,1)
 
 if __name__=='__main__':unittest.main()

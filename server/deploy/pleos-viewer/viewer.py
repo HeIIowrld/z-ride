@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Interactive screen catalog for fixed Pleos AVDs. Pointer/keyboard control uses VNC; no arbitrary command endpoint."""
-import json, re, subprocess, threading, time
+import json, re, signal, subprocess, threading, time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
-from simulation import simulator
+from simulation import EmulatorLocationError, ROUTES, simulator
 import native_navigation
 
 ROOT=Path(__file__).resolve().parent
@@ -13,6 +13,17 @@ ADB='/opt/android-sdk/platform-tools/adb'
 APP='ai.zride.demo.car'
 cache={'at':0,'value':None}
 lock=threading.Lock()
+
+
+def open_phone_invite(body):
+    if not isinstance(body,dict) or set(body)!={'invite'}:
+        raise ValueError('INVALID_COMMAND')
+    invite=body['invite']
+    if not isinstance(invite,str) or not re.fullmatch(r'https://hyundai\.hjpark\.net/play/?#invite=[A-Za-z0-9_-]{32}',invite):
+        raise ValueError('INVALID_COMMAND')
+    if not command([ADB,'-s','emulator-5560','shell','am','start','-W','-a','android.intent.action.VIEW','-d',invite,'-p','com.android.chrome'],timeout=12).startswith('Starting:'):
+        raise RuntimeError('EMULATOR_UNAVAILABLE')
+    return {'opened':True}
 
 def command(args,timeout=2):
     try:
@@ -51,12 +62,14 @@ class Handler(BaseHTTPRequestHandler):
         path=unquote(urlsplit(self.path).path)
         match=re.fullmatch(r'/simulation/([123])',path)
         if match:return self.send_body(json.dumps(simulator.snapshot(int(match[1])),ensure_ascii=False).encode(),'application/json; charset=utf-8')
+        if path=='/scenarios.json':return self.send_body(json.dumps(ROUTES,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         match=re.fullmatch(r'/navigation/([123])',path)
         if match:return self.send_body(json.dumps(native_navigation.status(int(match[1]))).encode(),'application/json')
         if path=='/status.json':return self.send_body(json.dumps(catalog(),ensure_ascii=False).encode(),'application/json; charset=utf-8')
         if path in ['/','/index.html']:file=ROOT/'index.html'
+        elif path in ['/phone','/phone/']:file=ROOT/'phone.html'
         elif re.fullmatch(r'/[123]/?',path):file=ROOT/'viewer.html'
-        elif path in ['/app.js','/viewer.js','/simulation.js','/native-navigation.js','/style.css']:file=ROOT/path[1:]
+        elif path in ['/app.js','/viewer.js','/simulation.js','/native-navigation.js','/phone.js','/style.css']:file=ROOT/path[1:]
         elif path.startswith('/novnc/'):
             file=(NOVNC/path[len('/novnc/'):]).resolve()
             if not file.is_relative_to(NOVNC) or file.suffix not in ['.js','.css','.svg','.png','.woff','.woff2']:return self.send_error(404)
@@ -66,15 +79,21 @@ class Handler(BaseHTTPRequestHandler):
         self.send_body(file.read_bytes(),types.get(file.suffix,'application/octet-stream'))
     def do_POST(self):
         match=re.fullmatch(r'/(simulation|navigation)/([123])',urlsplit(self.path).path)
-        if not match:return self.send_error(404)
+        phone=urlsplit(self.path).path=='/phone/invite'
+        if not match and not phone:return self.send_error(404)
         if self.headers.get('Origin')!='https://hyundai.hjpark.net':return self.send_error(403)
         try:
             size=int(self.headers.get('Content-Length','0'))
             if not 0<size<=1024 or self.headers.get_content_type()!='application/json':return self.send_error(400)
-            body=json.loads(self.rfile.read(size));value=native_navigation.execute(int(match[2]),body) if match[1]=='navigation' else simulator.act(int(match[2]),body)
+            body=json.loads(self.rfile.read(size))
+            if phone:value=open_phone_invite(body)
+            elif match[1]=='navigation':value=native_navigation.execute(int(match[2]),body)
+            else:value=simulator.act(int(match[2]),body)
             self.send_body(json.dumps(value,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         except (ValueError,TypeError) as e:
-            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
+            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
+        except EmulatorLocationError as e:
+            self.send_body(json.dumps({'error':str(e)}).encode(),'application/json',503)
         except Exception:
             self.send_body(b'{"error":"EMULATOR_UNAVAILABLE"}','application/json',503)
     def send_body(self,body,kind,status=200):
@@ -83,6 +102,11 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers();self.wfile.write(body)
     def log_message(self,*args):pass
 
+def stop_viewer(_signal,_frame):
+    raise SystemExit
+
 if __name__=='__main__':
+    signal.signal(signal.SIGTERM,stop_viewer)
     threading.Thread(target=simulator.run,daemon=True).start()
-    ThreadingHTTPServer(('0.0.0.0',8090),Handler).serve_forever()
+    try:ThreadingHTTPServer(('0.0.0.0',8090),Handler).serve_forever()
+    finally:simulator.shutdown()

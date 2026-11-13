@@ -1,0 +1,14 @@
+[Unit]
+Description=PLY Android passenger demo emulator
+After=network-online.target
+
+[Service]
+User=emulator
+Group=emulator
+SupplementaryGroups=kvm
+ExecStart=/opt/pleos-runtime/start-phone
+NoNewPrivileges=true
+MemoryMax=4400M
+MemorySwapMax=128M
+CPUQuota=200%
+TimeoutStopSec=15
