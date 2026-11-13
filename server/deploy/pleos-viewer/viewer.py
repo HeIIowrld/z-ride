@@ -15,12 +15,26 @@ cache={'at':0,'value':None}
 lock=threading.Lock()
 
 
+def visible_invite(vehicle):
+    image=subprocess.run([ADB,'-s',f'emulator-{5552+vehicle*2}','exec-out','screencap','-p'],
+                         capture_output=True,check=True,timeout=6).stdout
+    result=subprocess.run(['/usr/bin/zbarimg','--quiet','--raw','--set','*.disable','--set','qrcode.enable','-'],
+                          input=image,capture_output=True,timeout=5)
+    for line in result.stdout.decode('utf-8',errors='replace').splitlines():
+        if re.fullmatch(r'https://hyundai\.hjpark\.net/play/?#invite=[A-Za-z0-9_-]{32}',line):
+            return line
+    raise ValueError('INVITE_NOT_VISIBLE')
+
+
 def open_phone_invite(body):
-    if not isinstance(body,dict) or set(body)!={'invite'}:
-        raise ValueError('INVALID_COMMAND')
-    invite=body['invite']
-    if not isinstance(invite,str) or not re.fullmatch(r'https://hyundai\.hjpark\.net/play/?#invite=[A-Za-z0-9_-]{32}',invite):
-        raise ValueError('INVALID_COMMAND')
+    if not isinstance(body,dict):raise ValueError('INVALID_COMMAND')
+    if set(body)=={'vehicle'} and type(body['vehicle']) is int and body['vehicle'] in (1,2,3):
+        invite=visible_invite(body['vehicle'])
+    elif set(body)=={'invite'}:
+        invite=body['invite']
+        if not isinstance(invite,str) or not re.fullmatch(r'https://hyundai\.hjpark\.net/play/?#invite=[A-Za-z0-9_-]{32}',invite):
+            raise ValueError('INVALID_COMMAND')
+    else:raise ValueError('INVALID_COMMAND')
     if not command([ADB,'-s','emulator-5560','shell','am','start','-W','-a','android.intent.action.VIEW','-d',invite,'-p','com.android.chrome'],timeout=12).startswith('Starting:'):
         raise RuntimeError('EMULATOR_UNAVAILABLE')
     return {'opened':True}
@@ -91,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
             else:value=simulator.act(int(match[2]),body)
             self.send_body(json.dumps(value,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         except (ValueError,TypeError) as e:
-            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
+            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED','INVITE_NOT_VISIBLE'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
         except EmulatorLocationError as e:
             self.send_body(json.dumps({'error':str(e)}).encode(),'application/json',503)
         except Exception:

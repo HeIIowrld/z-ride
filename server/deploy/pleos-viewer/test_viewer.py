@@ -52,4 +52,12 @@ class ViewerTests(unittest.TestCase):
                     viewer.open_phone_invite({'invite':bad})
             self.assertEqual(command.call_count,1)
 
+    def test_android_can_read_visible_vehicle_invite_without_returning_it(self):
+        invite='https://hyundai.hjpark.net/play#invite='+'b'*32
+        with patch.object(viewer,'visible_invite',return_value=invite) as scan, patch.object(viewer,'command',return_value='Starting: Intent'):
+            self.assertEqual(viewer.open_phone_invite({'vehicle':1}),{'opened':True})
+            scan.assert_called_once_with(1)
+            with self.assertRaisesRegex(ValueError,'INVALID_COMMAND'):
+                viewer.open_phone_invite({'vehicle':4})
+
 if __name__=='__main__':unittest.main()
