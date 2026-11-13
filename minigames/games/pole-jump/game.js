@@ -16,9 +16,11 @@ let speed = inJourney ? 0 : 42, speedLimit = null, feedDistance = 0, worldM = 0,
 let perfects = 0, combo = 0, maxCombo = 0, parts = 0, startAt = 0, jump = null, lane = 1;
 let stoppedAt = 0, speeding = 0, muted = false, audio, toastTimer = 0, seed = 7139, poles = [];
 let cameraX = 0, playerScreenX = 0, warningBeepAt = 0, landedAt = 0;
+let introRemaining = 0;
 // World scale is intentionally modest: the standing pole must drift to the
 // trailing danger edge in a few seconds, while adjacent poles remain reachable.
 const REACH = 40, IDEAL = 31, PERFECT = 4.5, GAME_SPEED = 1.9;
+const INTRO_SECONDS = 2.4, FIRST_JUMP_SPEED = 36;
 const names = ['위쪽', '중간', '아래'];
 const poleObstacles = ['표지판', '변압기', '까치집', '전단지'];
 const treeObstacles = ['새둥지', '벌집', '다람쥐'];
@@ -44,15 +46,27 @@ function beep(f = 660, d = .1) { if (muted) return; try { audio ||= new AudioCon
 function toast(text) { const el = $('toast'); el.textContent = text; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 850); }
 function reset() {
   running = true; ended = false; endReason = null; score = cleared = perfects = combo = maxCombo = parts = feedDistance = worldM = speeding = stoppedAt = 0;
-  startAt = performance.now(); lane = 1; jump = null; seed = 7139; cameraX = getSeat() === 'right' ? w * .35 : w * .65; playerScreenX = 0; landedAt = 0;
-  poles = [makePole(1, 0), makePole(2, 38), makePole(3, 76), makePole(4, 114)];
+  startAt = performance.now(); lane = 1; jump = null; seed = 7139; cameraX = getSeat() === 'right' ? w * .55 : w * .45; playerScreenX = 0; landedAt = 0;
+  introRemaining = INTRO_SECONDS;
+  poles = [makePole(1, 26), makePole(2, 64), makePole(3, 102), makePole(4, 140)];
+  $('jump').disabled = true;
+  showJumpHint('달리는 중 · 첫 전봇대가 다가와요');
   $('start').classList.add('hidden'); $('result').classList.add('hidden'); $('pause').classList.add('hidden'); updateHud(); lastFrame = performance.now(); requestAnimationFrame(frame);
 }
 function pxPerMeter() { return w / 60; }
 function worldX(p) { return (p.distance - worldM) * pxPerMeter(); }
 function screenX(p) { const direction = getSeat() === 'right' ? -1 : 1; return cameraX + direction * worldX(p); }
 function playerX() { return playerScreenX || w * .32; }
-function updateCamera(dt) {
+function targetVisible() {
+  const x = screenX(poles[1]);
+  return x >= w * .08 && x <= w * .92;
+}
+function showJumpHint(text) {
+  const hint = $('jump-hint');
+  hint.hidden = !text;
+  if (text !== hint.textContent) hint.textContent = text;
+}
+function updateCamera() {
   const direction = getSeat() === 'right' ? -1 : 1;
   if (jump) {
     const t = clamp((performance.now() - jump.at) / 250, 0, 1);
@@ -66,25 +80,23 @@ function updateCamera(dt) {
   }
 }
 window.__polejump = { getState() {
-  const direction = getSeat() === 'right' ? -1 : 1;
   const edge = getSeat() === 'right' ? w * .85 : w * .15;
   const nextPoleDistanceM = poles.length > 1 ? Math.abs(screenX(poles[1]) - screenX(poles[0])) / pxPerMeter() : null;
   const nextPoleScreenX = poles.length > 1 ? screenX(poles[1]) : null;
-  const frontInset = getSeat() === 'right' ? w * .08 : w * .92;
-  const nextPoleInWindow = nextPoleScreenX != null && (direction > 0 ? nextPoleScreenX <= frontInset : nextPoleScreenX >= frontInset) && nextPoleScreenX >= w * .03 && nextPoleScreenX <= w * .97;
-  const canJump = running && !stoppedAt && !jump && performance.now() - landedAt >= 150 && nextPoleInWindow;
-  return { running, score, cleared, ninjaScreenX: playerX(), dangerEdgeX: edge,
+  const nextPoleInWindow = nextPoleScreenX != null && targetVisible();
+  const canJump = running && !introRemaining && !stoppedAt && !jump && performance.now() - landedAt >= 150 && nextPoleInWindow;
+  return { running, intro: introRemaining > 0, score, cleared, ninjaScreenX: playerX(), dangerEdgeX: edge,
     nextPoleDistanceM, nextPoleScreenX, nextPoleInWindow, canJump,
     reachM: poles.length > 1 ? (poles[1].distance - poles[0].distance > 70 ? REACH * 2.1 : cleared < 10 ? REACH * 1.3 : REACH) : REACH, endReason };
 } };
 function doJump() {
-  if (!running || stoppedAt || jump || poles.length < 2 || performance.now() - landedAt < 150) return;
-  const direction = getSeat() === 'right' ? -1 : 1;
+  if (!running || introRemaining || stoppedAt || jump || poles.length < 2 || performance.now() - landedAt < 150) return;
   const gap = poles[1].distance - poles[0].distance;
-  const nextX = screenX(poles[1]), frontInset = direction > 0 ? w * .92 : w * .08;
-  const inWindow = direction > 0 ? nextX <= frontInset : nextX >= frontInset;
-  const backInset = direction > 0 ? w * .03 : w * .97;
-  if (!inWindow || (direction > 0 ? nextX < backInset : nextX > backInset)) { finish('fall'); return; }
+  const nextX = screenX(poles[1]);
+  if (!targetVisible()) {
+    if (cleared === 0) { toast('다음 전봇대가 보이면 점프'); return; }
+    finish('fall'); return;
+  }
   const d = Math.abs(nextX - playerX()) / pxPerMeter();
   const target = poles[1], obstacle = target.obstacles.find(o => o.lane === lane);
   jump = { at: performance.now(), target, obstacle: obstacle || null, lane, d, gap };
@@ -93,6 +105,7 @@ function doJump() {
 function formatTime(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 function finish(reason) {
   if (ended) return; ended = true; running = false;
+  showJumpHint('');
   endReason = reason;
   const prior = getBest('pole-jump'), durationMs = performance.now() - startAt;
   const record = saveRecord({ gameId: 'pole-jump', score, durationMs, distanceM: feedDistance, stats: { poles: cleared, perfects, maxCombo, parts }, endReason: reason });
@@ -120,16 +133,32 @@ function frame(now) {
   if (!running) return;
   const dt = Math.min((now - lastFrame) / 1000, .06); lastFrame = now;
   if (speed < 3) { if (!stoppedAt) stoppedAt = now; $('pause').classList.remove('hidden'); } else { stoppedAt = 0; $('pause').classList.add('hidden'); }
-  if (speedLimit != null && speed > speedLimit) { speeding += dt; document.body.classList.add('speeding'); if (Math.floor(speeding * 3) !== Math.floor((speeding - dt) * 3)) beep(850, .05); if (speeding >= 2) { draw(now); finish('speeding'); return; } } else { speeding = 0; document.body.classList.remove('speeding'); }
+  if (!introRemaining && speedLimit != null && speed > speedLimit) { speeding += dt; document.body.classList.add('speeding'); if (Math.floor(speeding * 3) !== Math.floor((speeding - dt) * 3)) beep(850, .05); if (speeding >= 2) { draw(now); finish('speeding'); return; } } else { speeding = 0; document.body.classList.remove('speeding'); }
   if (!stoppedAt) {
     const speedFactor = cleared < 5 ? .8 + .2 * (cleared / 5) : cleared >= 30 ? 1.15 : 1;
-    worldM += speed / 3.6 * GAME_SPEED * speedFactor * dt; updateCamera(dt);
+    if (introRemaining > 0) {
+      introRemaining = Math.max(0, introRemaining - dt);
+      worldM = poles[0].distance * (1 - introRemaining / INTRO_SECONDS);
+      playerScreenX = cameraX;
+      if (!introRemaining) {
+        landedAt = now;
+        $('jump').disabled = false;
+      }
+    } else {
+      const scrollSpeed = cleared === 0 ? Math.min(speed, FIRST_JUMP_SPEED) : speed;
+      worldM += scrollSpeed / 3.6 * GAME_SPEED * speedFactor * dt;
+      updateCamera();
+    }
+    if (!introRemaining) {
+      showJumpHint(cleared === 0 && !jump
+        ? targetVisible() ? '지금 점프' : '다음 전봇대가 보이면 점프' : '');
+    }
     const edge = getSeat() === 'right' ? w * .85 : w * .15;
     const endangered = getSeat() === 'right' ? playerX() > edge : playerX() < edge;
     const outEdge = getSeat() === 'right' ? w * .97 : w * .03;
     const pushedOut = getSeat() === 'right' ? playerX() > outEdge : playerX() < outEdge;
-    if (endangered && now - warningBeepAt > 420) { warningBeepAt = now; beep(980, .07); }
-    if (pushedOut) { draw(now); finish('pushed_out'); return; }
+    if (!introRemaining && endangered && now - warningBeepAt > 420) { warningBeepAt = now; beep(980, .07); }
+    if (!introRemaining && pushedOut && !jump) { draw(now); finish('pushed_out'); return; }
     if (jump && now - jump.at >= 250) completeJump();
   }
   updateHud(); draw(now); requestAnimationFrame(frame);
@@ -195,9 +224,14 @@ function draw(now) {
     for (const obstacle of p.obstacles) drawObstacle(x, yLevel(obstacle.lane, pTop, pBase), obstacle.type, p.index);
   });
   let nx = playerX(), ny = yLevel(lane, top, base);
+  if (introRemaining) {
+    const progress = 1 - introRemaining / INTRO_SECONDS;
+    ny = progress < .68 ? base - 16 - Math.abs(Math.sin(now / 75)) * 7
+      : base - 16 + (ny - base + 16) * ((progress - .68) / .32);
+  }
   if (jump) { const t = clamp((now - jump.at) / 250, 0, 1); ny -= Math.sin(t * Math.PI) * 48; }
   drawFinger(ctx, nx, ny + Math.sin(now / 85), 1.1);
-  if (speedLimit != null && speed > speedLimit) { ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, 32); ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.fillText('과속 — STOP', w / 2, 21); ctx.strokeStyle = '#111'; ctx.lineWidth = 5; ctx.strokeRect(3, 3, w - 6, h - 6); }
+  if (speeding) { ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, 32); ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.fillText('과속 — STOP', w / 2, 21); ctx.strokeStyle = '#111'; ctx.lineWidth = 5; ctx.strokeRect(3, 3, w - 6, h - 6); }
   drawLowerHud();
 }
 function drawLowerHud() {

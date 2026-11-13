@@ -1,1 +1,7 @@
-﻿/* Shared grayscale layout rules live in ../../style.css. */
+.rain-page .drop-button {
+  bottom: calc(38% + 24px);
+  min-height: 44px;
+  background: var(--ply-surface);
+  border-color: var(--ply-line);
+  color: var(--ply-ink);
+}

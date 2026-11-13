@@ -1,6 +1,28 @@
 ﻿/* Shared grayscale layout rules live in ../../style.css. */
 
 .touch-hint { display: none; }
+#jump-hint {
+  position: absolute;
+  z-index: 4;
+  top: 56px;
+  left: 50%;
+  max-width: calc(100% - 24px);
+  width: max-content;
+  margin: 0;
+  padding: 6px 10px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  background: var(--ply-bg);
+  color: var(--ply-primary);
+  font-size: 12px;
+  pointer-events: none;
+}
+.jump-control:disabled { opacity: .55; cursor: default; }
+.game-page :is(.jump-control, .height-control, .height-control button) {
+  background: var(--ply-surface);
+  border-color: var(--ply-line);
+  color: var(--ply-ink);
+}
 @media (pointer: coarse) {
   .touch-hint { display: inline; }
   .keyboard-hint { display: none; }
