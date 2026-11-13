@@ -171,6 +171,8 @@ OpenAPI의 REST operation으로 등록하지 않았다. 연결 후 **5초 안에
 
 SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 503을 반환한다. 성공 ACK·갱신 snapshot을 보내지 않고 관제도 미커밋 메모리를 읽지 못한다. 앱은 로컬 보상을 만들지 않고 재접속/재시작 후 저장된 영수증과 최신 snapshot으로 결과를 확인한다. DB를 복구하고 재시작하기 전 메모리 전용으로 우회하지 않는다.
 
+차량은 방 스냅샷의 `deadzoneAvailable`이 `true`일 때 DEADZONE 진입 카드를 표시한다. 서버에 DEADZONE 서비스 주소가 설정된 활성 파티의 차량에 이 값이 전달된다.
+
 ## 팀 테스트 접근키와 브라우저 연결
 
 - 서버 CLI: `ZRIDE_TEST_ACCESS_KEY`, 라이브러리: `createDemoServer({testAccessKey})`. 빈 값은 로컬 시험용 공개 게스트 발급이다. 실제 키는 환경 파일로 전달하고 명령행 인수에 넣지 않는다.

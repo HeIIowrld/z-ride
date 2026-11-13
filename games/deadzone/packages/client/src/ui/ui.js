@@ -555,7 +555,7 @@ export class UI {
     let html = '';
     for (let i = 0; i < state.maxPlayers; i++) {
       const p = state.players[i];
-      if (!p) { html += '<div class="lp empty"><div class="lpn">—</div><div class="lps">OPEN</div></div>'; continue; }
+      if (!p) { html += '<div class="lp empty"><div class="lpn">—</div><div class="lps">참가 대기</div></div>'; continue; }
       html += `<div class="lp t${p.team ?? 0}${p.ready ? ' ready' : ''}">` +
         `<div class="lpn">${esc(p.name)}${p.bot ? ' ·BOT' : ''}</div>` +
         `<div class="lps">${p.ready ? '준비 완료' : '준비 중'}</div></div>`;

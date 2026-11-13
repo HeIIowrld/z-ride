@@ -587,6 +587,7 @@ class App {
     const ticketKey = 'deadzone.party-ticket:' + location.pathname;
     const partyTicket = fragment.get('party') || sessionStorage.getItem(ticketKey);
     document.querySelector('.lobby-invite').hidden = Boolean(partyTicket);
+    document.getElementById('roomCodeWrap').hidden = Boolean(partyTicket);
     const invite=location.origin+'/j/'+code;
     if (!partyTicket) QRCode.toCanvas(document.getElementById('lobbyQr'),invite,{width:136,margin:2,color:{dark:'#0b1515',light:'#ffffff'}}).catch(()=>{});
     document.getElementById('inviteAddress').textContent=invite;
