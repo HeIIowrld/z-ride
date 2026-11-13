@@ -162,7 +162,7 @@ public final class MainActivity extends DemoActivity {
         venueLobbyDetail.setText(detail);
         venueDetail.setText(detail);
         venueLobbyDetail.setVisibility(lobby ? View.VISIBLE : View.GONE);
-        venueDetail.setVisibility(lobby ? View.GONE : View.VISIBLE);
+        venueDetail.setVisibility(game == null || lobby ? View.GONE : View.VISIBLE);
         String instruction;
         switch (phase) {
             case "LOBBY": instruction = approvedPassengers() < 2
@@ -180,8 +180,11 @@ public final class MainActivity extends DemoActivity {
         venueInstruction.setText(instruction);
         venueInstruction.setVisibility(instruction.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE);
         venueLabel.setVisibility(game == null ? View.GONE : View.VISIBLE);
-        venueDetail.setVisibility(game == null ? View.GONE : View.VISIBLE);
         venueChoiceTitle.setText(game == null ? "충전소 게임" : "다음 게임");
+        if (!thief || "LOBBY".equals(phase)) {
+            venueLight.clear();
+            venueFan.clear();
+        }
     }
 
     private Button venueControl(String text, String action, String kind) {
@@ -211,6 +214,8 @@ public final class MainActivity extends DemoActivity {
         venueLabel = dashboardText(venueCover, 40, true);
         venueLobbyDetail = dashboardText(venueCover, 20, false);
         venueDetail = dashboardText(venueCover, 32, true);
+        venueLight = new CabinEffectReadout(venuePanel, "앰비언트 밝기", "%");
+        venueFan = new CabinEffectReadout(venuePanel, "송풍", "단");
         venueSeats = seatStrip(venuePanel);
         venueInstruction = dashboardText(venuePanel, 17, false);
         venueStart = venueControl("게임 시작", "start", null);
@@ -251,6 +256,7 @@ public final class MainActivity extends DemoActivity {
     private Button destinationToolbarButton;
     private Dialog destinationDialog;
     private TextView cabinSummary;
+    private CabinEffectReadout venueLight, venueFan, deadzoneLight;
     private TextView journeySummary;
     private CabinPanel cabinPanel;
     private android.app.AlertDialog cabinDialog;
@@ -282,6 +288,10 @@ public final class MainActivity extends DemoActivity {
         if (!parked) repairQueued = false;
         if (!parked) venueVisible = false;
         boolean showVenue = parked && venueVisible;
+        if (foreground && !localAllowed && "D".equals(latestVehicle.optString("gear"))
+                && room != null && room.optBoolean("driveGamesAvailable") && approvedPassengers() > 0) {
+            parkedHint.setText("주행 중 · 동승자 폰에서 플레이");
+        }
         boolean deadzoneAvailable = parked && room != null && room.optBoolean("deadzoneAvailable")
                 && !showVenue && !routeInProgress();
         boolean showDeadzone = deadzoneAvailable && showMatchOnly;
@@ -388,6 +398,8 @@ public final class MainActivity extends DemoActivity {
             text = venueStopName.isEmpty() ? "충전 경유지" : "충전 중 · " + venueStopName;
         } else if ("ARRIVED".equals(state)) {
             text = destination.isEmpty() ? "목적지 도착" : "목적지 도착 · " + destination;
+        } else if ("ROUTE_READY".equals(state)) {
+            text = destination.isEmpty() ? "경로 준비 완료" : "출발 준비 · " + destination;
         } else if (routeInProgress()) {
             text = destination.isEmpty() ? "순정 내비 · 경로 확인 중" : "가는 중 · " + destination;
             int remaining = navigationState.optInt("remainingDistanceM", -1);
@@ -717,17 +729,10 @@ public final class MainActivity extends DemoActivity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         venueCabinEffects = new VenueCabinEffects(main, () -> ambientEnabled && foreground && localAllowed
-                && connected && NavigationRelayService.vehicleAllowed() && client.isAuthenticated());
+                && connected && NavigationRelayService.vehicleAllowed() && client.isAuthenticated(),
+                (channel, status, value) -> ("light".equals(channel) ? venueLight : venueFan).show(status, value));
         ambient = new AmbientPulse(main, () -> ambientEnabled && foreground && localAllowed
-                && NavigationRelayService.vehicleAllowed() && client.isAuthenticated(), (status, value) -> {
-            if (!showVehicleDiagnostics()) return;
-            switch (status) {
-                case "DISPATCHED": ambientObservation.setText("앰비언트 밝기 · 이전 " + value); break;
-                case "APPLIED_CONFIRMED": ambientObservation.append(" → 적용 " + value); break;
-                case "STOPPED": if (value != null) ambientObservation.append(" → 복원 " + value); break;
-                case "UNSUPPORTED": case "FAILED": ambientObservation.setText("앰비언트 밝기 · " + status); break;
-            }
-        });
+                && NavigationRelayService.vehicleAllowed() && client.isAuthenticated(), deadzoneLight::show);
         startForegroundService(new android.content.Intent(this,NavigationRelayService.class));
         if (checkSelfPermission("android.car.permission.CAR_SPEED") != PackageManager.PERMISSION_GRANTED
                 && !getPreferences(MODE_PRIVATE).getBoolean("speedPermissionRequested", false)) {
@@ -790,6 +795,7 @@ public final class MainActivity extends DemoActivity {
         matchPhase = dashboardText(title, 16, true);
         leaderboard = dashboardText(title, 40, true);
         matchSummary = dashboardText(title, 21, true);
+        deadzoneLight = new CabinEffectReadout(deadzonePanel, "앰비언트 밝기", "%");
         deadzoneSeats = seatStrip(deadzonePanel);
         healthCard = column();
         healthCard.setPadding(dp(16), dp(10), dp(16), dp(10));
@@ -833,8 +839,6 @@ public final class MainActivity extends DemoActivity {
             updateGameVisibility();
         });
         deadzonePanel.addView(leaveBoard);
-        ambientObservation = new TextView(this);
-        if (showVehicleDiagnostics()) deadzonePanel.addView(ambientObservation);
         resetMatchBoard();
     }
 
@@ -1041,6 +1045,7 @@ public final class MainActivity extends DemoActivity {
     }
 
     private void resetMatchBoard() {
+        deadzoneLight.clear();
         matchPhase.setText("대기실");
         leaderboard.setText(Game.DEADZONE.title);
         matchSummary.setText(Game.DEADZONE.description);
@@ -1083,7 +1088,71 @@ public final class MainActivity extends DemoActivity {
             ((TextView) row.getChildAt(1)).setText(player.optInt("score") + "점");
         }
     }
-    private TextView ambientObservation;
+    private final class CabinEffectReadout {
+        private final TextView line;
+        private final String label, unit;
+        private Integer baseline, applied;
+
+        CabinEffectReadout(LinearLayout parent, String label, String unit) {
+            this.label = label;
+            this.unit = unit;
+            line = dashboardText(parent, 18, true);
+            line.setPadding(dp(16), dp(8), dp(16), dp(8));
+            LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2);
+            layout.topMargin = dp(6);
+            line.setLayoutParams(layout);
+            clear();
+        }
+
+        void clear() {
+            baseline = null;
+            applied = null;
+            line.setVisibility(View.GONE);
+        }
+
+        void show(String status, Integer value) {
+            String result;
+            switch (status) {
+                case "BASELINE": case "DISPATCHED":
+                    baseline = value;
+                    applied = null;
+                    result = "이전 " + reading(value);
+                    break;
+                case "APPLIED": case "APPLIED_CONFIRMED":
+                    applied = value;
+                    result = sequence() + "적용 " + reading(value);
+                    break;
+                case "RESTORED": case "STOPPED":
+                    if (value == null) return;
+                    result = sequence() + (applied == null ? "" : "적용 " + reading(applied) + " → ")
+                            + "원복 " + reading(value);
+                    break;
+                case "AT_LIMIT": case "UNCHANGED": case "USER_OVERRIDDEN":
+                    result = "현재 " + reading(value);
+                    break;
+                case "UNSUPPORTED": case "UNAVAILABLE":
+                    result = "효과 사용 불가";
+                    break;
+                case "NOT_CONFIRMED":
+                    result = "변경 미확인 · 현재 " + reading(value);
+                    break;
+                case "FAILED": case "READ_FAILED": case "CAPABILITY_FAILED": case "RESTORE_FAILED":
+                case "WRITE_FAILED":
+                    result = "효과 확인 실패";
+                    break;
+                default: return;
+            }
+            boolean active = "APPLIED".equals(status) || "APPLIED_CONFIRMED".equals(status);
+            styleVehicleCard(line, active ? 0xff34335b : 0xff191d31);
+            line.setTextColor(active ? 0xffdfdaff : 0xffc3c9e0);
+            line.setText("Pleos SDK · " + label + "   " + result);
+            line.setVisibility(View.VISIBLE);
+        }
+
+        private String sequence() { return baseline == null ? "" : "이전 " + reading(baseline) + " → "; }
+
+        private String reading(Integer value) { return value == null ? "미수신" : value + unit; }
+    }
     private void addNavigationControls(LinearLayout container){
         navigationLabel=new TextView(this);navigationLabel.setText("Pleos Navi SDK 연결 대기");container.addView(navigationLabel);
         Button permission=new Button(this);permission.setText("내비 SDK 권한 요청");permission.setOnClickListener(v->requestPermissions(new String[]{"pleos.car.permission.NAVI_ROUTE","pleos.car.permission.NAVI_ROUTE_SEARCH","android.permission.ACCESS_FINE_LOCATION","android.permission.ACCESS_COARSE_LOCATION"},102));container.addView(permission);
