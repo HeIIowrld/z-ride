@@ -43,9 +43,8 @@ import { EV } from '@overrun/shared/events.js';
 import { ENEMY_TYPES } from '@overrun/shared/defs.js';
 import { MODES, getMode } from '@overrun/shared/modes.js';
 import { ABILITIES } from '@overrun/shared/abilities.js';
-import { UPGRADES, offerUpgrades } from '@overrun/shared/upgrades.js';
+import { offerUpgrades } from '@overrun/shared/upgrades.js';
 import { clamp, lerp, damp, dist2 } from '@overrun/shared/math.js';
-import { makeRng } from '@overrun/shared/rng.js';
 
 import { Topdown } from './render/topdown.js';
 import { AudioEngine } from './audio/audio.js';
@@ -1250,4 +1249,3 @@ app.boot().catch(err => {
 // the offline path could not be tested without deploying it.
 if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));
 
-void UPGRADES; void makeRng; void Rings;
