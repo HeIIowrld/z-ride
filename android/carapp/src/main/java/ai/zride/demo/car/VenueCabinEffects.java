@@ -16,15 +16,21 @@ import org.json.JSONObject;
 
 /** Translates a charging game's public incident to bounded, reversible SDK writes. */
 final class VenueCabinEffects {
+    interface Observation {
+        void accept(String channel, String status, Integer value);
+    }
+
     private final Handler main;
     private final BooleanSupplier allowed;
+    private final Observation observation;
     private final Channel light = new Channel("light");
     private final Channel fan = new Channel("fan");
     private String lastIncident = "";
 
-    VenueCabinEffects(Handler main, BooleanSupplier allowed) {
+    VenueCabinEffects(Handler main, BooleanSupplier allowed, Observation observation) {
         this.main = main;
         this.allowed = allowed;
+        this.observation = observation;
     }
 
     void update(String room, JSONObject response, VehicleProbe probe) {
@@ -108,6 +114,7 @@ final class VenueCabinEffects {
                     }
                     change.original = value;
                     change.applied = Math.max(min, Math.min(max, value + direction * step.applyAsInt(min, max)));
+                    observe("BASELINE", value);
                     if (change.applied == value) { done(change, "AT_LIMIT", value); return; }
                     change.writing = true;
                     write.value(change.area, change.applied, (area, ignored) -> dispatch(() -> {
@@ -160,6 +167,7 @@ final class VenueCabinEffects {
 
         void observe(String status, Integer value) {
             Log.i("ZRideVenueCabin", name + " " + status + (value == null ? "" : " " + value));
+            observation.accept(name, status, value);
         }
 
         final class Change {
