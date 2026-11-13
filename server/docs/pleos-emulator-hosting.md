@@ -37,7 +37,7 @@ CT317: RAM 제한20GiB, 8 CPU, rootfs64GiB. AVD 서비스는 MemoryMax7500M/Memo
 
 차량 앱에서 여정을 시작해 동승자 QR을 발급한 다음, [Pleos 1](https://hyundai.hjpark.net/vehicles/1)의 **여정 시나리오**를 펼친다. 여의도 동·서쪽, 짧은 보급품 시연, 직접 설정 중에서 고른다. 직접 설정은 위도, 경도 순의 출발점과 도착점을 직선으로 잇는다. **경로 적용** 후 **시작**을 누른다. 10/30/60km/h와 1/2/5/10배속을 선택할 수 있다. 배속은 위치 진행에 적용되며 표시 차량 속도는 그대로다. 중간 위치로 이동하면 P에 정차하고, 시작을 누르면 그 위치에서 재개한다.
 
-**시나리오 링크 복사**로 프리셋 또는 직접 입력한 좌표, 차량 속도, 배속을 공유한다. 링크를 열면 설정만 채운다. 실제 재생은 진행자가 누른다. 같은 차량 화면과 재생 상태는 팀원이 함께 볼 수 있다. 실제 폰은 차량 QR로 참가한다. [공유 Android](https://hyundai.hjpark.net/vehicles/phone)에서는 QR에서 복사한 초대 링크를 넣고 **Android에서 열기**를 누른다. Android Chrome에서 게스트로 좌석을 신청하고 차량에서 승인한다. D·UX 제한에서는 차량 게임과 QR을 숨기고 주차 P에서 다시 표시한다.
+**시나리오 링크 복사**로 프리셋 또는 직접 입력한 좌표, 차량 속도, 배속을 공유한다. 링크를 열면 설정만 채운다. 실제 재생은 진행자가 누른다. 같은 차량 화면과 재생 상태는 팀원이 함께 볼 수 있다. 실제 폰은 차량 QR로 참가한다. Pleos 화면에 QR을 띄우고 **현재 QR을 Android에서 열기**를 누르면 [공유 Android](https://hyundai.hjpark.net/vehicles/phone)의 Chrome에서 초대가 열린다. Android에서 게스트로 좌석을 신청하고 차량에서 승인한다. D·UX 제한에서는 차량 게임과 QR을 숨기고 주차 P에서 다시 표시한다.
 
 운영용 `GET/POST /vehicles/simulation/{1|2|3}`는 고정 동작만 받는다. POST는 같은 Origin과 JSON, expectedRevision 일치가 필요하다. 액션은 destination/reroute/start/pause/park/cancel/seek다. 직접 설정은 위경도 숫자 두 쌍을 받고, seek는 0부터 1까지의 진행률을 받는다. 차량별 잠금과 revision으로 중복·동시 조작 충돌을 구분한다. 오류 시 이동을 중단하고 P 복귀를 시도한다. 서비스 재시작 때 시뮬레이터 상태는 초기화되며 자동 이동을 재개하지 않는다.
 
@@ -53,7 +53,7 @@ PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicl
 
 소스: deploy/pleos-viewer. 같은 디렉토리의 unittest는 사용자10/최신성/비공개 값 제외/경로 탈출/제어 API 부재를 검사한다. 실제 기동·SDK 신호·WSS 화면은 별도로 확인한다.
 
-공유 Android는 CT317의 별도 `PLY_Phone` AVD와 `ply-phone.service`를 사용한다. 2GiB RAM·x86_64 Google APIs API 34 시스템 이미지에서 Chrome을 실행한다. 설치 파일은 `start-phone.sh`, `ply-phone.service`다. 기존 Pleos 화면과 같은 noVNC 프록시를 쓰고, Android의 초대 입력은 운영 PLY QR 형식만 받는다.
+공유 Android는 CT317의 별도 `PLY_Phone` AVD와 `ply-phone.service`를 사용한다. 2GiB RAM·x86_64 Google APIs API 34 시스템 이미지에서 Chrome을 실행한다. 설치 파일은 `start-phone.sh`, `ply-phone.service`다. 기존 Pleos 화면과 같은 noVNC 프록시를 쓴다. `zbar-tools`로 보이는 QR을 읽으며 Android에는 운영 PLY 초대만 전달한다.
 
 [Pleos 설치·실행](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/setup-connect-sdk-emulator) · [Pleos AVD 구성/GPU](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/configure-pleos-connect-emulator) · [Pleos 앱 시작/RAM4GiB](https://document.pleos.ai/en/docs/pleos-only/getting-started) · [Android Linux KVM](https://developer.android.com/studio/run/emulator-acceleration).
 
