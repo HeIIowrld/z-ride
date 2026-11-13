@@ -1133,7 +1133,11 @@ public final class MainActivity extends DemoActivity {
                 case "UNSUPPORTED": case "UNAVAILABLE":
                     result = "효과 사용 불가";
                     break;
+                case "NOT_CONFIRMED":
+                    result = "변경 미확인 · 현재 " + reading(value);
+                    break;
                 case "FAILED": case "READ_FAILED": case "CAPABILITY_FAILED": case "RESTORE_FAILED":
+                case "WRITE_FAILED":
                     result = "효과 확인 실패";
                     break;
                 default: return;

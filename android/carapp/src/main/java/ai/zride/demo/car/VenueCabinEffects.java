@@ -120,12 +120,10 @@ final class VenueCabinEffects {
                     write.value(change.area, change.applied, (area, ignored) -> dispatch(() -> {
                         change.writing = false;
                         if (change.stopping) restore(change);
-                        else read.value(area, observed -> dispatch(() -> {
-                            if (current == change && !change.stopping && Integer.valueOf(change.applied).equals(observed))
-                                observe("APPLIED", observed);
-                        }), error -> Unit.INSTANCE);
+                        else confirm(change);
                     }), error -> dispatch(() -> {
                         change.writing = false;
+                        if (current == change) observe("WRITE_FAILED", null);
                         stop();
                     }));
                 }), error -> dispatch(() -> done(change, "READ_FAILED", null)));
@@ -136,10 +134,26 @@ final class VenueCabinEffects {
             return current == change && !change.stopping && allowed.getAsBoolean();
         }
 
+        void confirm(Change change) {
+            if (!canApply(change)) return;
+            change.read.value(change.area, observed -> dispatch(() -> {
+                if (!canApply(change)) return;
+                if (Integer.valueOf(change.applied).equals(observed)) {
+                    change.confirmed = true;
+                    observe("APPLIED", observed);
+                } else {
+                    main.postDelayed(change.confirmation, 250);
+                }
+            }), error -> dispatch(() -> {
+                if (canApply(change)) main.postDelayed(change.confirmation, 250);
+            }));
+        }
+
         void stop() {
             Change change = current;
             if (change == null || change.stopping) return;
             change.stopping = true;
+            main.removeCallbacks(change.confirmation);
             if (!change.writing) restore(change);
         }
 
@@ -147,7 +161,7 @@ final class VenueCabinEffects {
             if (change.original == null) { done(change, "STOPPED", null); return; }
             change.read.value(change.area, value -> dispatch(() -> {
                 if (!Integer.valueOf(change.applied).equals(value)) {
-                    done(change, "UNCHANGED", value);
+                    done(change, change.confirmed ? "UNCHANGED" : "NOT_CONFIRMED", value);
                     return;
                 }
                 change.write.value(change.area, change.original, (area, ignored) -> dispatch(() ->
@@ -174,10 +188,11 @@ final class VenueCabinEffects {
             final Read read;
             final Write write;
             final Runnable expiry = Channel.this::stop;
+            final Runnable confirmation = () -> confirm(this);
             SeatArea area;
             Integer original;
             int applied;
-            boolean writing, stopping;
+            boolean writing, stopping, confirmed;
             Change(Read read, Write write) { this.read = read; this.write = write; }
         }
     }
