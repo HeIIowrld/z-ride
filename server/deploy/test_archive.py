@@ -83,6 +83,16 @@ class DeploymentArchiveTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(files, [])
 
+    def test_accepts_ply_bag_assets_and_rejects_unrelated_styles(self):
+        for name, accepted in [('drive-assets/bag.html', True), ('drive-assets/shared/ply.css', True),
+                               ('drive-assets/shared/private.css', False)]:
+            with self.subTest(path=name):
+                item = tarfile.TarInfo(name)
+                item.size = 1
+                result, files = self.run_archive([(item, b'x')])
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                self.assertEqual(name in files, accepted)
+
     def test_rejects_duplicate_or_incomplete_runtime(self):
         item = tarfile.TarInfo('server.mjs')
         item.size = 1

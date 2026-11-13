@@ -352,39 +352,87 @@ function sketch(existing) {
   venuePanel.append(canvas);
   return {strokes};
 }
+function updateVenueRoster(roster, state) {
+  const members = new Map(room.members.map(member => [member.memberId, member]));
+  roster.replaceChildren(...state.players.map(player => {
+    const member = members.get(player.id);
+    const connected = member?.connected && member.approved && member.seatEvidence !== 'EMPTY';
+    const row = document.createElement('li');
+    const name = document.createElement('strong');
+    name.textContent = player.name + (player.id === state.me ? ' (나)' : '');
+    const seat = document.createElement('small');
+    seat.textContent = seats[member?.seat]?.split(' · ')[0] ?? '';
+    const status = document.createElement('span');
+    status.textContent = !connected ? '연결 대기' : player.done ? '준비 완료' : '연결됨';
+    row.append(name, seat, status);
+    return row;
+  }));
+}
+
 function showVenue(value) {
   venueStatus = value;
   renderJourneyMap();
   const state = value.game;
+  const lobby = ['LOBBY', 'BRIEFING'].includes(state?.phase);
   const key = JSON.stringify([value.kind,state?.phase,state?.caseNo,state?.round,state?.step,
-    state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.shown,value.paused,value.stop?.placeId,value.supplies]);
+    state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.book,
+    state?.reveal?.shown,state?.result?.saved,value.paused,value.stop?.placeId]);
   venuePanel.hidden = !state && !value.paused && !value.stop;
   venuePanel.dataset.game = value.kind || '';
-  if(key === venueSignature)return;
+  const supplyText = '파티 보급품 ' + value.supplies + '개';
+  if (key === venueSignature) {
+    const count = venuePanel.querySelector('.venue-supply-count');
+    if (count) count.textContent = supplyText;
+    const roster = venuePanel.querySelector('.venue-roster');
+    if (roster) updateVenueRoster(roster, state);
+    return;
+  }
   venueSignature = key;
   venuePanel.replaceChildren();
-  if(venuePanel.hidden)return;
+  if (venuePanel.hidden) return;
   const title = document.createElement('h2');
   title.textContent = value.kind === 'thief' ? '전기도둑' : value.kind === 'relay' ? '충전 릴레이' :
-    value.paused ? '충전 게임 일시정지' : '충전 게임 참가 가능';
+    value.paused ? '충전 게임 일시정지' : '충전소 대기실';
   const header = document.createElement('header');
   header.append(title);
   venuePanel.append(header);
   const info = document.createElement('p');
+  info.className = 'game-status';
+  info.setAttribute('role', 'status');
   venuePanel.append(info);
-  if (!state) { info.textContent=value.paused ? '충전소에서 다시 연결하면 이어집니다.' :
-    '차량 화면에서 전기도둑 또는 충전 릴레이를 선택하면 여기에 표시됩니다.';return; }
-  const me = state.players?.find(p=>p.id===state.me);
+  if (!state) {
+    info.textContent = value.paused ? '같은 충전소에서 다시 연결하면 이어져요.'
+      : '차량 화면에서 게임을 선택하면 여기에 표시돼요.';
+    return;
+  }
   const supplyCount = document.createElement('p');
   supplyCount.className = 'item-inline';
-  supplyCount.append(document.createElement('ply-supply-icon'), '파티 보급품 ' + value.supplies + '개');
+  const count = document.createElement('span');
+  count.className = 'venue-supply-count';
+  count.textContent = supplyText;
+  supplyCount.append(document.createElement('ply-supply-icon'), count);
   header.append(supplyCount);
-  info.className = 'game-status';
-  if(!me){info.textContent='이번 경기 참가자 목록을 차량에서 확인해 주세요.';return;}
+  const me = state.players?.find(player => player.id === state.me);
+  if (lobby) {
+    const roster = document.createElement('ul');
+    roster.className = 'venue-roster';
+    roster.setAttribute('aria-label', '같은 파티 참가자');
+    updateVenueRoster(roster, state);
+    venuePanel.append(roster);
+  }
+  if (!me) {
+    info.textContent = '이번 경기 참가자 목록을 차량에서 확인해 주세요.';
+    return;
+  }
+  if (state.phase === 'LOBBY') {
+    info.textContent = '같은 파티에 참가했어요. 차량에서 게임을 시작하면 이어져요.';
+    return;
+  }
   if(value.kind === 'thief'){
     if(state.phase==='BRIEFING'){
       info.textContent = state.solo ? '차량이 숨은 값을 더해요.' : '내 역할 ' + (state.role==='THIEF'?'도둑':'가족');
-      if(!me.done)venueButton('준비 완료','ready');
+      if (me.done) info.textContent += ' · 다른 동승자를 기다리는 중';
+      else venueButton('준비 완료','ready');
     } else if(state.phase==='CASE'&&!me.done){
       info.textContent = '목표 합계 ' + state.range.lo + '~' + state.range.hi;
       const watch = document.createElement('select');
@@ -426,7 +474,9 @@ function showVenue(value) {
       venuePanel.append(input);
       venueButton('정답 제출','submit',()=>({step:task.step,text:input.value}));
     }
-  }else if(state.reveal){
+  } else if (state.phase === 'PLAY' && state.submitted) {
+    info.textContent = '제출 완료 · 다른 동승자를 기다리는 중';
+  } else if(state.reveal){
     info.textContent = '공개 단어 ' + state.reveal.word;
     for(const entry of state.reveal.entries){
       if(entry.drawing)sketch(entry.drawing);
@@ -435,7 +485,7 @@ function showVenue(value) {
   }else if(state.phase==='END')info.textContent = '전달 성공 ' + state.family.success + ' / ' + state.family.total;
 }
 setInterval(() => {
-  if (room?.vehicle?.playAllowed || !venuePanel.hidden) void venueAction();
+  if (room?.vehicle?.playAllowed || journeyView === 'charge') void venueAction();
 }, 1500);
 
 let journeyView = 'map';

@@ -82,3 +82,13 @@ button, input, select { touch-action: manipulation; }
   color: var(--ply-primary-ink); background: var(--ply-primary); font-weight: 800;
 }
 #journey-venue select, #journey-venue input { margin-bottom: 12px; }
+
+.venue-roster { display: grid; gap: 8px; padding: 0; list-style: none; }
+.venue-roster li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px;
+  padding: 10px 12px; border: 1px solid var(--ply-line);
+  border-radius: 10px; background: #152938;
+}
+.venue-roster strong { overflow-wrap: anywhere; }
+.venue-roster small { grid-row: 2; color: var(--ply-muted); }
+.venue-roster li > span { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 12px; }

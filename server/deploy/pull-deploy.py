@@ -76,7 +76,7 @@ def runtime_bundle(payload):
             name = relative.as_posix()
             if path.parts[1] == 'minigames':
                 allowed = (
-                    name == 'style.css'
+                    name in {'style.css', 'bag.html', 'shared/ply.css'}
                     or (len(relative.parts) == 3 and relative.parts[0] == 'games'
                         and relative.parts[1] in {'license-quiz', 'pole-jump', 'raindrop'}
                         and relative.suffix in {'.html', '.css', '.js', '.json'})

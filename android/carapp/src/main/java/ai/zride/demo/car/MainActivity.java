@@ -162,7 +162,7 @@ public final class MainActivity extends DemoActivity {
         venueDetail.setVisibility(lobby ? View.GONE : View.VISIBLE);
         String instruction;
         switch (phase) {
-            case "LOBBY": instruction = ""; break;
+            case "LOBBY": instruction = "동승자 폰에 로비가 열렸어요. 준비되면 게임을 시작하세요."; break;
             case "BRIEFING": instruction = "동승자는 폰에서 역할을 확인하고 준비를 눌러 주세요."; break;
             case "CASE": instruction = "동승자는 폰에서 카드를 선택해 주세요."; break;
             case "TALK": instruction = "함께 이야기한 뒤 차량에서 투표를 열어 주세요."; break;

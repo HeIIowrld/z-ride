@@ -66,7 +66,7 @@ with tarfile.open(archive, 'r:gz') as source:
                 or (len(relative) == 2 and relative[0] == 'games'
                     and relative[1] in {'license-quiz', 'pole-jump', 'raindrop'})
             )) or (member.isfile() and (
-                relative == ('style.css',)
+                relative in {('style.css',), ('bag.html',), ('shared', 'ply.css')}
                 or (len(relative) == 3 and relative[0] == 'games'
                     and relative[1] in {'license-quiz', 'pole-jump', 'raindrop'}
                     and path.suffix in {'.html', '.css', '.js', '.json'})
