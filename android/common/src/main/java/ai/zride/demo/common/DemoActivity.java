@@ -116,6 +116,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         int visibility = visible && connected && foreground && localAllowed ? View.VISIBLE : View.GONE;
         lobby.setVisibility(visibility);
         roomLabel.setVisibility(visibility);
+        if (visibility == View.VISIBLE && inviteAfterJourneyStart && client.isAuthenticated()) requestPhoneInvite();
     }
 
     private LinearLayout lobbyCard() {
@@ -307,7 +308,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     @Override protected void onDestroy(){DebugCommandReceiver.detach(this);if(accessKeyInput!=null)accessKeyInput.setText("");main.removeCallbacks(expireInvite);main.removeCallbacks(reporter);main.removeCallbacks(testRunner);if(gameAudio!=null)gameAudio.close();if(!retainClientOnDestroy())client.destroy();super.onDestroy();}
     private void requestPhoneInvite(){
         if(!isCar()||!connected||!foreground||!localAllowed||room==null)return;
-        if(cleanVehicleUi()&&inviteSeatCount(false)>=3)return;
+        if(cleanVehicleUi()&&(lobby.getVisibility()!=View.VISIBLE||inviteSeatCount(false)>=3))return;
         final String requested=room.optString("roomId");
         if(requested.equals(invitePendingRoomId))return;
         inviteAfterJourneyStart=false;
@@ -353,7 +354,6 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         }
         boolean full=cleanVehicleUi()&&inviteSeatCount(false)>=3;
         if(cleanVehicleUi()){
-            lobby.setVisibility(connected&&parked?View.VISIBLE:View.GONE);
             connectButton.setVisibility(!connected&&parked?View.VISIBLE:View.GONE);
             inviteInfo.setVisibility(connected&&parked?View.VISIBLE:View.GONE);
             if(full){
@@ -408,7 +408,6 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         parkedHint.setText("UNKNOWN".equals(gear) || "UNKNOWN".equals(restrictions)
                 ? "차량 상태를 확인하는 중이에요" : "주차 후 플레이할 수 있어요");
         status.setVisibility(foreground && localAllowed ? View.VISIBLE : View.GONE);
-        if (inviteAfterJourneyStart && connected && client.isAuthenticated()) requestPhoneInvite();
     }
     protected void applyExtraDiagnostics(JSONObject value){writePrivate("cabin-state.json",value);main.post(()->{if(extraDiagnostics!=null)try{extraDiagnostics.setText(value.toString(2));}catch(Exception ignored){}});}
     protected final void updateGameVisibility(){updateVehicleWelcome();updateInviteUi();if(gamePanel==null)return;boolean show=!isCar()||(localAllowed&&foreground);gamePanel.setVisibility(show&&!cleanVehicleUi()?View.VISIBLE:View.GONE);if(isCar()){roomLabel.setVisibility(show&&(!cleanVehicleUi()||connected)?View.VISIBLE:View.GONE);memberLabel.setVisibility(show&&(!cleanVehicleUi()||connected)?View.VISIBLE:View.GONE);statsLabel.setVisibility(show?View.VISIBLE:View.GONE);approvals.setVisibility(show?View.VISIBLE:View.GONE);}else{int setup=connected?View.GONE:View.VISIBLE;serverInput.setVisibility(setup);nicknameInput.setVisibility(setup);accessKeyInput.setVisibility(setup);if(codeInput!=null)codeInput.setVisibility(setup);if(seats!=null)seats.setVisibility(setup);connectButton.setVisibility(setup);}String state=room==null?"WAITING":room.optString("state");boolean active=connected&&foreground&&"PLAYING".equals(state)&&(!isCar()||localAllowed);arena.update(localSeat,state,active);for(Button b:fireButtons)b.setEnabled(active);if(gameAudio!=null)gameAudio.setAllowed(active);if(!isCar()&&room!=null)refreshCollection(room);onGameVisibilityChanged();}
