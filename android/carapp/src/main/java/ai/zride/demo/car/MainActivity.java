@@ -42,14 +42,16 @@ public final class MainActivity extends DemoActivity {
     private static final String[] SEAT_NAMES = {"조수석", "뒷좌석 왼쪽", "뒷좌석 오른쪽"};
     private LinearLayout venuePanel;
     private View arcadeViewport;
-    private LinearLayout venueChoices, venueCover, venueSeats;
+    private LinearLayout venueChoices, venueRound, venueCover, venueSeats;
     private TextView venuePhase, venueLabel, venueLobbyDetail;
     private boolean venueLobbyArt;
     private TextView venueDetail;
     private TextView venueInstruction;
-    private Button venueStart, venueNext, venueItem;
+    private Button venueStart, venueNext, venueItem, venueReturn;
     private Game venueCoverGame;
     private boolean venuePending, venueStatusPending, venueVisible;
+    private boolean venueGameFocused;
+    private String dismissedVenueResultRoom;
     private String venueStopName = "";
     private int venueActionVersion;
 
@@ -90,13 +92,15 @@ public final class MainActivity extends DemoActivity {
         JSONObject stop = response.optJSONObject("stop");
         venueVisible = localAllowed && foreground && connected && stop != null;
         venueStopName = venueVisible ? stop.optString("name") : "";
-        updateArcadeVisibility();
-        if (!venueVisible) return;
         JSONObject game = response.optJSONObject("game");
         String phase = game == null ? "" : game.optString("phase");
-        boolean choose = game == null || "END".equals(phase);
-        venueChoices.setVisibility(choose ? View.VISIBLE : View.GONE);
-        venueCover.setVisibility(game != null ? View.VISIBLE : View.GONE);
+        boolean ended = "END".equals(phase);
+        if (game != null && !ended) dismissedVenueResultRoom = null;
+        venueGameFocused = game != null && !(ended && room.optString("roomId").equals(dismissedVenueResultRoom));
+        updateVenueScreen();
+        updateArcadeVisibility();
+        if (!venueVisible) return;
+        venueReturn.setVisibility(ended ? View.VISIBLE : View.GONE);
         boolean lobby = "LOBBY".equals(phase) || "BRIEFING".equals(phase);
         venueSeats.setVisibility(lobby ? View.VISIBLE : View.GONE);
         if (lobby) updateSeats(venueSeats, game, "BRIEFING".equals(phase));
@@ -174,13 +178,10 @@ public final class MainActivity extends DemoActivity {
             case "VOTE": instruction = "동승자는 폰에서 투표해 주세요."; break;
             case "PLAY": instruction = "폰에서 그림 또는 정답 제출"; break;
             case "END": instruction = ""; break;
-            default: instruction = choose && approvedPassengers() < 2
-                    ? "동승자 두 명이 연결되면 함께 플레이할 수 있어요." : "";
+            default: instruction = "";
         }
         venueInstruction.setText(instruction);
         venueInstruction.setVisibility(instruction.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE);
-        venueLabel.setVisibility(game == null ? View.GONE : View.VISIBLE);
-        venueChoiceTitle.setText(game == null ? "충전소 게임" : "다음 게임");
         if (!thief || "LOBBY".equals(phase)) {
             venueLight.clear();
             venueFan.clear();
@@ -195,12 +196,20 @@ public final class MainActivity extends DemoActivity {
         return button;
     }
 
-    private TextView venueChoiceTitle;
+    private TextView venueChoiceInstruction;
+
+    private void updateVenueScreen() {
+        venueRound.setVisibility(venueGameFocused ? View.VISIBLE : View.GONE);
+        venueChoices.setVisibility(venueGameFocused ? View.GONE : View.VISIBLE);
+        venueChoiceInstruction.setVisibility(approvedPassengers() < 2 ? View.VISIBLE : View.GONE);
+    }
 
     private void addVenueControls(LinearLayout container) {
         arcadeViewport = (View) container.getParent();
         venuePanel = column();
         venuePanel.setVisibility(View.GONE);
+        venueRound = column();
+        venuePanel.addView(venueRound);
         venueCover = column();
         venueCover.setGravity(Gravity.CENTER_VERTICAL);
         venueCover.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
@@ -209,25 +218,38 @@ public final class MainActivity extends DemoActivity {
             if (venueCover.getMinimumHeight() != height) venueCover.setMinimumHeight(height);
         });
         venueCover.setPadding(dp(28), dp(12), dp(24), dp(12));
-        venuePanel.addView(venueCover);
+        venueRound.addView(venueCover);
         venuePhase = dashboardText(venueCover, 16, true);
         venueLabel = dashboardText(venueCover, 40, true);
         venueLobbyDetail = dashboardText(venueCover, 20, false);
         venueDetail = dashboardText(venueCover, 32, true);
-        venueLight = new CabinEffectReadout(venuePanel, "앰비언트 밝기", "%");
-        venueFan = new CabinEffectReadout(venuePanel, "송풍", "단");
-        venueSeats = seatStrip(venuePanel);
-        venueInstruction = dashboardText(venuePanel, 17, false);
+        venueLight = new CabinEffectReadout(venueRound, "앰비언트 밝기", "%");
+        venueFan = new CabinEffectReadout(venueRound, "송풍", "단");
+        venueSeats = seatStrip(venueRound);
+        venueInstruction = dashboardText(venueRound, 17, false);
         venueStart = venueControl("게임 시작", "start", null);
         venueNext = venueControl("다음", "next", null);
         venueItem = venueControl("보급품 사용", "item", null);
         addSupplyIcon(venueItem);
-        venuePanel.addView(venueStart);
-        venuePanel.addView(venueNext);
-        venuePanel.addView(venueItem);
+        venueRound.addView(venueStart);
+        venueRound.addView(venueNext);
+        venueRound.addView(venueItem);
+        venueReturn = new Button(this);
+        venueReturn.setText("‹  로비로 돌아가기");
+        styleVehicleButton(venueReturn, false);
+        venueReturn.setOnClickListener(view -> {
+            if (room == null || !venueVisible) return;
+            dismissedVenueResultRoom = room.optString("roomId");
+            venueGameFocused = false;
+            updateVenueScreen();
+            updateArcadeVisibility();
+        });
+        venueRound.addView(venueReturn);
         venueChoices = column();
         venuePanel.addView(venueChoices);
-        venueChoiceTitle = dashboardText(venueChoices, 32, true);
+        dashboardText(venueChoices, 32, true).setText("충전소 게임");
+        venueChoiceInstruction = dashboardText(venueChoices, 17, false);
+        venueChoiceInstruction.setText("동승자 두 명이 연결되면 함께 플레이할 수 있어요.");
         boolean wide = getResources().getConfiguration().screenWidthDp >= 660;
         LinearLayout cards = new LinearLayout(this);
         cards.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
@@ -300,7 +322,7 @@ public final class MainActivity extends DemoActivity {
         deadzonePanel.setVisibility(showDeadzone ? View.VISIBLE : View.GONE);
         deadzoneCard.setVisibility(deadzoneAvailable && !showDeadzone
                 && (approvedPassengers() > 0 || showVehicleDiagnostics()) ? View.VISIBLE : View.GONE);
-        showVehicleLobby(!showDeadzone && (!showVenue || approvedPassengers() < 2));
+        showVehicleLobby(!showDeadzone && (!showVenue || !venueGameFocused));
         if (showVenue || showDeadzone) hideVehicleRoundControls();
         if (!showVehicleDiagnostics() && connected) status.setVisibility(View.GONE);
         deadzoneStart.setEnabled(showDeadzone && !deadzonePending && approvedPassengers() > 0);
