@@ -1,4 +1,4 @@
-﻿import { readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source = (await readFile(new URL('../games/raindrop/game.js', import.meta.url), 'utf8')).replace(/^\uFEFF/, '')
@@ -7,7 +7,7 @@ const runSeed = Number(process.argv[2] || 73129);
 let now = 0, raf = null, seed = runSeed;
 const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const noop = () => {};
-const ctx = new Proxy({}, { get: (_, key) => key === 'measureText' ? () => ({ width: 0 }) : noop, set: () => true });
+const ctx = new Proxy({}, { get: (_, key) => key === 'measureText' ? () => ({ width: 0 }) : key === 'createLinearGradient' ? () => ({ addColorStop: noop }) : noop, set: () => true });
 const canvas = { width: 375, height: 812, getContext: () => ctx, getBoundingClientRect: () => ({ width: 375, height: 812, left: 0, top: 0 }), addEventListener: noop, setPointerCapture: noop };
 const elements = new Map();
 const element = id => {
@@ -16,13 +16,14 @@ const element = id => {
 };
 const document = { querySelector: () => canvas, getElementById: element };
 const sandbox = {
-  document, window: { addEventListener: noop }, location: { search: '?dev=1' }, URLSearchParams,
+  document, window: { addEventListener: noop }, location: { search: '?dev=1' }, URLSearchParams, inJourney: false,
   devicePixelRatio: 1, ResizeObserver: class { constructor(fn) { this.fn = fn; } observe() { this.fn(); } },
   requestAnimationFrame: fn => { raf = fn; }, performance: { now: () => now }, Math: Object.create(Math),
   setTimeout: () => 0, clearTimeout: noop, console,
   createVehicleFeed: () => ({ current: null, on: noop, addDevControl: noop }),
   getSeat: () => 'left', addItem: noop, getInventory: () => ({}), getBest: () => null, saveRecord: x => x,
-  ensurePassenger: async () => true, sketchLine: noop, hatchRect: noop, drawFinger: noop,
+  ensurePassenger: async () => true, startLootTracking: noop, awardMinigame: async () => ({ items: [] }),
+  sketchLine: noop, hatchRect: noop, drawFinger: noop,
 };
 sandbox.Math.random = random;
 vm.createContext(sandbox);

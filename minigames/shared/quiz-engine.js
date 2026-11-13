@@ -8,6 +8,11 @@ export function createQuizEngine({ bank = [], now = () => Date.now(), rng = Math
   const byType = {}, wrongIds = [];
   function choose(event) {
     const key = event.type === 'practice' ? 'idle' : triggerKey(event); let candidates = bank.filter(q => q.trigger === key && !used.has(q.id));
+    const context = event.roadContext;
+    if (context && context !== 'any') {
+      const contextual = bank.filter(q => q.roadContext === context && !used.has(q.id));
+      if (contextual.length) candidates = contextual;
+    }
     if (!candidates.length && event.type === 'tbt') {
       candidates = bank.filter(q => q.turns?.includes(event.detail?.turn) && !used.has(q.id));
     }

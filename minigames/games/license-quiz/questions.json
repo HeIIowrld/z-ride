@@ -1,42 +1,1069 @@
 [
-  {"id":"q01","type":"sign","trigger":"tbt:right","sign":"right","question":"교차로에서 우회전할 때 가장 먼저 확인할 것은 무엇인가요?","choices":["보행자와 주변 차량의 안전","뒤차의 경적","내비게이션 화면","차량의 연료량"],"answer":0,"explanation":"우회전 전후에는 보행자와 교통 상황을 살펴야 합니다. 안전을 확인한 뒤 천천히 진행하세요.","legalBasis":"도로교통법 제25조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q02","type":"sign","trigger":"tbt:right","sign":"right","question":"우회전 중 횡단보도 앞 보행자가 보이면 어떻게 해야 하나요?","choices":["정지선 앞에 일시정지하고 보행자를 먼저 보냄","경적을 울리며 통과","속도를 유지","반대 차로로 우회"],"answer":0,"explanation":"보행자가 횡단 중이거나 횡단하려는 경우 일시정지해야 합니다. 보행자의 안전을 확인한 뒤 진행합니다.","legalBasis":"도로교통법 제27조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q03","type":"situation","trigger":"tbt:right","sign":"right","question":"전방 차량 신호가 적색이고 우회전하려 합니다. 올바른 행동은 무엇인가요?","choices":["정지선 앞에 일시정지한 뒤 보행자와 교통을 확인하고 우회전","속도를 줄여 바로 우회전","뒤차가 없으면 통과","보행자가 없으면 정지 없이 통과"],"answer":0,"explanation":"적색 신호에서 우회전하기 전 정지선·횡단보도·교차로 직전에서 일시정지해야 합니다. 이후 보행자와 교통에 방해되지 않게 진행합니다.","legalBasis":"도로교통법 제5조 및 제25조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q04","type":"situation","trigger":"tbt:right","sign":"right","question":"우회전 직후 횡단보도에 보행자가 건너고 있습니다. 어떻게 해야 하나요?","choices":["횡단보도 앞에 정지해 보행자 통행을 기다림","보행자 뒤로 천천히 통과","경적 후 통과","중앙선을 넘어 통과"],"answer":0,"explanation":"횡단 중인 보행자가 있으면 차량은 정지해야 합니다. 보행자가 안전하게 건넌 뒤 진행합니다.","legalBasis":"도로교통법 제27조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q05","type":"sign","trigger":"tbt:right","sign":"right","question":"우회전할 때 방향지시등은 언제 켜야 하나요?","choices":["우회전하기 전 충분히 미리","회전이 끝난 뒤","교차로를 지난 뒤","필요하지 않음"],"answer":0,"explanation":"진로를 바꾸거나 회전하려는 지점에 이르기 전 방향지시등으로 의사를 알려야 합니다. 주변 차량과 보행자가 알아볼 시간을 주세요.","legalBasis":"도로교통법 제38조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q06","type":"sign","trigger":"caution:speed_bump","sign":"bump","question":"과속방지턱 표지를 보면 어떻게 운전해야 하나요?","choices":["속도를 줄여 안전하게 통과","턱 직전에 가속","차선을 바꾸며 통과","급제동 후 빠르게 통과"],"answer":0,"explanation":"과속방지턱은 속도를 낮춰 통과해야 합니다. 급제동이나 급가속은 피하고 주변 보행자도 살피세요.","legalBasis":"도로교통법(조문 확인 필요)","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q07","type":"sign","trigger":"caution:speed_bump","sign":"bump","question":"과속방지턱 앞에서 안전한 방법은 무엇인가요?","choices":["미리 감속하고 차체가 안정된 상태로 통과","턱 위에서 급제동","앞차에 바짝 붙어 통과","반대편 차로로 피하기"],"answer":0,"explanation":"턱에 닿기 전에 부드럽게 감속하면 차량의 충격을 줄일 수 있습니다. 통과 후에도 주변 상황을 확인하세요.","legalBasis":"도로교통법(조문 확인 필요)","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q08","type":"situation","trigger":"caution:speed_bump","sign":"bump","question":"방지턱을 통과할 때 앞차와의 간격은 어떻게 해야 하나요?","choices":["안전거리를 유지","최대한 바짝 붙기","옆 차로로 급히 이동","간격과 무관하게 가속"],"answer":0,"explanation":"앞차가 방지턱 앞에서 감속하거나 정지할 수 있으므로 충분한 안전거리를 둡니다. 급작스러운 추돌을 예방할 수 있습니다.","legalBasis":"도로교통법 제19조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q09","type":"sign","trigger":"caution:speed_bump","sign":"bump","question":"방지턱 직후 보행자가 보이면 어떻게 하나요?","choices":["즉시 감속 또는 정지해 보행자를 보호","경적을 울리며 진행","보행자 옆으로 빠르게 통과","상향등을 켜고 진행"],"answer":0,"explanation":"방지턱 뒤에는 보행자나 장애물이 가려져 있을 수 있습니다. 시야가 확보될 때까지 속도를 낮게 유지하세요.","legalBasis":"도로교통법 제27조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q10","type":"situation","trigger":"caution:speed_bump","sign":"bump","question":"방지턱 통과 중 피해야 할 행동은 무엇인가요?","choices":["급격한 조향과 급가속","일정한 저속 유지","앞쪽 상황 살피기","차간거리 확보"],"answer":0,"explanation":"턱 위에서 급하게 핸들을 돌리거나 가속하면 차량이 불안정해질 수 있습니다. 감속한 상태로 부드럽게 통과하세요.","legalBasis":"도로교통법(조문 확인 필요)","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q11","type":"sign","trigger":"caution:school_zone","sign":"children","question":"어린이보호구역에서 운전할 때 가장 중요한 태도는 무엇인가요?","choices":["속도를 낮추고 어린이 출현에 대비","제한속도보다 빠르게 주행","보행자 신호와 무관하게 진행","경적을 계속 울림"],"answer":0,"explanation":"어린이보호구역에서는 제한속도를 지키고 주변을 살펴야 합니다. 어린이가 갑자기 도로로 나올 가능성에 대비하세요.","legalBasis":"도로교통법 제12조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q12","type":"sign","trigger":"caution:school_zone","sign":"children","question":"어린이보호구역 내 신호등 없는 횡단보도에서 운전자는 어떻게 해야 하나요?","choices":["보행자 유무와 관계없이 횡단보도 앞에서 일시정지","속도를 유지하며 통과","경적을 울리고 통과","반대 차로로 우회"],"answer":0,"explanation":"어린이보호구역의 신호기 없는 횡단보도 앞에서는 보행자 유무와 관계없이 일시정지해야 합니다. 안전을 확인한 뒤 진행합니다.","legalBasis":"도로교통법 제27조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q13","type":"situation","trigger":"caution:school_zone","sign":"children","question":"보호구역 도로 가장자리에 어린이가 서 있습니다. 어떻게 해야 하나요?","choices":["감속하고 즉시 멈출 수 있도록 주의","속도를 유지","차량이 우선이므로 진행","어린이에게 경적을 울림"],"answer":0,"explanation":"어린이는 주변을 충분히 살피지 않고 이동할 수 있습니다. 속도를 낮추고 안전하게 멈출 수 있는 상태를 유지하세요.","legalBasis":"도로교통법 제12조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q14","type":"sign","trigger":"caution:school_zone","sign":"children","question":"어린이보호구역에서 주차·정차할 때 기준은 무엇인가요?","choices":["표지와 노면 표시 및 관련 제한을 확인하고 금지 장소를 피함","잠깐이면 횡단보도에 정차","비상등을 켜면 어디든 정차","보호구역에서는 제한 없음"],"answer":0,"explanation":"보호구역에는 주정차 제한이 적용될 수 있으므로 현장 표지와 노면 표시를 확인해야 합니다. 횡단보도 등 법정 금지 장소에는 정차하지 마세요.","legalBasis":"도로교통법 제32조 및 제12조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q15","type":"situation","trigger":"caution:school_zone","sign":"children","question":"보호구역에서 앞차가 횡단보도 앞에 멈췄습니다. 어떻게 하나요?","choices":["앞차를 따라 정지하고 주변 보행자를 확인","옆으로 추월","경적 후 추월","중앙선을 넘어 통과"],"answer":0,"explanation":"앞차가 멈춘 이유가 보행자일 수 있습니다. 횡단보도 앞에서 함께 정지해 시야가 확보될 때까지 기다립니다.","legalBasis":"도로교통법 제27조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q16","type":"enforcement","trigger":"camera:section","sign":"camera","question":"구간단속 구간에서 지켜야 할 것은 무엇인가요?","choices":["구간 전체에서 제한속도를 준수","진입부에서만 감속","중간에서 빠르게 달리고 출구에서 감속","카메라가 보일 때만 감속"],"answer":0,"explanation":"구간단속은 구간의 평균속도 등을 측정합니다. 진입부터 종료 지점까지 제한속도를 지켜야 합니다.","legalBasis":"도로교통법 제17조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q17","type":"enforcement","trigger":"camera:section","sign":"camera","question":"구간단속 출구에 가까워졌습니다. 올바른 행동은 무엇인가요?","choices":["계속 제한속도를 지킴","출구 직전 가속","카메라가 안 보이면 가속","앞차를 추월"],"answer":0,"explanation":"단속 구간이 끝났다는 안내를 확인할 때까지 제한속도를 준수합니다. 급가속은 위험합니다.","legalBasis":"도로교통법 제17조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q18","type":"enforcement","trigger":"camera:section","sign":"camera","question":"구간단속 중 교통 흐름이 느려졌습니다. 어떻게 해야 하나요?","choices":["앞차와 안전거리를 두고 흐름에 맞춰 감속","급히 차로 변경","갓길로 추월","제한속도까지 무조건 가속"],"answer":0,"explanation":"교통 흐름과 앞차의 속도를 살피며 안전거리를 유지합니다. 단속을 피하려는 급격한 가감속은 사고 위험을 키웁니다.","legalBasis":"도로교통법 제19조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q19","type":"enforcement","trigger":"camera:section","sign":"camera","question":"단속 구간의 제한속도 표지를 지나쳤습니다. 무엇을 따라야 하나요?","choices":["표지된 제한속도","내비게이션의 더 높은 속도","앞차 속도","도로가 비어 있으면 임의 속도"],"answer":0,"explanation":"현장의 교통안전표지가 정한 제한속도를 따라야 합니다. 도로 사정에 맞게 더 낮은 속도로 운전할 수 있습니다.","legalBasis":"도로교통법 제17조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q20","type":"enforcement","trigger":"camera:section","sign":"camera","question":"구간단속 중 안전한 차간거리 유지가 중요한 이유는 무엇인가요?","choices":["감속이나 정지 상황에 대응할 수 있어서","단속을 피할 수 있어서","연료를 더 쓰기 위해서","차로를 자주 바꾸기 위해서"],"answer":0,"explanation":"충분한 차간거리는 앞차의 급제동에 대응할 여유를 줍니다. 제한속도 준수와 함께 안전운전에 도움이 됩니다.","legalBasis":"도로교통법 제19조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q21","type":"weather_time","trigger":"wiper","sign":null,"question":"비가 내려 노면이 젖었습니다. 속도는 어떻게 해야 하나요?","choices":["도로교통법 기준에 따라 감속하고 안전거리를 늘림","평소보다 빠르게 주행","앞차에 가까이 붙음","급가속으로 물웅덩이를 통과"],"answer":0,"explanation":"비 등으로 노면이 젖은 경우 법정 감속 기준을 지켜야 합니다. 시야와 제동거리를 고려해 더 여유 있게 운전하세요.","legalBasis":"도로교통법 제17조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q22","type":"weather_time","trigger":"wiper","sign":null,"question":"빗길에서 앞차와의 거리는 어떻게 해야 하나요?","choices":["평소보다 충분히 넓힘","가능한 좁힘","차량 한 대 길이로 고정","거리와 무관"],"answer":0,"explanation":"젖은 노면에서는 제동거리가 길어질 수 있습니다. 앞차와 여유를 두어 갑작스러운 제동에 대비하세요.","legalBasis":"도로교통법 제19조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q23","type":"weather_time","trigger":"wiper","sign":null,"question":"비가 많이 와 시야가 나쁩니다. 적절한 행동은 무엇인가요?","choices":["속도를 낮추고 전조등을 켜며 안전한 곳에서 대기 고려","비상등만 켜고 계속 가속","와이퍼 속도만 높이고 속도 유지","창문을 열고 주행"],"answer":0,"explanation":"시야가 나쁘면 감속하고 등화를 사용해 주변에 차량을 알립니다. 안전한 주행이 어렵다면 안전한 장소에 정차하세요.","legalBasis":"도로교통법 제37조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q24","type":"weather_time","trigger":"wiper","sign":null,"question":"빗길에서 급제동을 피해야 하는 까닭은 무엇인가요?","choices":["미끄러져 차량 통제력을 잃을 수 있어서","와이퍼가 멈춰서","연료가 늘어서","속도계가 고장 나서"],"answer":0,"explanation":"젖은 노면에서는 타이어 접지력이 낮아져 급제동과 급조향이 위험할 수 있습니다. 부드럽게 조작하세요.","legalBasis":"도로교통법(조문 확인 필요)","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q25","type":"weather_time","trigger":"wiper","sign":null,"question":"빗길 물웅덩이를 만났을 때 바람직한 행동은 무엇인가요?","choices":["속도를 줄이고 핸들을 안정적으로 유지","급히 방향을 틀어 피함","가속해 빠져나감","브레이크를 세게 밟음"],"answer":0,"explanation":"물웅덩이는 차량이 미끄러질 위험이 있습니다. 속도를 줄이고 급격한 조작을 피하세요.","legalBasis":"도로교통법(조문 확인 필요)","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q26","type":"situation","trigger":"turnSignal","sign":null,"question":"차로를 변경하기 전에 해야 할 일은 무엇인가요?","choices":["방향지시등을 켜고 주변을 확인","먼저 핸들을 꺾음","경적만 울림","급가속"],"answer":0,"explanation":"진로변경 전 방향지시등으로 신호하고 거울과 사각지대를 확인해야 합니다. 다른 차량의 통행을 방해하지 않도록 합니다.","legalBasis":"도로교통법 제38조 및 제19조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q27","type":"situation","trigger":"turnSignal","sign":null,"question":"방향지시등을 켰지만 옆 차로 차량이 가까이 있습니다. 어떻게 하나요?","choices":["진로변경을 기다리고 안전한 간격을 확보","신호했으니 바로 진입","경적을 울리며 진입","속도를 높여 끼어듦"],"answer":0,"explanation":"방향지시등은 의사를 알리는 신호이며 우선권을 주지 않습니다. 충분한 간격이 생길 때까지 기다리세요.","legalBasis":"도로교통법 제19조 및 제38조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q28","type":"situation","trigger":"turnSignal","sign":null,"question":"회전을 마친 뒤 방향지시등이 계속 켜져 있습니다. 어떻게 하나요?","choices":["신호를 끄고 주행 방향을 확인","그대로 두기","비상등을 추가로 켜기","급정지"],"answer":0,"explanation":"회전이나 진로변경이 끝나면 신호를 해제해야 합니다. 주변 운전자에게 혼란을 주지 않도록 확인하세요.","legalBasis":"도로교통법 제38조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q29","type":"situation","trigger":"turnSignal","turns":["left"],"sign":null,"question":"교차로에서 좌회전하려 합니다. 방향지시등은 언제 켜나요?","choices":["좌회전 지점에 이르기 전 미리","회전 중에만","회전 후","켜지 않아도 됨"],"answer":0,"explanation":"회전하려는 지점에 이르기 전 신호로 의사를 알려야 합니다. 표지와 차로 안내도 미리 확인하세요.","legalBasis":"도로교통법 제38조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q30","type":"situation","trigger":"turnSignal","sign":null,"question":"진로변경 신호를 켠 뒤에도 확인해야 할 것은 무엇인가요?","choices":["거울과 사각지대의 차량·보행자","연료 잔량만","뒷좌석 승객만","차량 색상"],"answer":0,"explanation":"신호만으로 안전이 확보되지는 않습니다. 주변 차량과 보행자를 확인하고 안전할 때만 이동하세요.","legalBasis":"도로교통법 제19조 및 제38조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q31","type":"weather_time","trigger":"night","sign":null,"question":"야간에 도로를 주행할 때 필요한 것은 무엇인가요?","choices":["전조등 등 필요한 등화를 켜고 속도를 조절","등화를 끄고 주행","상향등을 계속 켜기","실내등만 켜기"],"answer":0,"explanation":"야간에는 등화를 켜 다른 도로 이용자에게 차량을 알리고 시야를 확보해야 합니다. 마주 오는 차가 있으면 상향등 사용에 주의하세요.","legalBasis":"도로교통법 제37조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q32","type":"weather_time","trigger":"night","sign":null,"question":"마주 오는 차량이 있을 때 상향등은 어떻게 해야 하나요?","choices":["눈부심을 주지 않도록 하향등으로 전환","계속 상향등 유지","등화를 모두 끔","경적을 울림"],"answer":0,"explanation":"상향등은 다른 운전자의 시야를 방해할 수 있습니다. 마주 오는 차나 앞차가 있을 때는 하향등을 사용하세요.","legalBasis":"도로교통법 제37조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q33","type":"weather_time","trigger":"night","sign":null,"question":"야간에 보행자를 발견하기 어려운 도로에서 어떻게 하나요?","choices":["감속하고 전방과 도로 가장자리를 살핌","속도를 높여 빨리 통과","중앙선에 붙어 주행","경적을 계속 울림"],"answer":0,"explanation":"야간에는 보행자 발견이 늦을 수 있으므로 속도를 낮추고 시야를 넓게 살펴야 합니다. 즉시 멈출 수 있도록 대비하세요.","legalBasis":"도로교통법(조문 확인 필요)","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q34","type":"weather_time","trigger":"night","sign":null,"question":"터널에 진입할 때 낮이라도 등화가 필요한 이유는 무엇인가요?","choices":["시야 확보와 다른 차량에 내 차량을 알리기 위해","연료 절약을 위해","속도 제한을 없애기 위해","경적을 대신하기 위해"],"answer":0,"explanation":"터널은 어두워 시야가 제한될 수 있습니다. 전조등을 켜고 터널 안의 표지와 제한속도를 따르세요.","legalBasis":"도로교통법 제37조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q35","type":"weather_time","trigger":"night","sign":null,"question":"야간 주행 중 앞차가 가까이 있습니다. 상향등 사용은 어떠해야 하나요?","choices":["앞차 운전자를 눈부시게 하지 않도록 하향등 사용","상향등을 반복 점멸","실내등을 켬","등화를 끔"],"answer":0,"explanation":"상향등은 앞차 운전자의 시야를 방해할 수 있습니다. 앞차와 마주 오는 차량이 있을 때는 하향등을 사용합니다.","legalBasis":"도로교통법 제37조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q36","type":"sign","trigger":"idle","sign":"stop","question":"일반 도로에서 안전운전의 기본은 무엇인가요?","choices":["교통 상황에 맞춰 속도와 안전거리를 조절","항상 제한속도까지 가속","앞차를 바짝 따라감","주변 확인 없이 차로 변경"],"answer":0,"explanation":"제한속도 이내라도 도로와 교통 상황에 맞춰 안전한 속도를 선택해야 합니다. 앞차와 충분한 거리를 유지하세요.","legalBasis":"도로교통법 제19조 및 제17조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q37","type":"situation","trigger":"idle","sign":null,"question":"앞차와 안전거리를 확보하는 주된 이유는 무엇인가요?","choices":["급정지 상황에서 충돌을 피할 여유를 만들기 위해","다른 차의 끼어들기를 막기 위해","연료를 더 쓰기 위해","속도를 높이기 위해"],"answer":0,"explanation":"안전거리는 앞차의 감속이나 정지에 대응할 시간을 줍니다. 속도와 노면 상태에 따라 더 넉넉히 확보하세요.","legalBasis":"도로교통법 제19조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q38","type":"sign","trigger":"idle","sign":"crosswalk","question":"횡단보도에 보행자가 건너고 있습니다. 어떻게 해야 하나요?","choices":["정지해 보행자가 안전하게 건너도록 함","경적을 울리며 통과","보행자 앞을 빠르게 통과","반대 차로로 우회"],"answer":0,"explanation":"횡단 중인 보행자가 있으면 정지해 보호해야 합니다. 보행자의 통행이 끝난 뒤 안전을 확인하고 진행하세요.","legalBasis":"도로교통법 제27조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q39","type":"situation","trigger":"idle","sign":null,"question":"교통정체로 차량이 교차로 안에 멈출 수 있습니다. 어떻게 해야 하나요?","choices":["교차로 안에 정차하지 않도록 진입을 기다림","앞차를 따라 교차로에 진입","경적을 울리며 진입","횡단보도 위에 정차"],"answer":0,"explanation":"교차로를 빠져나갈 수 없는 상황이라면 진입하지 않아 교차로를 막지 않아야 합니다. 신호와 교통 흐름을 확인하세요.","legalBasis":"도로교통법 제25조","reviewedAt":null,"reviewStatus":"draft"},
-  {"id":"q40","type":"situation","trigger":"idle","sign":null,"question":"운전 중 주변 교통안전표지가 제한속도를 알립니다. 무엇을 따라야 하나요?","choices":["현장 표지의 제한속도와 교통 상황","내가 편한 속도","앞차의 속도만","차량의 최고속도"],"answer":0,"explanation":"교통안전표지로 지정된 제한속도를 따라야 합니다. 기상이나 도로 상황이 나쁘면 더 낮은 속도로 운전합니다.","legalBasis":"도로교통법 제17조","reviewedAt":null,"reviewStatus":"draft"}
+  {
+    "id": "q01",
+    "type": "sign",
+    "trigger": "tbt:right",
+    "sign": "right",
+    "question": "교차로에서 우회전할 때 가장 먼저 확인할 것은 무엇인가요?",
+    "choices": [
+      "보행자와 주변 차량의 안전",
+      "뒤차의 경적",
+      "내비게이션 화면",
+      "차량의 연료량"
+    ],
+    "answer": 0,
+    "explanation": "우회전 전후에는 보행자와 교통 상황을 살펴야 합니다. 안전을 확인한 뒤 천천히 진행하세요.",
+    "legalBasis": "도로교통법 제25조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q02",
+    "type": "sign",
+    "trigger": "tbt:right",
+    "sign": "right",
+    "question": "우회전 중 횡단보도 앞 보행자가 보이면 어떻게 해야 하나요?",
+    "choices": [
+      "정지선 앞에 일시정지하고 보행자를 먼저 보냄",
+      "경적을 울리며 통과",
+      "속도를 유지",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "보행자가 횡단 중이거나 횡단하려는 경우 일시정지해야 합니다. 보행자의 안전을 확인한 뒤 진행합니다.",
+    "legalBasis": "도로교통법 제27조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q03",
+    "type": "situation",
+    "trigger": "tbt:right",
+    "sign": "right",
+    "question": "전방 차량 신호가 적색이고 우회전하려 합니다. 올바른 행동은 무엇인가요?",
+    "choices": [
+      "정지선 앞에 일시정지한 뒤 보행자와 교통을 확인하고 우회전",
+      "속도를 줄여 바로 우회전",
+      "뒤차가 없으면 통과",
+      "보행자가 없으면 정지 없이 통과"
+    ],
+    "answer": 0,
+    "explanation": "적색 신호에서 우회전하기 전 정지선·횡단보도·교차로 직전에서 일시정지해야 합니다. 이후 보행자와 교통에 방해되지 않게 진행합니다.",
+    "legalBasis": "도로교통법 제5조 및 제25조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q04",
+    "type": "situation",
+    "trigger": "tbt:right",
+    "sign": "right",
+    "question": "우회전 직후 횡단보도에 보행자가 건너고 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "횡단보도 앞에 정지해 보행자 통행을 기다림",
+      "보행자 뒤로 천천히 통과",
+      "경적 후 통과",
+      "중앙선을 넘어 통과"
+    ],
+    "answer": 0,
+    "explanation": "횡단 중인 보행자가 있으면 차량은 정지해야 합니다. 보행자가 안전하게 건넌 뒤 진행합니다.",
+    "legalBasis": "도로교통법 제27조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q05",
+    "type": "sign",
+    "trigger": "tbt:right",
+    "sign": "right",
+    "question": "우회전할 때 방향지시등은 언제 켜야 하나요?",
+    "choices": [
+      "우회전하기 전 충분히 미리",
+      "회전이 끝난 뒤",
+      "교차로를 지난 뒤",
+      "필요하지 않음"
+    ],
+    "answer": 0,
+    "explanation": "진로를 바꾸거나 회전하려는 지점에 이르기 전 방향지시등으로 의사를 알려야 합니다. 주변 차량과 보행자가 알아볼 시간을 주세요.",
+    "legalBasis": "도로교통법 제38조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q06",
+    "type": "sign",
+    "trigger": "caution:speed_bump",
+    "sign": "bump",
+    "question": "과속방지턱 표지를 보면 어떻게 운전해야 하나요?",
+    "choices": [
+      "속도를 줄여 안전하게 통과",
+      "턱 직전에 가속",
+      "차선을 바꾸며 통과",
+      "급제동 후 빠르게 통과"
+    ],
+    "answer": 0,
+    "explanation": "과속방지턱은 속도를 낮춰 통과해야 합니다. 급제동이나 급가속은 피하고 주변 보행자도 살피세요.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q07",
+    "type": "sign",
+    "trigger": "caution:speed_bump",
+    "sign": "bump",
+    "question": "과속방지턱 앞에서 안전한 방법은 무엇인가요?",
+    "choices": [
+      "미리 감속하고 차체가 안정된 상태로 통과",
+      "턱 위에서 급제동",
+      "앞차에 바짝 붙어 통과",
+      "반대편 차로로 피하기"
+    ],
+    "answer": 0,
+    "explanation": "턱에 닿기 전에 부드럽게 감속하면 차량의 충격을 줄일 수 있습니다. 통과 후에도 주변 상황을 확인하세요.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q08",
+    "type": "situation",
+    "trigger": "caution:speed_bump",
+    "sign": "bump",
+    "question": "방지턱을 통과할 때 앞차와의 간격은 어떻게 해야 하나요?",
+    "choices": [
+      "안전거리를 유지",
+      "최대한 바짝 붙기",
+      "옆 차로로 급히 이동",
+      "간격과 무관하게 가속"
+    ],
+    "answer": 0,
+    "explanation": "앞차가 방지턱 앞에서 감속하거나 정지할 수 있으므로 충분한 안전거리를 둡니다. 급작스러운 추돌을 예방할 수 있습니다.",
+    "legalBasis": "도로교통법 제19조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q09",
+    "type": "sign",
+    "trigger": "caution:speed_bump",
+    "sign": "bump",
+    "question": "방지턱 직후 보행자가 보이면 어떻게 하나요?",
+    "choices": [
+      "즉시 감속 또는 정지해 보행자를 보호",
+      "경적을 울리며 진행",
+      "보행자 옆으로 빠르게 통과",
+      "상향등을 켜고 진행"
+    ],
+    "answer": 0,
+    "explanation": "방지턱 뒤에는 보행자나 장애물이 가려져 있을 수 있습니다. 시야가 확보될 때까지 속도를 낮게 유지하세요.",
+    "legalBasis": "도로교통법 제27조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q10",
+    "type": "situation",
+    "trigger": "caution:speed_bump",
+    "sign": "bump",
+    "question": "방지턱 통과 중 피해야 할 행동은 무엇인가요?",
+    "choices": [
+      "급격한 조향과 급가속",
+      "일정한 저속 유지",
+      "앞쪽 상황 살피기",
+      "차간거리 확보"
+    ],
+    "answer": 0,
+    "explanation": "턱 위에서 급하게 핸들을 돌리거나 가속하면 차량이 불안정해질 수 있습니다. 감속한 상태로 부드럽게 통과하세요.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q11",
+    "type": "sign",
+    "trigger": "caution:school_zone",
+    "sign": "children",
+    "question": "어린이보호구역에서 운전할 때 가장 중요한 태도는 무엇인가요?",
+    "choices": [
+      "속도를 낮추고 어린이 출현에 대비",
+      "제한속도보다 빠르게 주행",
+      "보행자 신호와 무관하게 진행",
+      "경적을 계속 울림"
+    ],
+    "answer": 0,
+    "explanation": "어린이보호구역에서는 제한속도를 지키고 주변을 살펴야 합니다. 어린이가 갑자기 도로로 나올 가능성에 대비하세요.",
+    "legalBasis": "도로교통법 제12조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q12",
+    "type": "sign",
+    "trigger": "caution:school_zone",
+    "sign": "children",
+    "question": "어린이보호구역 내 신호등 없는 횡단보도에서 운전자는 어떻게 해야 하나요?",
+    "choices": [
+      "보행자 유무와 관계없이 횡단보도 앞에서 일시정지",
+      "속도를 유지하며 통과",
+      "경적을 울리고 통과",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "어린이보호구역의 신호기 없는 횡단보도 앞에서는 보행자 유무와 관계없이 일시정지해야 합니다. 안전을 확인한 뒤 진행합니다.",
+    "legalBasis": "도로교통법 제27조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q13",
+    "type": "situation",
+    "trigger": "caution:school_zone",
+    "sign": "children",
+    "question": "보호구역 도로 가장자리에 어린이가 서 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "감속하고 즉시 멈출 수 있도록 주의",
+      "속도를 유지",
+      "차량이 우선이므로 진행",
+      "어린이에게 경적을 울림"
+    ],
+    "answer": 0,
+    "explanation": "어린이는 주변을 충분히 살피지 않고 이동할 수 있습니다. 속도를 낮추고 안전하게 멈출 수 있는 상태를 유지하세요.",
+    "legalBasis": "도로교통법 제12조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q14",
+    "type": "sign",
+    "trigger": "caution:school_zone",
+    "sign": "children",
+    "question": "어린이보호구역에서 주차·정차할 때 기준은 무엇인가요?",
+    "choices": [
+      "표지와 노면 표시 및 관련 제한을 확인하고 금지 장소를 피함",
+      "잠깐이면 횡단보도에 정차",
+      "비상등을 켜면 어디든 정차",
+      "보호구역에서는 제한 없음"
+    ],
+    "answer": 0,
+    "explanation": "보호구역에는 주정차 제한이 적용될 수 있으므로 현장 표지와 노면 표시를 확인해야 합니다. 횡단보도 등 법정 금지 장소에는 정차하지 마세요.",
+    "legalBasis": "도로교통법 제32조 및 제12조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q15",
+    "type": "situation",
+    "trigger": "caution:school_zone",
+    "sign": "children",
+    "question": "보호구역에서 앞차가 횡단보도 앞에 멈췄습니다. 어떻게 하나요?",
+    "choices": [
+      "앞차를 따라 정지하고 주변 보행자를 확인",
+      "옆으로 추월",
+      "경적 후 추월",
+      "중앙선을 넘어 통과"
+    ],
+    "answer": 0,
+    "explanation": "앞차가 멈춘 이유가 보행자일 수 있습니다. 횡단보도 앞에서 함께 정지해 시야가 확보될 때까지 기다립니다.",
+    "legalBasis": "도로교통법 제27조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q16",
+    "type": "enforcement",
+    "trigger": "camera:section",
+    "sign": "camera",
+    "question": "구간단속 구간에서 지켜야 할 것은 무엇인가요?",
+    "choices": [
+      "구간 전체에서 제한속도를 준수",
+      "진입부에서만 감속",
+      "중간에서 빠르게 달리고 출구에서 감속",
+      "카메라가 보일 때만 감속"
+    ],
+    "answer": 0,
+    "explanation": "구간단속은 구간의 평균속도 등을 측정합니다. 진입부터 종료 지점까지 제한속도를 지켜야 합니다.",
+    "legalBasis": "도로교통법 제17조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q17",
+    "type": "enforcement",
+    "trigger": "camera:section",
+    "sign": "camera",
+    "question": "구간단속 출구에 가까워졌습니다. 올바른 행동은 무엇인가요?",
+    "choices": [
+      "계속 제한속도를 지킴",
+      "출구 직전 가속",
+      "카메라가 안 보이면 가속",
+      "앞차를 추월"
+    ],
+    "answer": 0,
+    "explanation": "단속 구간이 끝났다는 안내를 확인할 때까지 제한속도를 준수합니다. 급가속은 위험합니다.",
+    "legalBasis": "도로교통법 제17조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q18",
+    "type": "enforcement",
+    "trigger": "camera:section",
+    "sign": "camera",
+    "question": "구간단속 중 교통 흐름이 느려졌습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "앞차와 안전거리를 두고 흐름에 맞춰 감속",
+      "급히 차로 변경",
+      "갓길로 추월",
+      "제한속도까지 무조건 가속"
+    ],
+    "answer": 0,
+    "explanation": "교통 흐름과 앞차의 속도를 살피며 안전거리를 유지합니다. 단속을 피하려는 급격한 가감속은 사고 위험을 키웁니다.",
+    "legalBasis": "도로교통법 제19조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q19",
+    "type": "enforcement",
+    "trigger": "camera:section",
+    "sign": "camera",
+    "question": "단속 구간의 제한속도 표지를 지나쳤습니다. 무엇을 따라야 하나요?",
+    "choices": [
+      "표지된 제한속도",
+      "내비게이션의 더 높은 속도",
+      "앞차 속도",
+      "도로가 비어 있으면 임의 속도"
+    ],
+    "answer": 0,
+    "explanation": "현장의 교통안전표지가 정한 제한속도를 따라야 합니다. 도로 사정에 맞게 더 낮은 속도로 운전할 수 있습니다.",
+    "legalBasis": "도로교통법 제17조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q20",
+    "type": "enforcement",
+    "trigger": "camera:section",
+    "sign": "camera",
+    "question": "구간단속 중 안전한 차간거리 유지가 중요한 이유는 무엇인가요?",
+    "choices": [
+      "감속이나 정지 상황에 대응할 수 있어서",
+      "단속을 피할 수 있어서",
+      "연료를 더 쓰기 위해서",
+      "차로를 자주 바꾸기 위해서"
+    ],
+    "answer": 0,
+    "explanation": "충분한 차간거리는 앞차의 급제동에 대응할 여유를 줍니다. 제한속도 준수와 함께 안전운전에 도움이 됩니다.",
+    "legalBasis": "도로교통법 제19조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q21",
+    "type": "weather_time",
+    "trigger": "wiper",
+    "sign": null,
+    "question": "비가 내려 노면이 젖었습니다. 속도는 어떻게 해야 하나요?",
+    "choices": [
+      "도로교통법 기준에 따라 감속하고 안전거리를 늘림",
+      "평소보다 빠르게 주행",
+      "앞차에 가까이 붙음",
+      "급가속으로 물웅덩이를 통과"
+    ],
+    "answer": 0,
+    "explanation": "비 등으로 노면이 젖은 경우 법정 감속 기준을 지켜야 합니다. 시야와 제동거리를 고려해 더 여유 있게 운전하세요.",
+    "legalBasis": "도로교통법 제17조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q22",
+    "type": "weather_time",
+    "trigger": "wiper",
+    "sign": null,
+    "question": "빗길에서 앞차와의 거리는 어떻게 해야 하나요?",
+    "choices": [
+      "평소보다 충분히 넓힘",
+      "가능한 좁힘",
+      "차량 한 대 길이로 고정",
+      "거리와 무관"
+    ],
+    "answer": 0,
+    "explanation": "젖은 노면에서는 제동거리가 길어질 수 있습니다. 앞차와 여유를 두어 갑작스러운 제동에 대비하세요.",
+    "legalBasis": "도로교통법 제19조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q23",
+    "type": "weather_time",
+    "trigger": "wiper",
+    "sign": null,
+    "question": "비가 많이 와 시야가 나쁩니다. 적절한 행동은 무엇인가요?",
+    "choices": [
+      "속도를 낮추고 전조등을 켜며 안전한 곳에서 대기 고려",
+      "비상등만 켜고 계속 가속",
+      "와이퍼 속도만 높이고 속도 유지",
+      "창문을 열고 주행"
+    ],
+    "answer": 0,
+    "explanation": "시야가 나쁘면 감속하고 등화를 사용해 주변에 차량을 알립니다. 안전한 주행이 어렵다면 안전한 장소에 정차하세요.",
+    "legalBasis": "도로교통법 제37조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q24",
+    "type": "weather_time",
+    "trigger": "wiper",
+    "sign": null,
+    "question": "빗길에서 급제동을 피해야 하는 까닭은 무엇인가요?",
+    "choices": [
+      "미끄러져 차량 통제력을 잃을 수 있어서",
+      "와이퍼가 멈춰서",
+      "연료가 늘어서",
+      "속도계가 고장 나서"
+    ],
+    "answer": 0,
+    "explanation": "젖은 노면에서는 타이어 접지력이 낮아져 급제동과 급조향이 위험할 수 있습니다. 부드럽게 조작하세요.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q25",
+    "type": "weather_time",
+    "trigger": "wiper",
+    "sign": null,
+    "question": "빗길 물웅덩이를 만났을 때 바람직한 행동은 무엇인가요?",
+    "choices": [
+      "속도를 줄이고 핸들을 안정적으로 유지",
+      "급히 방향을 틀어 피함",
+      "가속해 빠져나감",
+      "브레이크를 세게 밟음"
+    ],
+    "answer": 0,
+    "explanation": "물웅덩이는 차량이 미끄러질 위험이 있습니다. 속도를 줄이고 급격한 조작을 피하세요.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q26",
+    "type": "situation",
+    "trigger": "turnSignal",
+    "sign": null,
+    "question": "차로를 변경하기 전에 해야 할 일은 무엇인가요?",
+    "choices": [
+      "방향지시등을 켜고 주변을 확인",
+      "먼저 핸들을 꺾음",
+      "경적만 울림",
+      "급가속"
+    ],
+    "answer": 0,
+    "explanation": "진로변경 전 방향지시등으로 신호하고 거울과 사각지대를 확인해야 합니다. 다른 차량의 통행을 방해하지 않도록 합니다.",
+    "legalBasis": "도로교통법 제38조 및 제19조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q27",
+    "type": "situation",
+    "trigger": "turnSignal",
+    "sign": null,
+    "question": "방향지시등을 켰지만 옆 차로 차량이 가까이 있습니다. 어떻게 하나요?",
+    "choices": [
+      "진로변경을 기다리고 안전한 간격을 확보",
+      "신호했으니 바로 진입",
+      "경적을 울리며 진입",
+      "속도를 높여 끼어듦"
+    ],
+    "answer": 0,
+    "explanation": "방향지시등은 의사를 알리는 신호이며 우선권을 주지 않습니다. 충분한 간격이 생길 때까지 기다리세요.",
+    "legalBasis": "도로교통법 제19조 및 제38조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q28",
+    "type": "situation",
+    "trigger": "turnSignal",
+    "sign": null,
+    "question": "회전을 마친 뒤 방향지시등이 계속 켜져 있습니다. 어떻게 하나요?",
+    "choices": [
+      "신호를 끄고 주행 방향을 확인",
+      "그대로 두기",
+      "비상등을 추가로 켜기",
+      "급정지"
+    ],
+    "answer": 0,
+    "explanation": "회전이나 진로변경이 끝나면 신호를 해제해야 합니다. 주변 운전자에게 혼란을 주지 않도록 확인하세요.",
+    "legalBasis": "도로교통법 제38조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q29",
+    "type": "situation",
+    "trigger": "turnSignal",
+    "turns": [
+      "left"
+    ],
+    "sign": null,
+    "question": "교차로에서 좌회전하려 합니다. 방향지시등은 언제 켜나요?",
+    "choices": [
+      "좌회전 지점에 이르기 전 미리",
+      "회전 중에만",
+      "회전 후",
+      "켜지 않아도 됨"
+    ],
+    "answer": 0,
+    "explanation": "회전하려는 지점에 이르기 전 신호로 의사를 알려야 합니다. 표지와 차로 안내도 미리 확인하세요.",
+    "legalBasis": "도로교통법 제38조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q30",
+    "type": "situation",
+    "trigger": "turnSignal",
+    "sign": null,
+    "question": "진로변경 신호를 켠 뒤에도 확인해야 할 것은 무엇인가요?",
+    "choices": [
+      "거울과 사각지대의 차량·보행자",
+      "연료 잔량만",
+      "뒷좌석 승객만",
+      "차량 색상"
+    ],
+    "answer": 0,
+    "explanation": "신호만으로 안전이 확보되지는 않습니다. 주변 차량과 보행자를 확인하고 안전할 때만 이동하세요.",
+    "legalBasis": "도로교통법 제19조 및 제38조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q31",
+    "type": "weather_time",
+    "trigger": "night",
+    "sign": null,
+    "question": "야간에 도로를 주행할 때 필요한 것은 무엇인가요?",
+    "choices": [
+      "전조등 등 필요한 등화를 켜고 속도를 조절",
+      "등화를 끄고 주행",
+      "상향등을 계속 켜기",
+      "실내등만 켜기"
+    ],
+    "answer": 0,
+    "explanation": "야간에는 등화를 켜 다른 도로 이용자에게 차량을 알리고 시야를 확보해야 합니다. 마주 오는 차가 있으면 상향등 사용에 주의하세요.",
+    "legalBasis": "도로교통법 제37조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q32",
+    "type": "weather_time",
+    "trigger": "night",
+    "sign": null,
+    "question": "마주 오는 차량이 있을 때 상향등은 어떻게 해야 하나요?",
+    "choices": [
+      "눈부심을 주지 않도록 하향등으로 전환",
+      "계속 상향등 유지",
+      "등화를 모두 끔",
+      "경적을 울림"
+    ],
+    "answer": 0,
+    "explanation": "상향등은 다른 운전자의 시야를 방해할 수 있습니다. 마주 오는 차나 앞차가 있을 때는 하향등을 사용하세요.",
+    "legalBasis": "도로교통법 제37조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q33",
+    "type": "weather_time",
+    "trigger": "night",
+    "sign": null,
+    "question": "야간에 보행자를 발견하기 어려운 도로에서 어떻게 하나요?",
+    "choices": [
+      "감속하고 전방과 도로 가장자리를 살핌",
+      "속도를 높여 빨리 통과",
+      "중앙선에 붙어 주행",
+      "경적을 계속 울림"
+    ],
+    "answer": 0,
+    "explanation": "야간에는 보행자 발견이 늦을 수 있으므로 속도를 낮추고 시야를 넓게 살펴야 합니다. 즉시 멈출 수 있도록 대비하세요.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q34",
+    "type": "weather_time",
+    "trigger": "night",
+    "sign": null,
+    "question": "터널에 진입할 때 낮이라도 등화가 필요한 이유는 무엇인가요?",
+    "choices": [
+      "시야 확보와 다른 차량에 내 차량을 알리기 위해",
+      "연료 절약을 위해",
+      "속도 제한을 없애기 위해",
+      "경적을 대신하기 위해"
+    ],
+    "answer": 0,
+    "explanation": "터널은 어두워 시야가 제한될 수 있습니다. 전조등을 켜고 터널 안의 표지와 제한속도를 따르세요.",
+    "legalBasis": "도로교통법 제37조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q35",
+    "type": "weather_time",
+    "trigger": "night",
+    "sign": null,
+    "question": "야간 주행 중 앞차가 가까이 있습니다. 상향등 사용은 어떠해야 하나요?",
+    "choices": [
+      "앞차 운전자를 눈부시게 하지 않도록 하향등 사용",
+      "상향등을 반복 점멸",
+      "실내등을 켬",
+      "등화를 끔"
+    ],
+    "answer": 0,
+    "explanation": "상향등은 앞차 운전자의 시야를 방해할 수 있습니다. 앞차와 마주 오는 차량이 있을 때는 하향등을 사용합니다.",
+    "legalBasis": "도로교통법 제37조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q36",
+    "type": "sign",
+    "trigger": "idle",
+    "sign": "stop",
+    "question": "일반 도로에서 안전운전의 기본은 무엇인가요?",
+    "choices": [
+      "교통 상황에 맞춰 속도와 안전거리를 조절",
+      "항상 제한속도까지 가속",
+      "앞차를 바짝 따라감",
+      "주변 확인 없이 차로 변경"
+    ],
+    "answer": 0,
+    "explanation": "제한속도 이내라도 도로와 교통 상황에 맞춰 안전한 속도를 선택해야 합니다. 앞차와 충분한 거리를 유지하세요.",
+    "legalBasis": "도로교통법 제19조 및 제17조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q37",
+    "type": "situation",
+    "trigger": "idle",
+    "sign": null,
+    "question": "앞차와 안전거리를 확보하는 주된 이유는 무엇인가요?",
+    "choices": [
+      "급정지 상황에서 충돌을 피할 여유를 만들기 위해",
+      "다른 차의 끼어들기를 막기 위해",
+      "연료를 더 쓰기 위해",
+      "속도를 높이기 위해"
+    ],
+    "answer": 0,
+    "explanation": "안전거리는 앞차의 감속이나 정지에 대응할 시간을 줍니다. 속도와 노면 상태에 따라 더 넉넉히 확보하세요.",
+    "legalBasis": "도로교통법 제19조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q38",
+    "type": "sign",
+    "trigger": "idle",
+    "sign": "crosswalk",
+    "question": "횡단보도에 보행자가 건너고 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "정지해 보행자가 안전하게 건너도록 함",
+      "경적을 울리며 통과",
+      "보행자 앞을 빠르게 통과",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "횡단 중인 보행자가 있으면 정지해 보호해야 합니다. 보행자의 통행이 끝난 뒤 안전을 확인하고 진행하세요.",
+    "legalBasis": "도로교통법 제27조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q39",
+    "type": "situation",
+    "trigger": "idle",
+    "sign": null,
+    "question": "교통정체로 차량이 교차로 안에 멈출 수 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 정차하지 않도록 진입을 기다림",
+      "앞차를 따라 교차로에 진입",
+      "경적을 울리며 진입",
+      "횡단보도 위에 정차"
+    ],
+    "answer": 0,
+    "explanation": "교차로를 빠져나갈 수 없는 상황이라면 진입하지 않아 교차로를 막지 않아야 합니다. 신호와 교통 흐름을 확인하세요.",
+    "legalBasis": "도로교통법 제25조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q40",
+    "type": "situation",
+    "trigger": "idle",
+    "sign": null,
+    "question": "운전 중 주변 교통안전표지가 제한속도를 알립니다. 무엇을 따라야 하나요?",
+    "choices": [
+      "현장 표지의 제한속도와 교통 상황",
+      "내가 편한 속도",
+      "앞차의 속도만",
+      "차량의 최고속도"
+    ],
+    "answer": 0,
+    "explanation": "교통안전표지로 지정된 제한속도를 따라야 합니다. 기상이나 도로 상황이 나쁘면 더 낮은 속도로 운전합니다.",
+    "legalBasis": "도로교통법 제17조",
+    "reviewedAt": null,
+    "reviewStatus": "draft",
+    "roadContext": "any"
+  },
+  {
+    "id": "q41",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q42",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q43",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q44",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q45",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q46",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q47",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q48",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "highway",
+    "sign": null,
+    "question": "고속도로에서 갓길을 이용할 수 있는 경우는 언제인가요?",
+    "choices": [
+      "긴급 상황 등 허용되는 경우에만 이용",
+      "정체를 피하려고 이용",
+      "앞차를 추월하려 이용",
+      "휴게소까지 주행"
+    ],
+    "answer": 0,
+    "explanation": "갓길은 긴급 상황 등 법령상 허용되는 경우 외에는 통행에 사용하지 않습니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q49",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q50",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q51",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q52",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q53",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q54",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q55",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  },
+  {
+    "id": "q56",
+    "type": "situation",
+    "trigger": "idle",
+    "roadContext": "intersection",
+    "sign": null,
+    "question": "교차로 진입 전 정체로 교차로 안에 멈출 우려가 있습니다. 어떻게 해야 하나요?",
+    "choices": [
+      "교차로 안에 공간이 확보될 때까지 정지선 앞에서 기다림",
+      "앞차를 따라 진입",
+      "경적을 울리며 진입",
+      "반대 차로로 우회"
+    ],
+    "answer": 0,
+    "explanation": "교차로 안에서 정체가 생길 우려가 있으면 진입하지 말고 교차로 밖에서 기다립니다.",
+    "legalBasis": "도로교통법(조문 확인 필요)",
+    "reviewedAt": null,
+    "reviewStatus": "draft"
+  }
 ]

@@ -9,6 +9,9 @@
   --ply-radius: 12px;
   --ply-common: #52f1d0;
   --ply-specialized: #ffd094;
+  --ply-pole: #b5bcff;
+  --ply-rain: #c0baff;
+  --ply-license: #ffc097;
 }
 
 .item-badge {
