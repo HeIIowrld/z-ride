@@ -97,7 +97,8 @@ def runtime_bundle(payload):
                 (name in {'package.json', 'package-lock.json'} or name.endswith('.mjs'))
             ) or (
                 relative.parts[0] in {'observer', 'phone-client'} and
-                relative.suffix in {'.html', '.css', '.js', '.json', '.svg'}
+                (relative.suffix in {'.html', '.css', '.js', '.json', '.svg'}
+                 or name in {'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp'})
             )
             if not allowed:
                 continue
