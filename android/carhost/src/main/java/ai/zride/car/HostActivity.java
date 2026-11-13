@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Z-RIDE 차량 화면(CAR_HOST). 파티 열기 → QR 초대 → 동승자 승인 → 주차 중 전투 시작·지원.
+ * PLY 차량 화면(CAR_HOST). 파티 열기 → QR 초대 → 동승자 승인 → 주차 중 전투 시작·지원.
  * 게임 화면은 동승자 폰에만 있고, 차량은 주차(P)·UX 허용일 때만 게임 정보를 보여 준다.
  * 토큰·초대 링크는 메모리에만 둔다(저장소·로그에 남기지 않음).
  */
@@ -318,7 +318,7 @@ public final class HostActivity extends Activity implements HostConnection.Liste
         // 주행 중·차량 상태 미상이면 게임 정보를 모두 가린다(QR 포함)
         coverView.setVisibility(allowed ? View.GONE : View.VISIBLE);
         String ux = gate == null ? "UNKNOWN" : gate.ux(), gear = gate == null ? "UNKNOWN" : gate.gear();
-        coverText.setText(!foreground ? "Z-RIDE가 화면 뒤에 있어요." :
+        coverText.setText(!foreground ? "PLY가 화면 뒤에 있어요." :
             "RESTRICTED".equals(ux) || (!"P".equals(gear) && !"UNKNOWN".equals(gear)) ? "주행 중에는 게임 화면을 가려요.\nP에 두면 다시 보여요." :
             "차량 상태를 확인하는 중이에요.\n주차(P) 상태에서 열려요.");
         if (!allowed) pill(gatePill, "UNKNOWN".equals(gear) && "UNKNOWN".equals(ux) ? "차량 확인 중" : "주행 중 · 잠김", WARN);
@@ -372,7 +372,7 @@ public final class HostActivity extends Activity implements HostConnection.Liste
         supportButton.setText(stats != null && stats.optBoolean("supportActive") ? "지원 사격 중!" : "지원 사격 (보급품 1)");
         // 왜 못 누르는지 버튼 아래에 알려 준다
         String why = playing ? "" : !live ? "실시간 연결을 기다리는 중이에요." : !serverAllowed ? "서버가 아직 주차 상태를 확인하지 못했어요." :
-            !connectedCrew ? (approvedAny ? "승인된 대원의 폰이 오프라인이에요. 폰에서 Z-RIDE 화면을 다시 열어 주세요." : "승인된 대원이 1명 이상 있어야 시작할 수 있어요.") : "";
+            !connectedCrew ? (approvedAny ? "승인된 대원의 폰이 오프라인이에요. 폰에서 PLY 화면을 다시 열어 주세요." : "승인된 대원이 1명 이상 있어야 시작할 수 있어요.") : "";
         // 방금 띄운 결과 메시지는 지우지 않고, 안내 문구만 바꾸거나 지운다
         if (!why.equals(lastWhy)) { if (!why.isEmpty() || msgIsWhy) { actionMsg.setText(why); msgIsWhy = true; } lastWhy = why; }
     }
@@ -441,7 +441,7 @@ public final class HostActivity extends Activity implements HostConnection.Liste
         // 머리줄
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("Z-RIDE", 28, ACCENT); title.setTypeface(Typeface.DEFAULT_BOLD); title.setLetterSpacing(0.06f);
+        TextView title = label("PLY", 28, ACCENT); title.setTypeface(Typeface.DEFAULT_BOLD); title.setLetterSpacing(0.06f);
         header.addView(title);
         TextView sub = label("  가족 탐험대", 18, MUTED);
         header.addView(sub, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));

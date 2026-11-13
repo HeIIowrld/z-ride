@@ -1,4 +1,68 @@
-import { getInventory } from './inventory.js';import { itemIcon } from './item-icons.js';
-function deadzoneText(item){const d=item.deadzone||{},out=[];if(d.mods)out.push(Object.entries(d.mods).map(([k,v])=>k+' '+v).join(' · '));if(d.nightMods)out.push('야간: '+Object.entries(d.nightMods).map(([k,v])=>k+' +'+v).join(' · '));if(d.rainMods)out.push('비: '+Object.entries(d.rainMods).map(([k,v])=>k+' '+v).join(' · '));if(d.startWeapon)out.push('시작 무기 해금: '+d.startWeapon);if(d.startAbility)out.push('시작 능력: '+d.startAbility);if(d.kind)out.push('경기 중 사용: '+({medkit:'체력 45 회복',surge:'surge 강화 픽업',bubble:'TIME BUBBLE 1회',shieldRefill:'실드 완충 1회'}[d.kind]||d.kind));if(d.skin)out.push('차량 스킨 (능력치 없음)');return out.join(' / ')||'DEADZONE 효과 없음';}
-const items=await fetch('../data/items.json').then(r=>r.json()),counts=getInventory(),tabs=document.querySelector('#tabs'),cards=document.querySelector('#cards'),cats=[['weapon','무기'],['part','부품'],['gear','장비'],['consumable','소모품'],['souvenir','기념품']];
-function render(category='weapon'){tabs.replaceChildren(...cats.map(([key,label])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>render(key);b.classList.toggle('active',key===category);return b;}));const list=items.filter(x=>x.category===category&&counts[x.id]);cards.replaceChildren(...(list.length?list.map(item=>{const card=document.createElement('article');card.className=`loot-card rarity-${item.rarity}`;card.innerHTML=`<div class="item-icon">${itemIcon(item)}</div><div><h2>${item.name}</h2><small>${item.rarity} · 수량 ${counts[item.id]}</small><p>${item.description}</p><p>방어 ${item.stats.defense||0} · 탐지 ${item.stats.detection||0} · 탈출 ${item.stats.escape||0} · 공격 ${item.stats.attack||0}</p></div>`;return card;}):[Object.assign(document.createElement('p'),{textContent:'이 분류에서 획득한 아이템이 없습니다.'})]));}render();
+import { getInventory } from './inventory.js';
+import { itemBadge, itemScope, scopeLabel } from './item-icons.js';
+
+const items = await fetch(new URL('../data/items.json', import.meta.url)).then(response => response.json());
+const tabs = document.querySelector('#tabs');
+const cards = document.querySelector('#cards');
+const categories = {
+  weapon: '무기', part: '부품', gear: '장비', consumable: '소모품', souvenir: '기념품',
+};
+const rarities = { common: '일반', uncommon: '고급', rare: '희귀', regional: '지역 한정' };
+const scopes = ['common', 'specialized'];
+
+if (new URLSearchParams(location.search).get('journey') === '1') {
+  document.querySelector('#bag-back').hidden = true;
+  document.querySelector('#bag-codex').hidden = true;
+  document.querySelector('#bag-note').hidden = false;
+}
+
+const scopeButtons = scopes.map(scope => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = scopeLabel(scope);
+  button.onclick = () => render(scope);
+  return button;
+});
+tabs.append(...scopeButtons);
+
+function render(scope) {
+  scopeButtons.forEach((button, index) => {
+    button.setAttribute('aria-pressed', String(scopes[index] === scope));
+  });
+  const counts = getInventory();
+  const owned = items.filter(item => itemScope(item) === scope && counts[item.id] > 0);
+  const groups = Object.entries(categories).flatMap(([category, name]) => {
+    const matching = owned.filter(item => item.category === category);
+    if (!matching.length) return [];
+    const section = document.createElement('section');
+    const heading = document.createElement('h2');
+    heading.textContent = name;
+    const grid = document.createElement('div');
+    grid.className = 'loot-cards';
+    grid.append(...matching.map(item => {
+      const card = document.createElement('article');
+      card.className = 'loot-card';
+      const content = document.createElement('div');
+      const title = document.createElement('h3');
+      title.textContent = item.name;
+      const meta = document.createElement('small');
+      meta.textContent = `${rarities[item.rarity]} · 수량 ${counts[item.id]}`;
+      const description = document.createElement('p');
+      description.textContent = item.description;
+      const stats = document.createElement('p');
+      stats.textContent = Object.entries({ defense: '방어', detection: '탐지', escape: '탈출', attack: '공격' })
+        .filter(([stat]) => item.stats[stat])
+        .map(([stat, label]) => `${label} +${item.stats[stat]}`).join(' · ');
+      content.append(title, meta, description);
+      if (stats.textContent) content.append(stats);
+      card.append(itemBadge(item), content);
+      return card;
+    }));
+    section.append(heading, grid);
+    return [section];
+  });
+  const empty = document.createElement('p');
+  empty.textContent = '아직 획득한 아이템이 없어요.';
+  cards.replaceChildren(...(groups.length ? groups : [empty]));
+}
+render('common');

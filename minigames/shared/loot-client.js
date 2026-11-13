@@ -1,5 +1,6 @@
 import { SERVER_URL } from './config.js';
 import { createLootEngine } from './loot-engine.js';
+import { itemBadge, itemScope, scopeLabel } from './item-icons.js';
 const itemsPromise=fetch(new URL('../data/items.json',import.meta.url)).then(async r=>{const rows=await r.json();try{localStorage.setItem('zride.items.catalog',JSON.stringify(rows));}catch{}return rows;}),tablesPromise=fetch(new URL('../data/loot_tables.json',import.meta.url)).then(r=>r.json()),pointsPromise=fetch(new URL('../data/points.json',import.meta.url)).then(r=>r.json());
 const KEY='zride.loot.state', PARTY='zride.partyId';let enginePromise;
 export function partyId(){try{let id=localStorage.getItem(PARTY);if(!id){id=globalThis.crypto?.randomUUID?.()||`party-${Date.now()}`;localStorage.setItem(PARTY,id);}return id;}catch{return 'local-party';}}
@@ -10,4 +11,20 @@ export async function requestMinigame(gameId,result={}){const party=partyId();if
 export async function awardMinigame(gameId,result={}){const out=await requestMinigame(gameId,result);for(const item of out.items||[]){try{const inv=JSON.parse(localStorage.getItem('zride.inventory')||'{}');inv[item.id]=(Number(inv[item.id])||0)+1;localStorage.setItem('zride.inventory',JSON.stringify(inv));}catch{}notifyLoot(item);saveLootEvent({type:'minigame',source:gameId,item,at:new Date().toISOString()});}return out;}
 export function readLootEvents(){try{return JSON.parse(localStorage.getItem('zride.loot.events')||'[]');}catch{return[];}}
 export function saveLootEvent(event){try{const events=readLootEvents();events.push(event);localStorage.setItem('zride.loot.events',JSON.stringify(events.slice(-500)));}catch{}}
-export function notifyLoot(item){if(!item)return;let node=document.querySelector('#loot-toast');if(!node){node=document.createElement('div');node.id='loot-toast';node.className='loot-toast';document.body.append(node);}node.textContent=`${item.name} · ${item.rarity}`;node.classList.add('show');navigator.vibrate?.(80);setTimeout(()=>node.classList.remove('show'),2600);}
+let lootToastTimer;
+export function notifyLoot(item) {
+  if (!item) return;
+  let node = document.querySelector('#loot-toast');
+  if (!node) {
+    node = document.createElement('div');
+    node.id = 'loot-toast';
+    node.className = 'loot-toast item-inline';
+    node.setAttribute('role', 'status');
+    document.body.append(node);
+  }
+  node.replaceChildren(itemBadge(item), `${item.name} · ${scopeLabel(itemScope(item))}`);
+  node.classList.add('show');
+  navigator.vibrate?.(80);
+  clearTimeout(lootToastTimer);
+  lootToastTimer = setTimeout(() => node.classList.remove('show'), 2600);
+}

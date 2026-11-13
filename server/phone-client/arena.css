@@ -28,10 +28,9 @@ body.arena-active{overflow:hidden}
 .arena-fire:active{transform:scale(.94)}
 .arena-fire.locked{border-color:#ff6b4a;box-shadow:0 0 0 8px rgba(255,107,74,.22);color:#ffd5c9}
 .arena-fire:disabled{opacity:.45}
-.item-toast{position:fixed;left:14px;right:14px;top:calc(14px + env(safe-area-inset-top));z-index:60;display:flex;gap:12px;align-items:center;background:#fffdf8;color:#14212b;border-radius:18px;padding:14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.item-toast{position:fixed;left:14px;right:14px;top:calc(14px + env(safe-area-inset-top));z-index:60;display:flex;gap:12px;align-items:center;background:var(--ply-surface,#101f2b);color:var(--ply-ink,#eef6ff);border:1px solid var(--ply-line,#365264);border-radius:12px;padding:14px 16px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .item-toast.show{animation:toast-in .45s cubic-bezier(.2,1.5,.4,1)}
-.item-toast span{font-size:34px}
 .item-toast b{font-size:16px}
-.item-toast p{margin:2px 0 0;font-size:12px;color:#55636e}
+.item-toast p{margin:2px 0 0;font-size:12px;color:var(--ply-muted,#a6b7c7)}
 @keyframes toast-in{from{transform:translateY(-30px) scale(.9);opacity:0}to{transform:none;opacity:1}}
 body.arena-active .item-toast{top:auto;bottom:calc(190px + env(safe-area-inset-bottom))}

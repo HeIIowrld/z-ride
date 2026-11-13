@@ -27,21 +27,21 @@ const DRIVE_GAMES = {
   'pole-jump': [],
   raindrop: [],
 };
-const DRIVE_FILES = [
-  'style.css',
+export const DRIVE_FILES = [
+  'style.css', 'bag.html', 'shared/ply.css',
   ...Object.entries(DRIVE_GAMES).flatMap(([game, extra]) =>
     ['index.html', 'game.js', 'game.css', ...extra].map(file => 'games/' + game + '/' + file)),
-  ...['config', 'inventory', 'loot-client', 'loot-engine', 'loot-tracker', 'passenger', 'quiz-engine',
+  ...['bag', 'item-icons', 'config', 'inventory', 'loot-client', 'loot-engine', 'loot-tracker', 'passenger', 'quiz-engine',
     'journey', 'records', 'seat', 'sketch', 'vehicle'].map(file => 'shared/' + file + '.js'),
   ...['items', 'loot_tables', 'points'].map(file => 'data/' + file + '.json'),
 ];
 const DRIVE_TYPES = { html: 'text/html', js: 'text/javascript', css: 'text/css', json: 'application/json' };
 
 /** PHONE client: account tokens in tab sessionStorage, play tokens in memory. */
-export function createPhoneClientService({apiOrigin='',displayName='Z-RIDE'}={}) {
+export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
   if(apiOrigin)apiOrigin=checkedOrigin(apiOrigin);
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, {
-    bytes: file.endsWith('.html')?Buffer.from(readFileSync(new URL('./phone-client/' + file, import.meta.url),'utf8').replaceAll('Z-RIDE',displayName.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;'))):readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
+    bytes: file.endsWith('.html')?Buffer.from(readFileSync(new URL('./phone-client/' + file, import.meta.url),'utf8').replaceAll('PLY',displayName.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;'))):readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
   }]));
   const bundledDrive = new URL('./drive-assets/', import.meta.url);
   const driveRoot = existsSync(bundledDrive) ? bundledDrive : new URL('../minigames/', import.meta.url);

@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.location.*;
@@ -22,6 +24,8 @@ import org.maplibre.android.camera.CameraPosition;
 import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.maps.*;
 import org.maplibre.android.style.layers.CircleLayer;
+import org.maplibre.android.style.layers.SymbolLayer;
+import org.maplibre.android.style.expressions.Expression;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.maplibre.geojson.*;
 import static org.maplibre.android.style.layers.PropertyFactory.*;
@@ -76,7 +80,10 @@ final class PhoneWorldMap {
             mapView.getMapAsync(ready->{map=ready;map.setCameraPosition(new CameraPosition.Builder().target(new LatLng(SEOUL_LAT,SEOUL_LON)).zoom(16).tilt(40).build());
                 map.setStyle(new Style.Builder().fromUri(STYLE),loaded->{style=loaded;
                     spawnsSource=new GeoJsonSource("zride-world-spawns",FeatureCollection.fromFeatures(new Feature[]{}));style.addSource(spawnsSource);
-                    style.addLayer(new CircleLayer("zride-world-spawns","zride-world-spawns").withProperties(circleRadius(9f),circleColor(Color.rgb(236,112,61)),circleStrokeColor(Color.WHITE),circleStrokeWidth(2f)));
+                    style.addImage("ply-supply", supplyMarker());
+                    style.addLayer(new SymbolLayer("zride-world-spawns", "zride-world-spawns").withProperties(
+                            iconImage("ply-supply"), iconAllowOverlap(true),
+                            iconOpacity(Expression.switchCase(Expression.get("claimed"), Expression.literal(0.55), Expression.literal(1.0)))));
                     playerSource=new GeoJsonSource("zride-phone-position",FeatureCollection.fromFeatures(new Feature[]{}));style.addSource(playerSource);
                     style.addLayer(new CircleLayer("zride-phone-position","zride-phone-position").withProperties(circleRadius(8f),circleColor(Color.rgb(40,136,240)),circleStrokeColor(Color.WHITE),circleStrokeWidth(3f)));
                     record("styleLoaded",true);record("building3dLayerPresent",style.getLayer("building-3d")!=null);record("realMapSourcePresent",style.getSource("openmaptiles")!=null);
@@ -89,6 +96,14 @@ final class PhoneWorldMap {
         selection=label("지도 지점 선택 · 실제 충전소가 아닌 테스트 게임 지점",12);parent.addView(selection);
         claim=button("선택 지점 수집 · 현재 위치 검사",()->claim(null));claim.setEnabled(false);parent.addView(claim);
         record("styleUri",STYLE);record("gpsHardwareAttested",false);JSONObject center=json("latitude",SEOUL_LAT);try{center.put("longitude",SEOUL_LON);}catch(Exception ignored){}record("mapDefaultCenter",center);
+    }
+    private Bitmap supplyMarker() {
+        Drawable icon = activity.getDrawable(ai.zride.demo.common.R.drawable.ic_ply_supply);
+        int size = (int) (32 * activity.getResources().getDisplayMetrics().density);
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        icon.setBounds(0, 0, size, size);
+        icon.draw(new Canvas(bitmap));
+        return bitmap;
     }
     private TextView label(String text,int size){TextView view=new TextView(activity);view.setText(text);view.setTextColor(Color.WHITE);view.setTextSize(size);view.setPadding(0,5,0,5);return view;}
     private Button button(String text,Runnable action){Button view=new Button(activity);view.setText(text);view.setOnClickListener(v->action.run());return view;}
@@ -148,10 +163,10 @@ final class PhoneWorldMap {
             client.get().postApi("/api/world/claim",request,new RoomClient.ApiCallback(){public void onResponse(JSONObject data){main.post(()->{write("world-last-result.json",data);record("lastClaim",data);if(data.optBoolean("claimed")){try{spawn.put("claimed",true);}catch(Exception ignored){}updateMapSources();}updateLabels();});}public void onError(String error){main.post(()->{write("world-last-result.json",json("error",error));record("claimError",error);updateLabels();});}public void onErrorResponse(int status,JSONObject body){main.post(()->{try{body.put("httpStatus",status);}catch(Exception ignored){}write("world-last-result.json",body);record("claimError",body);updateLabels();});}});
         }catch(Exception e){record("claimError",e.toString());}
     }
-    private void updateMapSources(){if(style==null||spawnsSource==null||playerSource==null)return;frameReady=false;List<Feature> features=new ArrayList<>();for(int i=0;i<visibleSpawns.length();i++){JSONObject spawn=visibleSpawns.optJSONObject(i);if(spawn==null)continue;Feature feature=Feature.fromGeometry(Point.fromLngLat(spawn.optDouble("longitude"),spawn.optDouble("latitude")));feature.addStringProperty("spawnId",spawn.optString("spawnId"));feature.addStringProperty("title",spawn.optString("title"));features.add(feature);}spawnsSource.setGeoJson(FeatureCollection.fromFeatures(features));playerSource.setGeoJson(lastLocation==null?FeatureCollection.fromFeatures(new Feature[]{}):FeatureCollection.fromFeatures(new Feature[]{Feature.fromGeometry(Point.fromLngLat(lastLocation.getLongitude(),lastLocation.getLatitude()))}));}
+    private void updateMapSources(){if(style==null||spawnsSource==null||playerSource==null)return;frameReady=false;List<Feature> features=new ArrayList<>();for(int i=0;i<visibleSpawns.length();i++){JSONObject spawn=visibleSpawns.optJSONObject(i);if(spawn==null)continue;Feature feature=Feature.fromGeometry(Point.fromLngLat(spawn.optDouble("longitude"),spawn.optDouble("latitude")));feature.addStringProperty("spawnId",spawn.optString("spawnId"));feature.addStringProperty("title",spawn.optString("title"));feature.addBooleanProperty("claimed",spawn.optBoolean("claimed"));features.add(feature);}spawnsSource.setGeoJson(FeatureCollection.fromFeatures(features));playerSource.setGeoJson(lastLocation==null?FeatureCollection.fromFeatures(new Feature[]{}):FeatureCollection.fromFeatures(new Feature[]{Feature.fromGeometry(Point.fromLngLat(lastLocation.getLongitude(),lastLocation.getLatitude()))}));}
     private void updateLabels(){if(closed)return;String position=lastLocation==null?"서울 지도 탐색 · 위치 미허용/미수신":source()+" · 정확도 "+(lastLocation.hasAccuracy()?String.format(Locale.ROOT,"%.1fm",lastLocation.getAccuracy()):"미상")+" · "+(measuredAge()/1000)+"초 전";status.setText(activity.getString(R.string.world_map_status,position,style==null?"로딩 중":"표시",visibleSpawns.length()));
         JSONObject spawn=knownSpawns.get(selectedSpawnId);double distance=Double.POSITIVE_INFINITY;if(spawn!=null&&lastLocation!=null){float[] result=new float[1];Location.distanceBetween(lastLocation.getLatitude(),lastLocation.getLongitude(),spawn.optDouble("latitude"),spawn.optDouble("longitude"),result);distance=result[0];}
-        if(selection!=null)selection.setText(spawn==null?"지도 지점을 선택하세요 · 실제 충전소가 아닌 테스트 게임 지점":spawn.optString("title")+" · "+(Double.isFinite(distance)?Math.round(distance)+"m":"위치 미상")+" / 수집 반경 "+spawn.optInt("collectRadiusM",80)+"m"+(spawn.optBoolean("claimed")?" · 수집됨":""));
+        if(selection!=null)selection.setText(spawn==null?"지도 지점을 선택하세요 · 실제 충전소가 아닌 테스트 게임 지점":spawn.optString("title")+" · 공통 아이템 · "+(Double.isFinite(distance)?Math.round(distance)+"m":"위치 미상")+" / 수집 반경 "+spawn.optInt("collectRadiusM",80)+"m"+(spawn.optBoolean("claimed")?" · 수집됨":""));
         if(claim!=null)claim.setEnabled(approved&&passengerConfirmed.getAsBoolean()&&freshLocation()&&spawn!=null&&!spawn.optBoolean("claimed")&&distance<=spawn.optInt("collectRadiusM",80));
     }
     void focusLocation(){if(map!=null&&lastLocation!=null){frameReady=false;snapshotPending.set(true);map.setCameraPosition(new CameraPosition.Builder().target(new LatLng(lastLocation.getLatitude(),lastLocation.getLongitude())).zoom(16).tilt(40).build());}}

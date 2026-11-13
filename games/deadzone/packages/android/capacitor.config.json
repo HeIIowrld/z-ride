@@ -1,6 +1,6 @@
 {
   "appId": "dev.overrun.game",
-  "appName": "OVERRUN",
+  "appName": "PLY DEADZONE",
   "webDir": "../client/dist",
   "bundledWebRuntime": false,
   "backgroundColor": "#0E1620",

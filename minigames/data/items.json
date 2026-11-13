@@ -2,6 +2,7 @@
   {
     "id": "blade",
     "name": "골목 레일 블레이드",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "uncommon",
     "region": "seoul",
@@ -19,6 +20,7 @@
   {
     "id": "neon-shield",
     "name": "네온 방패",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "regional",
     "region": "seoul",
@@ -43,6 +45,7 @@
   {
     "id": "rail-spear",
     "name": "지하 레일 창",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "rare",
     "region": "seoul",
@@ -63,6 +66,7 @@
   {
     "id": "arc-bow",
     "name": "접이식 활",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "common",
     "region": null,
@@ -80,6 +84,7 @@
   {
     "id": "signal-dart",
     "name": "신호 다트",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "common",
     "region": null,
@@ -100,6 +105,7 @@
   {
     "id": "coil-launcher",
     "name": "코일 발사기",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "rare",
     "region": null,
@@ -117,6 +123,7 @@
   {
     "id": "harbor-hook",
     "name": "항만 크레인 훅",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "regional",
     "region": "incheon",
@@ -137,6 +144,7 @@
   {
     "id": "ridge-staff",
     "name": "능선 지팡이",
+    "scope": "specialized",
     "category": "weapon",
     "rarity": "uncommon",
     "region": "gangwon",
@@ -155,6 +163,7 @@
   {
     "id": "battery-cell",
     "name": "배터리 셀",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -168,6 +177,7 @@
   {
     "id": "cable",
     "name": "전력 케이블",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -183,6 +193,7 @@
   {
     "id": "circuit-board",
     "name": "회로 기판",
+    "scope": "common",
     "category": "part",
     "rarity": "uncommon",
     "region": null,
@@ -196,6 +207,7 @@
   {
     "id": "coolant-cell",
     "name": "냉각수 셀",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -211,6 +223,7 @@
   {
     "id": "fuel-can",
     "name": "연료 팩",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -224,6 +237,7 @@
   {
     "id": "supply",
     "name": "보급품",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -237,6 +251,7 @@
   {
     "id": "part",
     "name": "정비 부품",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -250,6 +265,7 @@
   {
     "id": "ammo",
     "name": "탄약 상자",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -263,6 +279,7 @@
   {
     "id": "medkit",
     "name": "의료 키트",
+    "scope": "common",
     "category": "part",
     "rarity": "common",
     "region": null,
@@ -276,6 +293,7 @@
   {
     "id": "turret",
     "name": "보조 포탑",
+    "scope": "specialized",
     "category": "part",
     "rarity": "uncommon",
     "region": null,
@@ -293,6 +311,7 @@
   {
     "id": "gear-bumper-a",
     "name": "완충 범퍼",
+    "scope": "specialized",
     "category": "gear",
     "slot": "bumper",
     "rarity": "common",
@@ -313,6 +332,7 @@
   {
     "id": "gear-bumper-b",
     "name": "강화 범퍼",
+    "scope": "specialized",
     "category": "gear",
     "slot": "bumper",
     "rarity": "rare",
@@ -334,6 +354,7 @@
   {
     "id": "gear-armor-a",
     "name": "차체 장갑판",
+    "scope": "specialized",
     "category": "gear",
     "slot": "armor",
     "rarity": "uncommon",
@@ -354,6 +375,7 @@
   {
     "id": "gear-armor-b",
     "name": "물류 컨테이너 장갑",
+    "scope": "specialized",
     "category": "gear",
     "slot": "armor",
     "rarity": "regional",
@@ -377,6 +399,7 @@
   {
     "id": "gear-tires-a",
     "name": "노면 타이어",
+    "scope": "specialized",
     "category": "gear",
     "slot": "tires",
     "rarity": "common",
@@ -399,6 +422,7 @@
   {
     "id": "gear-tires-b",
     "name": "스노체인 타이어",
+    "scope": "specialized",
     "category": "gear",
     "slot": "tires",
     "rarity": "regional",
@@ -422,6 +446,7 @@
   {
     "id": "gear-lights-a",
     "name": "탐조등",
+    "scope": "specialized",
     "category": "gear",
     "slot": "lights",
     "rarity": "common",
@@ -444,6 +469,7 @@
   {
     "id": "gear-lights-b",
     "name": "산악 탐조등",
+    "scope": "specialized",
     "category": "gear",
     "slot": "lights",
     "rarity": "regional",
@@ -467,6 +493,7 @@
   {
     "id": "gear-roof-a",
     "name": "루프 랙",
+    "scope": "specialized",
     "category": "gear",
     "slot": "roof",
     "rarity": "uncommon",
@@ -485,6 +512,7 @@
   {
     "id": "gear-roof-b",
     "name": "공항 레이더 돔",
+    "scope": "specialized",
     "category": "gear",
     "slot": "roof",
     "rarity": "regional",
@@ -505,6 +533,7 @@
   {
     "id": "gear-paint-a",
     "name": "빗길 도색",
+    "scope": "specialized",
     "category": "gear",
     "slot": "paint",
     "rarity": "common",
@@ -525,6 +554,7 @@
   {
     "id": "gear-paint-b",
     "name": "도심 반사 도색",
+    "scope": "specialized",
     "category": "gear",
     "slot": "paint",
     "rarity": "rare",
@@ -546,6 +576,7 @@
   {
     "id": "smoke",
     "name": "연막 캔",
+    "scope": "specialized",
     "category": "consumable",
     "rarity": "common",
     "region": null,
@@ -563,6 +594,7 @@
   {
     "id": "repair-kit",
     "name": "수리 키트",
+    "scope": "specialized",
     "category": "consumable",
     "rarity": "uncommon",
     "region": null,
@@ -580,6 +612,7 @@
   {
     "id": "med-pack",
     "name": "응급 파우치",
+    "scope": "specialized",
     "category": "consumable",
     "rarity": "common",
     "region": null,
@@ -597,6 +630,7 @@
   {
     "id": "flare",
     "name": "신호 조명탄",
+    "scope": "specialized",
     "category": "consumable",
     "rarity": "uncommon",
     "region": null,
@@ -616,6 +650,7 @@
   {
     "id": "ammo-crate",
     "name": "탄약 보급 상자",
+    "scope": "specialized",
     "category": "consumable",
     "rarity": "common",
     "region": null,
@@ -633,6 +668,7 @@
   {
     "id": "coolant",
     "name": "냉각수",
+    "scope": "specialized",
     "category": "consumable",
     "rarity": "common",
     "region": null,
@@ -650,6 +686,7 @@
   {
     "id": "badge-seoul",
     "name": "서울 길 배지",
+    "scope": "specialized",
     "category": "souvenir",
     "rarity": "regional",
     "region": "seoul",
@@ -663,6 +700,7 @@
   {
     "id": "postcard-incheon",
     "name": "인천 바람 엽서",
+    "scope": "specialized",
     "category": "souvenir",
     "rarity": "regional",
     "region": "incheon",
@@ -676,6 +714,7 @@
   {
     "id": "badge-gyeonggi",
     "name": "경기 들판 배지",
+    "scope": "specialized",
     "category": "souvenir",
     "rarity": "regional",
     "region": "gyeonggi",
@@ -689,6 +728,7 @@
   {
     "id": "postcard-gangwon",
     "name": "강원 산길 엽서",
+    "scope": "specialized",
     "category": "souvenir",
     "rarity": "regional",
     "region": "gangwon",

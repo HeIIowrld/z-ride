@@ -1,5 +1,5 @@
 'use strict';
-// Z-RIDE 웹 차량 화면(CAR_HOST 시험판).
+// PLY 웹 차량 화면(CAR_HOST 시험판).
 // 방 만들기 → QR 초대(party/invite) → 동승자 승인 → 차량 신호 보고 → 전투 시작/지원.
 // 토큰·초대 링크는 메모리에만 둔다(URL·저장소·로그에 남기지 않음).
 (() => {
@@ -212,7 +212,7 @@
     $('round-start').disabled = !allowed || room.state === 'PLAYING' || !connectedCrew;
     // 왜 못 누르는지 버튼 아래에 알려 준다
     const why = room.state === 'PLAYING' ? '' : !allowed ? '주차(P) 상태에서만 시작할 수 있어요.'
-      : !connectedCrew ? (crew.some(m => m.approved) ? '승인된 대원의 폰이 오프라인이에요. 폰에서 Z-RIDE 화면을 다시 열어 주세요.' : '승인된 대원이 1명 이상 있어야 시작할 수 있어요.') : '';
+      : !connectedCrew ? (crew.some(m => m.approved) ? '승인된 대원의 폰이 오프라인이에요. 폰에서 PLY 화면을 다시 열어 주세요.' : '승인된 대원이 1명 이상 있어야 시작할 수 있어요.') : '';
     if (why || render.why) { $('action-msg').textContent = why; render.why = why; }
     $('round-start').textContent = room.state === 'CLEARED' ? '다음 웨이브 시작' : room.state === 'PAUSED' ? '전투 재개' : '전투 시작';
     $('round-pause').disabled = room.state !== 'PLAYING';

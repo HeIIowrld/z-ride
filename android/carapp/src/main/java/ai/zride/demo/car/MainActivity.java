@@ -23,8 +23,8 @@ import android.widget.TextView;
 
 public final class MainActivity extends DemoActivity {
     private enum Game {
-        THIEF("전기도둑", "숨은 도둑을 찾아라", R.drawable.arcade_thief, 0xff9ea7ff),
-        RELAY("충전 릴레이", "그림이 정답까지 이어질까?", R.drawable.arcade_relay, 0xffffa16f),
+        THIEF("전기도둑", "숨은 도둑을 찾아라", R.drawable.arcade_thief, 0xffc0baff),
+        RELAY("충전 릴레이", "그림이 정답까지 이어질까?", R.drawable.arcade_relay, 0xffffc097),
         DEADZONE("DEADZONE", "한 대의 차량, 세 방향의 전투", R.drawable.arcade_deadzone, 0xffff796c);
 
         final String title, description;
@@ -119,10 +119,10 @@ public final class MainActivity extends DemoActivity {
             venueCoverGame = selected;
             venueLobbyArt = lobby;
             venueCover.setBackground(lobby ? cover(selected) : null);
-            if (!lobby) styleVehicleCard(venueCover, selected == Game.THIEF ? 0xff1c2040 : 0xff35251f);
+            if (!lobby) styleVehicleCard(venueCover, 0xff101f2b);
             venueCover.requestLayout();
         }
-        venueItem.setText(thief ? "보급품 1개로 비상 퓨즈 사용" : "보급품 1개로 15초 연장");
+        venueItem.setText(thief ? "비상 퓨즈 사용 · 파티 보급품 1개" : "15초 연장 · 파티 보급품 1개");
         String placeName = stop.optString("name", "충전소");
         if (placeName.startsWith("이름 미등록")) placeName = "충전소";
         venueLabel.setText(game == null ? placeName + " · 충전 중" : selected.title);
@@ -210,6 +210,7 @@ public final class MainActivity extends DemoActivity {
         venueStart = venueControl("게임 시작", "start", null);
         venueNext = venueControl("다음", "next", null);
         venueItem = venueControl("보급품 사용", "item", null);
+        addSupplyIcon(venueItem);
         venuePanel.addView(venueStart);
         venuePanel.addView(venueNext);
         venuePanel.addView(venueItem);
@@ -804,7 +805,8 @@ public final class MainActivity extends DemoActivity {
         deadzoneStart.setOnClickListener(view -> syncDeadzone(true));
         deadzonePanel.addView(deadzoneStart);
         repairVehicle = new Button(this);
-        repairVehicle.setText("보급품 1개로 차량 수리");
+        repairVehicle.setText("차량 수리 · 파티 보급품 1개");
+        addSupplyIcon(repairVehicle);
         styleVehicleButton(repairVehicle);
         repairVehicle.setVisibility(android.view.View.GONE);
         repairVehicle.setOnClickListener(view -> syncDeadzone(false, true));
@@ -904,6 +906,12 @@ public final class MainActivity extends DemoActivity {
         LinearLayout view = new LinearLayout(this);
         view.setOrientation(LinearLayout.VERTICAL);
         return view;
+    }
+
+    private void addSupplyIcon(Button button) {
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                ai.zride.demo.common.R.drawable.ic_ply_supply, 0, 0, 0);
+        button.setCompoundDrawablePadding(dp(8));
     }
 
     private Drawable cover(Game game) {

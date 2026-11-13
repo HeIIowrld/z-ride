@@ -143,7 +143,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(14),dp(20),dp(14));root.setBackgroundColor(cleanVehicleUi()?0xff0b0d16:Color.rgb(15,24,33));root.setFocusableInTouchMode(true);root.requestFocus();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(cleanVehicleUi());scroll.addView(root);setContentView(scroll);
-        TextView title=text(cleanVehicleUi()?"Z-RIDE":isCar()?"Z-RIDE · 차량 파티":"Z-RIDE · 좌석별 사격",cleanVehicleUi()?36:23);
+        TextView title=text(cleanVehicleUi()?"PLY":isCar()?"PLY · 차량 파티":"PLY · 좌석별 사격",cleanVehicleUi()?36:23);
         if (cleanVehicleUi()) {
             LinearLayout masthead = new LinearLayout(this);
             masthead.setOrientation(LinearLayout.VERTICAL);
@@ -286,11 +286,11 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         button.setTextSize(18);
         int[][] states = {{-android.R.attr.state_enabled}, {}};
         button.setTextColor(new android.content.res.ColorStateList(states,
-                new int[]{0xffa6aabe, primary ? 0xff101323 : 0xffe3e6ff}));
+                new int[]{0xffa6aabe, primary ? 0xff062b29 : 0xffeef6ff}));
         android.graphics.drawable.GradientDrawable surface = new android.graphics.drawable.GradientDrawable();
-        surface.setCornerRadius(dp(14));
+        surface.setCornerRadius(dp(12));
         surface.setColor(new android.content.res.ColorStateList(states,
-                new int[]{0xff292d43, primary ? 0xffb5bcff : 0xff292d48}));
+                new int[]{0xff292d43, primary ? 0xff52f1d0 : 0xff101f2b}));
         button.setBackground(new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(primary ? 0x33082928 : 0x3374e1cc), surface, null));
         button.setPadding(dp(16), dp(8), dp(16), dp(8));

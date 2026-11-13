@@ -8,7 +8,7 @@
     <uses-permission android:name="pleos.car.permission.CONTROL_CAR_LIGHTS" />
     <uses-permission android:name="pleos.car.permission.CONTROL_CAR_CLIMATE" />
     <uses-feature android:name="android.hardware.type.automotive" android:required="true" />
-    <application android:label="Z-RIDE 게임" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+    <application android:label="PLY 게임" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
         <uses-library android:name="android.car" android:required="false" />
         <uses-library android:name="ai.pleos.playground.car" android:required="true" />
         <activity android:name=".HubActivity" android:exported="true" android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden">

@@ -177,14 +177,14 @@
     const n = room?.collection?.inventory?.supplies;
     if (typeof n !== 'number') return;
     if (A.lastSupplies != null && n > A.lastSupplies) {
-      toast('📦', `보급품 +${n - A.lastSupplies}`, '주차 후 전투에서 차량 지원 사격에 쓰여요.');
+      toast(`파티 보급품 +${n - A.lastSupplies}`, '공통 아이템');
       sfx.item(); buzz([60, 40, 120]);
     }
     A.lastSupplies = n;
   }
-  function toast(icon, title, text) {
+  function toast(title, text) {
     const t = el('item-toast');
-    el('item-toast-icon').textContent = icon; el('item-toast-title').textContent = title; el('item-toast-text').textContent = text;
+    el('item-toast-title').textContent = title; el('item-toast-text').textContent = text;
     t.hidden = false; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
   }

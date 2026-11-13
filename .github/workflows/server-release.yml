@@ -57,7 +57,7 @@ jobs:
           archive="$RUNNER_TEMP/zride-server-${REVISION}.tar.gz"
           drive="$RUNNER_TEMP/drive-assets"
           mkdir -p "$drive/data"
-          cp -R ../minigames/style.css ../minigames/games ../minigames/shared "$drive/"
+          cp -R ../minigames/style.css ../minigames/bag.html ../minigames/games ../minigames/shared "$drive/"
           cp ../minigames/data/*.json "$drive/data/"
           LC_ALL=C tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
             -czf "$archive" package.json package-lock.json ./*.mjs observer phone-client -C "$RUNNER_TEMP" drive-assets
