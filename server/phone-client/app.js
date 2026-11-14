@@ -154,7 +154,7 @@ const restored = savedSession();
 if (restored) { credentials = restored; $('login-panel').hidden = true; $('game').hidden = false; result('다시 연결하는 중…'); connect(); }
 readInviteFragment();
 window.addEventListener('hashchange', readInviteFragment);
-function showLogin(message = '') { $('login-panel').before($('account-panel')); $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; status('방에 참가해 주세요'); }
+function showLogin(message = '') { $('login-panel').before($('account-panel')); $('login-panel').hidden = false; $('game').hidden = true; $('form-error').textContent = message; $('join-button').disabled = false; window.PHONE_ACCOUNT?.render(); status('방에 참가해 주세요'); }
 function useTicket(joined) {
   reset(); credentials = {token:joined.token,roomId:joined.roomId}; room=joined.room; receivedAt=Date.now();
   const accountMode = window.PHONE_ACCOUNT?.isAccountMode();
@@ -178,8 +178,9 @@ function useTicket(joined) {
   showJourney('map');
   const me=room?.members?.find(m=>m.memberId===joined.memberId); if(me?.seat)$('seat').value=me.seat;
   $('login-panel').hidden=true; $('game').hidden=false;
+  $('account-panel').hidden = true;
   $('angle').value={REAR_LEFT:-100,REAR_RIGHT:140,FRONT_PASSENGER:60}[$('seat').value];
-  result(joined.pending ? '차량에서 참가자 승인 후 시작할 수 있음.' : '현재 파티에 연결 중…'); render(); connect();
+  result(joined.pending ? '' : '현재 파티에 연결 중…'); render(); connect();
 }
 window.addEventListener('phone:ticket',event=>useTicket(event.detail));
 window.addEventListener('phone:reset',()=>{reset();showLogin();});
@@ -554,7 +555,18 @@ function showVenue(value) {
       if(entry.drawing)sketch(entry.drawing);
       if(entry.text){const line=document.createElement('p');line.textContent=entry.text;venuePanel.append(line);}
     }
-  }else if(state.phase==='END')info.textContent = '전달 성공 ' + state.family.success + ' / ' + state.family.total;
+  } else if (['ROUND_END', 'END'].includes(state.phase)) {
+    info.textContent = '크루 전달 성공 ' + state.family.success + ' / ' + state.family.total;
+    if (state.phase === 'ROUND_END') info.textContent += ' · 차량에서 다음 진행 대기';
+  }
+  if (state.phase === 'END') {
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'primary venue-result-back';
+    back.textContent = '여행 지도로 돌아가기';
+    back.onclick = () => $('journey-back').click();
+    venuePanel.append(back);
+  }
 }
 setInterval(() => {
   if (room?.vehicle?.playAllowed || journeyView === 'charge') void venueAction();
@@ -928,6 +940,7 @@ function render() {
     $('journey-party').append($('account-panel'));
     $('journey-map').scrollIntoView({ block: 'start' });
   }
+  $('account-panel').hidden = false;
   renderJourneyMap();
   void refreshJourneyMap();
   $('places-refresh').disabled=!room.navigation?.available||!room.navigation.position;
