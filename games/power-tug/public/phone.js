@@ -13,7 +13,10 @@
   function say(text) { toast.textContent = text; toast.hidden = !text; }
   const button = (text, className, onClick) => { const b = h('button', className, text); b.type = 'button'; b.onclick = onClick; return b; };
 
-  const hashCode = location.hash.slice(1).toUpperCase();
+  // PLY 파티 크루는 PLY 서버가 나눠 준 입장권으로 이름 입력 없이 바로 들어온다(#join=코드.플레이어.토큰)
+  const joinTicket = location.hash.match(/^#join=([A-Z0-9]{5})\.([0-9a-f-]{36})\.([\w-]{16,})$/);
+  if (joinTicket) { session = { code: joinTicket[1], playerId: joinTicket[2], token: joinTicket[3] }; store.set(KEY, session); }
+  const hashCode = joinTicket ? joinTicket[1] : location.hash.slice(1).toUpperCase();
   const stripHash = () => { if (location.hash) history.replaceState(null, '', location.pathname); };
   stripHash();
   addEventListener('hashchange', stripHash);

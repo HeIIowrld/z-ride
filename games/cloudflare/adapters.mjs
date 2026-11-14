@@ -15,6 +15,7 @@ export const ADAPTERS = {
       if (m.type === 'start') game.start(m.rounds);
       else if (m.type === 'next') game.next();
       else if (m.type === 'skip') game.expire();
+      else if (m.type === 'extend') game.extend();
       else if (m.type === 'kick') game.removePlayer(m.playerId);
       else fail();
     },

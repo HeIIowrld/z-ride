@@ -7,6 +7,9 @@
   const SOC_START = 30, SOC_TARGET = 80; // 시연용 값. 실제 차량 SOC를 받으면 gauge()만 바꾸면 된다.
   const $ = id => document.getElementById(id);
   const stage = $('stage');
+  // Z-RIDE 차량 SDK(차량 앱 안이면 차 신호가 온다). 주행 중에는 화면을 가린다
+  const car = window.ZRide.car;
+  car.on('signal', value => { document.getElementById('cover').hidden = !(car.inCar && !value.parked); });
   let session = null, net = null, state = null, viewKey = '', rounds = 3, timerEl = null, barEl = null;
 
   function gauge() {
@@ -73,7 +76,21 @@
     for (const p of state.players) list.append(person(state.players, p, p.done ? '바통 넘김' : p.connected ? (draw ? '그리는 중' : '맞히는 중') : '끊김', p.done));
     wrap.append(list);
     if (state.round === 1 && state.step === 0) wrap.append(tip('글자나 숫자는 그리면 안 돼요. 그림만으로 전해요!'));
-    wrap.append(button('지금 넘기기', 'ghost small', () => send({ type: 'skip' })));
+    const row = h('div', 'row');
+    // PLY 파티로 연 방이면 파티 보급품으로 이번 판 시간을 15초 늘릴 수 있다(판마다 한 번)
+    if (session.party && car.inCar && state.extendable) {
+      const supplies = car.state?.supplies;
+      const extend = button(`보급품 사용 · 15초 연장${Number.isFinite(supplies) ? ` (${supplies}개)` : ''}`, 'primary small', async () => {
+        extend.disabled = true;
+        const result = await car.useSupply('charge-relay');
+        if (result.ok) send({ type: 'extend' });
+        else { extend.disabled = false; extend.textContent = result.error === 'SUPPLY_REQUIRED' ? '보급품이 없어요' : '지금은 쓸 수 없어요'; }
+      });
+      if (supplies === 0) { extend.disabled = true; extend.textContent = '보급품이 없어요'; }
+      row.append(extend);
+    }
+    row.append(button('지금 넘기기', 'ghost small', () => send({ type: 'skip' })));
+    wrap.append(row);
     tick();
     return wrap;
   }
@@ -149,7 +166,7 @@
     gauge();
     const r = state.reveal;
     const key = state.phase === 'LOBBY' ? 'L' + JSON.stringify(state.players) + rounds
-      : state.phase === 'PLAY' ? `P${state.round}:${state.step}:` + JSON.stringify(state.players.map(p => [p.done, p.connected]))
+      : state.phase === 'PLAY' ? `P${state.round}:${state.step}:${state.extendable}:` + JSON.stringify(state.players.map(p => [p.done, p.connected]))
       : state.phase === 'REVEAL' ? `R${state.round}:${r.book}:${r.shown}` : state.phase + state.round + JSON.stringify(state.players.map(p => p.hearts));
     if (key === viewKey) {
       // 공개 중에 하트만 늘면 그림을 다시 그리지 않는다
@@ -172,6 +189,13 @@
 
   function link(value) {
     $('link').textContent = value === 'LIVE' ? '' : value === 'RETRYING' ? '다시 연결 중…' : '연결 중…';
+  }
+
+  // PLY 파티로 열면 PLY 서버가 만든 방의 호스트 입장권이 주소에 붙어 온다(#host=코드.토큰)
+  const hostTicket = location.hash.match(/^#host=([A-Z0-9]{5})\.([\w-]{16,})$/);
+  if (hostTicket) {
+    store.set(KEY, { code: hostTicket[1], hostToken: hostTicket[2], joinUrl: location.origin + '/p#' + hostTicket[1], party: true });
+    history.replaceState(null, '', location.pathname + location.search);
   }
 
   async function open(fresh) {

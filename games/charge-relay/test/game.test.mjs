@@ -144,3 +144,15 @@ test('그림 검증은 범위 밖 값과 낯선 필드를 버린다', () => {
   assert.equal(cleanDrawing({ strokes: Array(301).fill({ c: 0, w: 0, p: [1, 2] }) }), null);
   assert.equal(cleanDrawing('x'), null);
 });
+
+test('파티 보급품으로 지금 구간을 판마다 한 번 15초 늘린다', () => {
+  const g = game(2);
+  assert.throws(() => g.extend(), /NOT_PLAYING/);
+  g.start(2);
+  const before = g.deadline;
+  assert.equal(g.publicView().extendable, true);
+  g.extend();
+  assert.equal(g.deadline, before + 15_000);
+  assert.equal(g.publicView().extendable, false);
+  assert.throws(() => g.extend(), /ALREADY_EXTENDED/);
+});

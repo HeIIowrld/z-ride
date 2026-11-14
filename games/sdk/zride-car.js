@@ -35,6 +35,9 @@
   }
   // 네이티브 앱이 부르는 입구. 직접 부르지 않는다.
   window.__zrideCar = value => { if (value && value.v === VERSION) emit(value); };
+  // 보급품 사용 결과도 네이티브 앱이 이 입구로 돌려준다
+  let supplyWait = null;
+  window.__zrideSupply = result => { const done = supplyWait; supplyWait = null; done?.(result && typeof result === 'object' ? result : { ok: false, error: 'ERROR' }); };
 
   function send(cabin) {
     if (native) return native.setCabin(JSON.stringify(cabin));
@@ -84,6 +87,19 @@
     },
     /** 실내를 원래대로. 게임이 끝날 때 부른다. */
     reset() { return car.setCabin(NORMAL); },
+    /**
+     * PLY 파티 보급품을 하나 쓴다(차량 앱이 PLY 서버에 요청). {ok, supplies, error}로 끝나는 Promise.
+     * 차량 앱 밖이거나 파티로 연 방이 아니면 {ok:false, error:'NO_PARTY'}. 한 번에 하나만 보낸다.
+     */
+    useSupply(gameId) {
+      if (supplyWait) return Promise.resolve({ ok: false, error: 'BUSY' });
+      if (!native?.useSupply) return Promise.resolve(mock ? { ok: true, supplies: null } : { ok: false, error: 'NO_PARTY' });
+      return new Promise(resolve => {
+        const timer = setTimeout(() => { supplyWait = null; resolve({ ok: false, error: 'TIMEOUT' }); }, 8000);
+        supplyWait = result => { clearTimeout(timer); resolve(result); };
+        try { native.useSupply(String(gameId ?? '')); } catch { clearTimeout(timer); supplyWait = null; resolve({ ok: false, error: 'ERROR' }); }
+      });
+    },
     /** 허브 게임 목록으로 돌아간다(차 밖에서는 아무 일 없음). */
     exit() { if (native) native.exit(); },
   };

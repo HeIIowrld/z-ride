@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 :root {
   --paper: #fbf6e9; --dots: #e9e0c8; --ink: #1e2a3a; --muted: #66707e; --card: #fffdf7;
   --volt: #ffd23f; --teal: #0b8f8f; --coral: #e5484d; --line: 2px solid var(--ink);
@@ -206,3 +207,5 @@ input { width: 100%; min-height: 54px; padding: 10px 14px; border: var(--line); 
 .screen .rank { width: 100%; }
 p.by { font-weight: 700; }
 @media (max-width: 760px) { .how { grid-template-columns: 1fr 1fr; } .legs li { min-width: 0; flex: 1; } }
+
+.cover { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8, 10, 16, .96); color: #fff; font-size: 26px; text-align: center; line-height: 1.6; z-index: 10; }
