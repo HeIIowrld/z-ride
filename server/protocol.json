@@ -30,6 +30,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/rooms/{roomId}/charge-game",
+      "auth": "CAR_HOST, parked at an approved charging stop (charging or waiting)",
+      "availability": "snapshot.room.chargeGamesAvailable lists the configured games for the vehicle host.",
+      "body": {"action": "open, item or close", "game": "game id for open and item"},
+      "response": {"open": "hostUrl with #host ticket, crew, supplies", "item": "supplies after spending one", "close": "closed"},
+      "crew": "snapshot.room.chargeGame.joinUrl is a personal #join ticket for each approved passenger who was seated when the game opened"
+    },
+    {
+      "method": "POST",
       "path": "/api/rooms/{roomId}/deadzone",
       "auth": "CAR_HOST with fresh parked foreground vehicle",
       "availability": "snapshot.room.deadzoneAvailable is exposed to the vehicle host. Show DEADZONE entry only when true.",
