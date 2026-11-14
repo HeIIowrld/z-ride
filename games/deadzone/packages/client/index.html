@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#0E1620" />
+<meta name="theme-color" content="#090f27" />
 <meta name="description" content="OVERRUN — a fast browser arena shooter. Co-op waves, 4v4 team deathmatch and 2v2v2v2 squad royale. Plays offline, installs like an app." />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -14,6 +14,7 @@
 <link rel="icon" href="/icons/icon-192.png" />
 <title>PLY · DEADZONE</title>
 <link rel="stylesheet" href="/src/ui/style.css" />
+<link rel="stylesheet" href="/src/ui/ply-theme.css" />
 <link rel="stylesheet" href="/src/ui/zride.css" />
 </head>
 <body>
@@ -36,7 +37,7 @@
     <span id="seatAimStatus"></span>
   </div>
 
-  <a id="hudDashboard" href="/dashboard" target="_blank" rel="noopener" style="position:absolute;right:70px;top:22px;pointer-events:auto;font:11px system-ui;color:#edf2dc;background:#172d25cc;border:1px solid #9ab87966;border-radius:8px;padding:10px;text-decoration:none">차량 대시보드 ↗</a>
+  <a id="hudDashboard" href="/dashboard" target="_blank" rel="noopener" style="position:absolute;right:70px;top:22px;pointer-events:auto;font:11px system-ui;color:var(--ply-ink);background:#111c33ef;border:1px solid var(--ply-line);border-radius:8px;padding:10px;text-decoration:none">차량 대시보드 ↗</a>
   <div id="pauseBtn" class="tapzone">❚❚</div>
   <div id="matchClock" class="num hidden">0:00</div>
 

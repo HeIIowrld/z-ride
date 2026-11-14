@@ -4,10 +4,10 @@ import { damp, TAU } from '@overrun/shared/math.js';
 import { seatSectors } from '@overrun/shared/seat-aim.js';
 import { HULL, VEHICLE_SEATS, windowMuzzle } from '@overrun/shared/vehicle.js';
 
-const INK = '#101a21';
-const MINT = '#52f1d0';
-const ROSE = '#f18470';
-const GOLD = '#ffcd86';
+const INK = '#111c33';
+const MINT = '#64e6d0';
+const ROSE = '#ff796c';
+const GOLD = '#ffd094';
 const TEAM = ['#72d5ed', '#ff906e', '#b8dd8c', '#c7b7ef'];
 const radians = Math.PI / 180;
 const hex = color => '#' + color.toString(16).padStart(6, '0');
@@ -86,7 +86,7 @@ export class Topdown {
     }
 
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    c.fillStyle = '#0b1319';
+    c.fillStyle = '#090f27';
     c.fillRect(0, 0, this.width, this.height);
     c.save();
     c.translate(this.width / 2, this.height / 2);

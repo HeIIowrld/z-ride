@@ -1,7 +1,7 @@
 // Z-RIDE dashboard adapter, 2026-11-06. Apache-2.0.
 import QRCode from 'qrcode';
 const $ = id => document.getElementById(id);
-const embeddedVehicle=/Android/.test(navigator.userAgent)&&/wv/.test(navigator.userAgent);
+const embeddedVehicle = parent !== window || (/Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent));
 let fitting=false;
 let fittedRoster=null;
 if(embeddedVehicle)document.body.style.zoom='1';
@@ -17,7 +17,7 @@ function fitVehicle(){
  };requestAnimationFrame(fit);
 }
 addEventListener('resize',fitVehicle);
-const colors=['#d5ef77','#78c8df','#e9ac70','#b1a1e2'];
+const colors=['#64e6d0','#a8b5ff','#ffbb8b','#d3aaff'];
 let roomCode='', token='', lastUpdate=0, lastState=null, inFlight=false;
 const practice=new URLSearchParams(location.search).has('practice');
 const emptySlot = n => {const el=document.createElement('article');el.className='player-card empty';el.innerHTML=`<span class="slot-num">0${n+1}</span><div><b>팀원을 기다려요</b><p>폰으로 QR 스캔 후 참가</p></div><span class="empty-icon">＋</span>`;return el;};
@@ -39,18 +39,18 @@ function paintPlayers(players, capacity) {
 }
 function radar(data) {
  const canvas=$('radar'),g=canvas.getContext('2d'),W=canvas.width,H=canvas.height;
- g.fillStyle='#152724';g.fillRect(0,0,W,H);
+ g.fillStyle='#0c162c';g.fillRect(0,0,W,H);
  const r=data?.arenaRadius||46,scale=Math.min(W,H)*.43/r,cx=W*.5,cy=H*.5;
- g.strokeStyle='#74948223';g.lineWidth=1;
+ g.strokeStyle='#30465f55';g.lineWidth=1;
  for(let x=0;x<W;x+=35){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
  for(let y=0;y<H;y+=35){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke();}
- g.strokeStyle='#a8ba8b35';g.lineWidth=2;
- for(let row of [-1,1])for(let col=-4;col<=4;col++){const x=cx+col*69,y=cy+row*175;g.strokeRect(x-27,y-52,54,104);g.fillStyle='#9dae8c44';g.font='13px monospace';g.fillText('P'+(col+5),x-12,y+6);}
- g.setLineDash([10,14]);g.strokeStyle='#c9dc7d55';g.beginPath();g.moveTo(cx-345,cy);g.lineTo(cx+345,cy);g.stroke();g.setLineDash([]);
- g.strokeStyle='#d6ef7760';g.beginPath();g.arc(cx,cy,r*scale,0,Math.PI*2);g.stroke();
- for(const e of data?.enemies||[]){g.fillStyle='#ed8a6b';g.beginPath();g.arc(cx+e.x*scale,cy+e.z*scale,3.5,0,Math.PI*2);g.fill();}
+ g.strokeStyle='#7086a655';g.lineWidth=2;
+ for(let row of [-1,1])for(let col=-4;col<=4;col++){const x=cx+col*69,y=cy+row*175;g.strokeRect(x-27,y-52,54,104);g.fillStyle='#a6b7c777';g.font='13px monospace';g.fillText('P'+(col+5),x-12,y+6);}
+ g.setLineDash([10,14]);g.strokeStyle='#64e6d055';g.beginPath();g.moveTo(cx-345,cy);g.lineTo(cx+345,cy);g.stroke();g.setLineDash([]);
+ g.strokeStyle='#64e6d060';g.beginPath();g.arc(cx,cy,r*scale,0,Math.PI*2);g.stroke();
+ for(const e of data?.enemies||[]){g.fillStyle='#ff796c';g.beginPath();g.arc(cx+e.x*scale,cy+e.z*scale,3.5,0,Math.PI*2);g.fill();}
  for(const [i,p] of (data?.players||[]).entries()){
-  const x=cx+p.x*scale,y=cy+p.z*scale;g.fillStyle=colors[i%4]+'20';g.beginPath();g.arc(x,y,19,0,Math.PI*2);g.fill();g.fillStyle=colors[i%4];g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();g.fillStyle='#eef1de';g.font='bold 13px system-ui';g.fillText(p.name.slice(0,12),x+12,y+5);
+  const x=cx+p.x*scale,y=cy+p.z*scale;g.fillStyle=colors[i%4]+'20';g.beginPath();g.arc(x,y,19,0,Math.PI*2);g.fill();g.fillStyle=colors[i%4];g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();g.fillStyle='#eef6ff';g.font='bold 13px system-ui';g.fillText(p.name.slice(0,12),x+12,y+5);
  }
 }
 function render(s) {
@@ -76,7 +76,7 @@ async function attach(code,key) {
  if(parent!==window)parent.postMessage({type:'zride:dashboard-room',code,joinPath:'/j/'+code},location.origin);
  $('code').textContent=code;$('createForm').hidden=true;$('newRoom').hidden=false;$('qrPlaceholder').hidden=true;
  $('joinLink').hidden=false;$('joinLink').href='/j/'+code;
- await QRCode.toCanvas($('qr'),location.origin+'/j/'+code,{width:190,margin:2,color:{dark:'#14251d',light:'#f3f4e9'}});
+ await QRCode.toCanvas($('qr'),location.origin+'/j/'+code,{width:190,margin:2,color:{dark:'#090f27',light:'#f4f8ff'}});
  $('networkNote').textContent=['localhost','127.0.0.1'].includes(location.hostname)?'폰 참가: 같은 Wi-Fi에서 Mac의 LAN 주소로 이 화면을 열어 QR을 사용하세요.':'';
  await poll();
 }
@@ -96,7 +96,7 @@ $('newRoom').onclick=()=>{location.href='/dashboard';};
 paintPlayers([],4);radar(null);fitVehicle();
 if(practice){
  $('createForm').hidden=true;$('code').textContent='AI PRACTICE';$('joinHint').textContent='혼자 체험 화면과 연결됩니다. 실제 폰 참가는 협동 방을 이용하세요.';
- $('qrPlaceholder').innerHTML='Z<span>AI 동료 체험<br>참가 QR 없음</span>';
+ $('qrPlaceholder').innerHTML='PLY<span>AI 동료 체험<br>참가 QR 없음</span>';
  $('mapNote').textContent='게임 화면에서 혼자 체험하기를 시작하세요.';
  const channel=new BroadcastChannel('zride.practice.v1');channel.onmessage=e=>{if(e.data?.schema==='zride.dashboard.v1')render(e.data);};
 }else{const [code,key]=location.hash.slice(1).split('.');if(/^[A-Z2-9]{6}$/.test(code||'')&&key)attach(code,key);}

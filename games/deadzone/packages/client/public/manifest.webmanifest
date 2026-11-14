@@ -12,8 +12,8 @@
     "minimal-ui"
   ],
   "orientation": "landscape",
-  "background_color": "#0b1414",
-  "theme_color": "#d6f66a",
+  "background_color": "#090f27",
+  "theme_color": "#090f27",
   "categories": [
     "games",
     "action"

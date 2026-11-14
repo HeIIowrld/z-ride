@@ -1,0 +1,14 @@
+/* Match the PLY vehicle application and minigames/shared/ply.css. */
+:root {
+  color-scheme: dark;
+  --ply-bg: #090f27;
+  --ply-surface: #111c33;
+  --ply-raised: #1c2b45;
+  --ply-line: #30465f;
+  --ply-ink: #eef6ff;
+  --ply-muted: #a6b7c7;
+  --ply-primary: #64e6d0;
+  --ply-primary-ink: #062b29;
+  --ply-danger: #ff796c;
+  --ply-radius: 12px;
+}
