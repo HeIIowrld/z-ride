@@ -52,10 +52,9 @@ export function createVoltServer({ publicOrigin = '', now = Date.now } = {}) {
     room.touched = now();
     clearTimeout(room.timer); clearTimeout(room.frame); room.frame = null;
     const { game } = room;
-    // 이벤트(무료 이동·정전)가 끝나는 순간에도 한 번 다시 알린다
-    const eventEnd = game.event && game.event.until > now() ? game.event.until : Infinity;
-    if (game.deadline && game.deadline <= eventEnd) room.timer = setTimeout(() => { game.expire(); publish(room); }, Math.max(0, game.deadline - now()) + 20);
-    else if (eventEnd !== Infinity) room.timer = setTimeout(() => publish(room), eventEnd - now() + 20);
+    // 마감, 30초 이벤트, 이벤트가 끝나는 순간 중 가장 이른 때에 깨어난다
+    const at = game.wakeAt();
+    if (at != null) room.timer = setTimeout(() => { game.wake(); publish(room); }, Math.max(0, at - now()) + 20);
     for (const ws of room.sockets) send(ws, { type: 'state', state: ws.role === 'HOST' ? game.publicView() : game.playerView(ws.playerId) });
   }
   // 연타는 자주 오니 모아서 내보낸다. 판이 끝나는 연타는 바로 내보낸다

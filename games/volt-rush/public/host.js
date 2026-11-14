@@ -17,7 +17,7 @@
     $('cover').hidden = !blocked;
     $('cover').firstElementChild.innerHTML = signal ? '주행 중에는 게임을 가려요.<br>P에 두면 다시 보여요.' : '차량 상태를 확인하는 중…';
   }
-  /** 배터리 값이 바뀌면 서버에 알린다. 서버가 ⚡ 예산과 10% 이벤트를 정한다. */
+  /** 배터리 값이 바뀌면 서버에 알린다. 서버가 로비에서 ⚡ 예산을 정한다. */
   function reportSoc(target) {
     if (!signal || !Number.isFinite(signal.soc)) return;
     if (signal.soc === sentSoc && target == null) return;
@@ -187,9 +187,9 @@
       live.banner.textContent = w ? `${w.name} 님이 충전기에 닿았어요! 다음 판 ${left}초 뒤` : `아무도 못 닿았어요. 다음 판 ${left}초 뒤`;
       live.banner.classList.add('win');
     } else if (ev) {
-      live.banner.textContent = { SURGE: '⚡ 충전 10% 돌파 — 전력 서지! 모든 선이 사라졌어요', BOOST: `⚡ 충전 10% 돌파 — 무료 이동 ${secondsLeft(ev.until)}초!`, BLACKOUT: `⚡ 충전 10% 돌파 — 정전! ${secondsLeft(ev.until)}초` }[ev.kind];
+      live.banner.textContent = { SURGE: '⚡ 전력 서지! 모든 선이 사라졌어요', BOOST: `⚡ 무료 이동 ${secondsLeft(ev.until)}초!`, BLACKOUT: `⚡ 정전! ${secondsLeft(ev.until)}초` }[ev.kind];
       live.banner.classList.add('event');
-    } else live.banner.textContent = state.soc != null ? `충전 ${state.soc}% · 10% 오를 때마다 이벤트가 터져요` : '지나간 길은 벽이 돼요. 상대 앞을 막아 보세요!';
+    } else live.banner.textContent = '지나간 길은 벽이 돼요. 30초마다 전력 이벤트가 터져요!';
     lights(ev);
   }
 

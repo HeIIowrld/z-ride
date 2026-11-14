@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, budgetFor, W, H, CHARGER, READY_MS, MOVE_GAP_MS, BOLT } from '../game.mjs';
+import { Game, budgetFor, W, H, CHARGER, READY_MS, MOVE_GAP_MS, BOLT, EVENT_EVERY_MS } from '../game.mjs';
 
 function setup(n = 2, seed = 1) {
   let t = 1000, s = seed;
@@ -70,20 +70,24 @@ test('절연 장갑은 막힌 칸을 뛰어넘고, 고전압 코일은 앞쪽 �
   assert.throws(() => g.useItem('p0', 'b'), /NO_ITEM/);
 });
 
-test('게임 중 배터리가 10% 단위를 넘으면 서지로 모든 선이 지워진다', () => {
+test('배터리는 ⚡ 예산에만 쓰고, 이벤트는 30초마다 서지 → 무료 이동 → 정전 순서로 터진다', () => {
   const { g, tick, play } = setup();
   g.setSoc(48, 80);
   assert.equal(g.budget, budgetFor(48, 80));
   play(); clear(g);
   g.move('p0', 'R'); tick(MOVE_GAP_MS); g.move('p0', 'R');
-  g.setSoc(49); assert.equal(g.event, null);
-  g.setSoc(50);
+  g.setSoc(60); assert.equal(g.event, null, '배터리가 올라도 이벤트는 없다');
+  assert.equal(g.wakeAt(), g.nextEventAt);
+  tick(EVENT_EVERY_MS); g.wake();
   assert.equal(g.event.kind, 'SURGE');
   assert.equal(g.players[0].trail.length, 1);
   assert.equal(g.occ[at(1, 0)], -1);
-  g.setSoc(60); assert.equal(g.event.kind, 'BOOST');
+  tick(EVENT_EVERY_MS); g.wake();
+  assert.equal(g.event.kind, 'BOOST');
   const e = g.players[0].energy; tick(MOVE_GAP_MS); g.move('p0', 'D');
   assert.equal(g.players[0].energy, e, '무료 이동 중엔 ⚡를 안 씀');
+  tick(EVENT_EVERY_MS); g.wake();
+  assert.equal(g.phase, 'ROUND_END', '90초 마감이 이벤트보다 먼저');
   assert.throws(() => g.setSoc(120), /BAD_SOC/);
 });
 

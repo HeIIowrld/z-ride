@@ -10,6 +10,7 @@ export const MAX_PLAYERS = 4, ROUNDS = 3;
 export const READY_MS = 3000, ROUND_MS = 90_000, GAP_MS = 6000;
 export const MOVE_GAP_MS = 130; // 패드 연타로 순간이동하지 않게
 export const BOLT = 3, ITEM_CELL = 5, BOOST_MS = 8000, BLACKOUT_MS = 5000, SHIELD_MS = 10_000, SCAN_MS = 6000;
+export const EVENT_EVERY_MS = 30_000; // 판(90초) 안에 30초·60초 두 번 터진다
 const WALL = -2, EMPTY = -1;
 
 // 주행 중 얻은 아이템이 들어올 자리. 루트 시스템이 붙기 전까지는 테스트 가방에서 2개씩 준다
@@ -61,7 +62,10 @@ export class Game {
   }
   setConnected(id, on) { const p = this.players.find(x => x.id === id); if (p) p.connected = on; }
 
-  /** 차 화면이 보낸 배터리 값. 게임 중 10% 단위를 넘으면 이벤트가 터진다. */
+  /**
+   * 차 화면이 보낸 배터리 값. 로비에서 ⚡ 예산을 정하는 데만 쓴다.
+   * 충전 속도는 충전기마다 달라(완속은 10%에 1시간) 게임 중 이벤트는 시간으로 낸다.
+   */
   setSoc(soc, target) {
     soc = Math.round(Number(soc));
     if (!Number.isFinite(soc) || soc < 0 || soc > 100) throw new Error('BAD_SOC');
@@ -70,10 +74,8 @@ export class Game {
       if (!Number.isFinite(t) || t < 50 || t > 100) throw new Error('BAD_TARGET');
       if (this.phase === 'LOBBY') this.target = t;
     }
-    const before = this.soc;
     this.soc = soc;
     if (this.phase === 'LOBBY') this.budget = budgetFor(this.soc, this.target);
-    if (this.phase === 'PLAY' && before != null && Math.floor(soc / 10) > Math.floor(before / 10)) this.trigger();
   }
 
   /** 이벤트를 하나 터뜨린다. 서지 → 무료 이동 → 정전 순서로 돈다. */
@@ -114,7 +116,7 @@ export class Game {
       p.trail = [at(s.x, s.y)]; this.occ[at(s.x, s.y)] = i;
       p.lastMove = 0; p.jump = false; p.shieldUntil = 0; p.scanUntil = 0;
     });
-    this.event = null; this.roundWinner = null;
+    this.event = null; this.nextEventAt = null; this.roundWinner = null;
     this.phase = 'READY'; this.deadline = this.now() + READY_MS;
   }
 
@@ -154,9 +156,28 @@ export class Game {
   }
 
   expire() {
-    if (this.phase === 'READY') { this.phase = 'PLAY'; this.deadline = this.now() + ROUND_MS; }
+    if (this.phase === 'READY') { this.phase = 'PLAY'; this.deadline = this.now() + ROUND_MS; this.nextEventAt = this.now() + EVENT_EVERY_MS; }
     else if (this.phase === 'PLAY') this.finishRound(null);
     else if (this.phase === 'ROUND_END') this.next();
+  }
+
+  /** 서버가 다음에 깨어날 시각: 마감·다음 이벤트·이벤트 끝 중 가장 이른 것. */
+  wakeAt() {
+    const t = this.now();
+    const times = [this.deadline];
+    if (this.phase === 'PLAY') times.push(this.nextEventAt);
+    if (this.event?.until > t) times.push(this.event.until);
+    const next = times.filter(v => v != null);
+    return next.length ? Math.min(...next) : null;
+  }
+  /** 깨어났을 때: 마감이면 단계를 넘기고, 이벤트 때가 됐으면 터뜨린다. */
+  wake() {
+    const t = this.now();
+    if (this.deadline != null && t >= this.deadline) return this.expire();
+    if (this.phase === 'PLAY' && this.nextEventAt != null && t >= this.nextEventAt) {
+      this.trigger();
+      this.nextEventAt = t + EVENT_EVERY_MS;
+    }
   }
   next() {
     if (this.phase !== 'ROUND_END') return;
