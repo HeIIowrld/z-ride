@@ -17,7 +17,7 @@
   },
   {
     "id": "power-tug",
-    "title": "전력 줄다리기",
+    "title": "Power Tug",
     "scene": "CHARGING",
     "players": "2–4명",
     "summary": "폰을 연타해 전기를 우리 팀 배터리로 끌어와요",
@@ -25,7 +25,7 @@
   },
   {
     "id": "volt-rush",
-    "title": "볼트 러시",
+    "title": "Volt Rush",
     "scene": "CHARGING",
     "players": "2–4명",
     "summary": "선을 깔며 가운데 충전기에 먼저 닿아요",

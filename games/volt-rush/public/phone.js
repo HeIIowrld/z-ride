@@ -20,7 +20,7 @@
 
   function joinView(message) {
     const form = h('form', 'card join');
-    form.append(h('h1', 'logo', '볼트 러시'));
+    form.append(h('h1', 'logo', 'Volt Rush'));
     form.append(h('p', 'hint', message || '이름을 적고 들어오세요.'));
     const name = h('input'); name.placeholder = '이름 (예: 아빠)'; name.maxLength = 10; name.autocomplete = 'off'; name.required = true;
     const code = h('input'); code.placeholder = '방 코드 5자리'; code.maxLength = 5; code.value = hashCode; code.autocapitalize = 'characters'; code.autocomplete = 'off';
