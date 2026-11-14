@@ -121,8 +121,8 @@ public final class MainActivity extends DemoActivity {
         if (game != null && (venueCoverGame != selected || venueLobbyArt != lobby)) {
             venueCoverGame = selected;
             venueLobbyArt = lobby;
-            venueCover.setBackground(lobby ? new GameCover(this, selected.art, selected.accent, dp(12), true) : null);
-            if (!lobby) styleVehicleCard(venueCover, 0xff101f2b);
+            venueCover.setBackground(lobby ? new GameCover(this, selected.art, selected.accent, dp(12), GameCover.Layout.GAME) : null);
+            if (!lobby) styleVehicleCard(venueCover, PLY_SURFACE);
             resizeVenueCover();
         }
         venueItem.setText(thief ? "비상 퓨즈 사용 · 파티 보급품 1개" : "15초 연장 · 파티 보급품 1개");
@@ -318,7 +318,7 @@ public final class MainActivity extends DemoActivity {
     private void addGameSelection(LinearLayout root) {
         gameSelection = column();
         gameSelection.setPadding(dp(14), dp(12), dp(14), dp(14));
-        gameSelection.setBackground(seatSurface(0xff131420, 0xff383950, 10));
+        gameSelection.setBackground(seatSurface(PLY_SURFACE, PLY_BORDER, 10));
         dashboardText(gameSelection, 28, true).setText("게임 선택");
 
         LinearLayout choices = new LinearLayout(this);
@@ -395,7 +395,7 @@ public final class MainActivity extends DemoActivity {
         button.setTextColor(selected ? 0xff151724 : tint);
         button.setBackground(new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(0x40ffffff),
-                seatSurface(selected ? tint : 0xff222437, selected ? tint : 0xff555774, 5), null));
+                seatSurface(selected ? tint : 0xff1c2b45, selected ? tint : PLY_BORDER, 5), null));
     }
 
     private void renderGameSelection(boolean visible, boolean deadzoneAvailable) {
@@ -408,7 +408,7 @@ public final class MainActivity extends DemoActivity {
         Game game = selectedGame;
         if (featuredArtwork != game) {
             featuredArtwork = game;
-            featuredGame.setBackground(new GameCover(this, game.art, game.accent, dp(9), true));
+            featuredGame.setBackground(new GameCover(this, game.art, game.accent, dp(9), GameCover.Layout.GAME));
             gameTitle.setText(game.title);
             gameDescription.setText(game.description);
             gameEnter.setContentDescription(game.title + " 로비 열기");
@@ -713,7 +713,11 @@ public final class MainActivity extends DemoActivity {
     }
 
     @Override protected Drawable vehicleCover() {
-        return new GameCover(this, R.drawable.arcade_zride, 0xffb5bcff, dp(20));
+        return new GameCover(this, R.drawable.ply_crew_scene, PLY_MINT, dp(12), GameCover.Layout.GAME);
+    }
+
+    @Override protected Drawable vehicleHomeCover() {
+        return new GameCover(this, R.drawable.ply_home_scene, 0, dp(12), GameCover.Layout.HOME);
     }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -742,7 +746,7 @@ public final class MainActivity extends DemoActivity {
         journeySummary.setMaxLines(1);
         journeySummary.setEllipsize(android.text.TextUtils.TruncateAt.END);
         journeySummary.setPadding(dp(18), dp(10), dp(18), dp(10));
-        styleVehicleCard(journeySummary, 0xff171a29);
+        styleVehicleCard(journeySummary, PLY_SURFACE);
         journeySummary.setVisibility(View.GONE);
         container.addView(journeySummary, container.indexOfChild(arcadeToolbar) + 1);
         cabinButton = new Button(this);
@@ -838,7 +842,7 @@ public final class MainActivity extends DemoActivity {
         cabinDialog.show();
         if (cabinDialog.getWindow() != null) {
             android.graphics.drawable.GradientDrawable surface = new android.graphics.drawable.GradientDrawable();
-            surface.setColor(0xff151827);
+            surface.setColor(PLY_SURFACE);
             surface.setCornerRadius(dp(20));
             cabinDialog.getWindow().setBackgroundDrawable(surface);
             cabinDialog.getWindow().setDimAmount(.38f);
@@ -908,7 +912,7 @@ public final class MainActivity extends DemoActivity {
     }
 
     private Drawable cover(Game game) {
-        return new GameCover(this, game.art, game.accent, dp(20));
+        return new GameCover(this, game.art, game.accent, dp(20), GameCover.Layout.FIT);
     }
 
     private void sizeLobbyCover(View cover) {

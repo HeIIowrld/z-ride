@@ -100,7 +100,8 @@ def runtime_bundle(payload):
             ) or (
                 relative.parts[0] in {'observer', 'phone-client'} and
                 (relative.suffix in {'.html', '.css', '.js', '.json', '.svg'}
-                 or name in {'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp'})
+                 or name in {'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp',
+                             'phone-client/ply-lockup.jpg', 'phone-client/ply-symbol.jpg', 'phone-client/ply-road-portrait.jpg'})
             )
             if not allowed:
                 continue

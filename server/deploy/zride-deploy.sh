@@ -60,7 +60,8 @@ with tarfile.open(archive, 'r:gz') as source:
             raise SystemExit('Links and special files are prohibited')
         allowed = (len(path.parts) == 1 and (name in {'package.json', 'package-lock.json'} or name.endswith('.mjs'))) or (path.parts[0] in {'observer', 'phone-client'} and (member.isdir() or path.suffix in {'.html', '.css', '.js', '.json', '.svg'}))
         allowed = allowed or (member.isfile() and name in {
-            'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp'})
+            'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp',
+            'phone-client/ply-lockup.jpg', 'phone-client/ply-symbol.jpg', 'phone-client/ply-road-portrait.jpg'})
         if path.parts[0] == 'drive-assets':
             relative = path.parts[1:]
             allowed = (member.isdir() and (

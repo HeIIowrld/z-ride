@@ -86,7 +86,9 @@ class DeploymentArchiveTests(unittest.TestCase):
     def test_accepts_ply_bag_assets_and_rejects_unrelated_styles(self):
         for name, accepted in [('drive-assets/bag.html', True), ('drive-assets/shared/ply.css', True),
                                ('drive-assets/shared/private.css', False),
-                               ('phone-client/thief.webp', True), ('phone-client/private.webp', False)]:
+                               ('phone-client/thief.webp', True), ('phone-client/private.webp', False),
+                               ('phone-client/ply-lockup.jpg', True), ('phone-client/ply-symbol.jpg', True),
+                               ('phone-client/ply-road-portrait.jpg', True), ('phone-client/private.jpg', False)]:
             with self.subTest(path=name):
                 item = tarfile.TarInfo(name)
                 item.size = 1

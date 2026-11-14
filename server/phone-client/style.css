@@ -45,17 +45,17 @@
 
 .crew-entry {
   --crew-ink: #f8f6ff;
-  --crew-mint: #69f0ce;
+  --crew-mint: var(--ply-primary);
   color: var(--crew-ink);
-  border: 1px solid #52547a;
+  border: 1px solid var(--ply-line);
   border-radius: 10px;
   background:
-    repeating-linear-gradient(144deg, transparent 0 22px, #b1b4ff0a 23px 24px, transparent 25px 37px) top right / 65% 116px no-repeat,
-    linear-gradient(160deg, #24233e 0, #141624 160px, #111322);
+    repeating-linear-gradient(144deg, transparent 0 22px, #a1c6ec0a 23px 24px, transparent 25px 37px) top right / 65% 116px no-repeat,
+    linear-gradient(160deg, #192946f5 0, #121e35f2 160px, #111c33f5);
 }
 .crew-entry h1, .crew-entry h2 { font-weight: 900; letter-spacing: -.055em; }
 .crew-entry .primary { border-radius: 5px; background: var(--crew-mint); }
-.crew-entry .quiet { border-color: #545574; color: #c4c6eb; }
+.crew-entry .quiet { border-color: var(--ply-line); color: #c7d7eb; }
 .crew-entry .error:empty, .crew-entry .subtle:empty { display: none; }
 .crew-entry #invite-status { margin: 4px 0 14px; color: #c3caff; }
 .crew-entry .footnote summary { cursor: pointer; }
@@ -78,7 +78,7 @@
   background: repeating-linear-gradient(0deg, transparent 0 7px, #c6cdff10 7px 8px),
     radial-gradient(ellipse at 50% 25%, #43436a, #22243c 65%);
 }
-.crew-driver { --position: #69f0ce; }
+.crew-driver { --position: var(--ply-primary); }
 .crew-position[data-seat="REAR_LEFT"] { --position: #ffbb8b; }
 .crew-position[data-seat="REAR_RIGHT"] { --position: #d3aaff; }
 .crew-position i {
@@ -143,10 +143,27 @@ button, input, select { touch-action: manipulation; }
 #journey-venue select, #journey-venue input { margin-bottom: 12px; }
 
 
-/* Main play screens use the same compact controls as the vehicle lobby. */
-body { background: #101418; }
-.app-header { border-bottom: 1px solid #343d45; padding: 0 0 12px; margin-bottom: 16px; }
-.app-header .wordmark { font-size: 26px; }
+/* Entry uses the portrait journey artwork. The connected crew has a compact header. */
+.passenger-app { background: var(--ply-bg); --line: var(--ply-line); }
+.app-header { gap: 12px; padding: 0 0 12px; margin-bottom: 16px; border-bottom: 1px solid var(--ply-line); }
+.passenger-app main:has(> #game[hidden]) .app-header {
+  align-items: flex-start;
+  min-height: clamp(128px, 39vw, 195px);
+  padding: 10px 12px;
+  border: 1px solid var(--ply-line);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, #090f27 0%, #090f2755 46%, transparent 85%),
+    url("/play/ply-road-portrait.jpg") center 83% / cover no-repeat;
+}
+.passenger-app main:has(> #game[hidden]) .connection { margin-top: 14px; }
+.app-header .wordmark { display: block; width: clamp(154px, 53vw, 258px); border-radius: 6px; overflow: hidden; }
+.app-header .wordmark img { display: block; width: 100%; height: auto; }
+.app-header .wordmark .ply-symbol { display: none; }
+main:has(> #game:not([hidden])) .app-header .wordmark { width: 44px; }
+main:has(> #game:not([hidden])) .app-header .ply-lockup { display: none; }
+main:has(> #game:not([hidden])) .app-header .ply-symbol { display: block; }
+.app-header .wordmark:focus-visible { outline: 2px solid var(--ply-primary); outline-offset: 4px; }
 .app-header .connection {
   background: transparent;
   border: 0;
@@ -165,7 +182,10 @@ body { background: #101418; }
 }
 .squad-head { margin: 10px 0 14px; }
 .squad-head h1 { font-size: 22px; margin-bottom: 0; }
-.journey-map, .ply-game-panel { background: #161b20; border-color: #39444e; border-radius: 6px; }
+.journey-map, .ply-game-panel { background: var(--ply-surface); border-color: var(--ply-line); border-radius: 8px; }
+#journey-plot { background-color: #101a31; border-color: var(--ply-line); }
+.journey-guidance { background: #182841; }
+.journey-next { background: #152239; border-top-color: var(--ply-line); }
 .map-heading { min-height: 38px; flex-wrap: wrap; }
 .map-tools { display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .map-tools b { font-size: 15px; margin-left: 2px; }
@@ -178,7 +198,7 @@ body { background: #101418; }
   pointer-events: none;
 }
 .map-status {
-  background: #203139;
+  background: #193345;
   border-left: 3px solid var(--ply-common);
   margin: 10px 0 0;
   padding: 8px 10px;
@@ -206,15 +226,15 @@ body { background: #101418; }
 }
 #drive-games { padding-inline: 0; background: transparent; }
 .drive-game-list button {
-  background: #192128;
+  background: #17263d;
   color: #ecf4fa;
-  border: 1px solid #3c4954;
+  border: 1px solid var(--ply-line);
   border-left: 3px solid #b3acff;
   border-radius: 4px;
 }
 .drive-game-list button[data-drive-game="pole-jump"],
 .drive-game-list button[data-drive-game="raindrop"] {
-  background: #192128; color: #ecf4fa; border-color: #3c4954;
+  background: #17263d; color: #ecf4fa; border-color: var(--ply-line);
 }
 .drive-game-list button[data-drive-game="pole-jump"] { border-left-color: #ffbf8d; }
 .drive-game-list button[data-drive-game="raindrop"] { border-left-color: #74dbd2; }
@@ -229,8 +249,8 @@ body { background: #101418; }
   isolation: isolate;
   margin-inline: -14px;
   padding: 14px;
-  background: #151d24;
-  border-bottom: 1px solid #39444e;
+  background: #141e34;
+  border-bottom: 1px solid var(--ply-line);
 }
 #journey-venue.venue-lobby .venue-header { min-height: 150px; align-content: end; }
 #journey-venue .venue-header h2 { font-size: clamp(25px, 7vw, 36px); }
