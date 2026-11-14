@@ -198,10 +198,10 @@ $('join-android').addEventListener('click', async event => {
     });
     const value = await response.json();
     if (!response.ok) throw Error(value.error);
-    $('journey-result').textContent = 'Android에 초대를 열었습니다. 동승자 화면에서 좌석을 신청하세요.';
+    $('journey-result').textContent = 'Android에 초대를 열었습니다. 동승자 화면에서 앉은 자리를 고르세요.';
   } catch (error) {
     $('journey-result').textContent = error.message === 'INVITE_NOT_VISIBLE'
-      ? 'Pleos 앱에서 주차 상태로 새 QR을 띄워 주세요.'
+      ? '주차 중 Pleos 크루 로비의 빈자리에서 초대를 열어 주세요.'
       : 'Android 동승자 화면 연결을 확인해 주세요.';
   } finally { button.disabled = false; }
 });

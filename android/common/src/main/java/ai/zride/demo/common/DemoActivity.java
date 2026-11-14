@@ -51,7 +51,8 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private EditText serverInput, codeInput, nicknameInput, accessKeyInput;
     private Button connectButton;
     private Spinner seats;
-    private LinearLayout approvals, gamePanel, lobby;
+    private LinearLayout approvals, gamePanel;
+    private CrewLobby lobby;
     private SeatArenaView arena;
     private ImageView inviteQr;
     private TextView inviteInfo;
@@ -63,11 +64,11 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         if(inviteQr==null)return;
         inviteQr.setImageDrawable(null);
         inviteQr.setVisibility(View.GONE);
-        inviteInfo.setText("QR이 만료됐어요. 주차 중 새 QR을 열 수 있어요.");
-        if(room!=null&&room.optString("roomId").equals(inviteRoomId)) {
-            if(cleanVehicleUi())inviteAfterJourneyStart=true;
-            requestPhoneInvite();
-        }
+        boolean sameRoom=room!=null&&room.optString("roomId").equals(inviteRoomId);
+        inviteRoomId=null;
+        inviteInfo.setText("QR이 만료됐어요. 새 QR을 열어 주세요.");
+        if (lobby != null) lobby.showQr(false);
+        if (sameRoom && (lobby == null || lobby.isInviteOpen())) requestPhoneInvite();
     };
     private String localSeat="FRONT_PASSENGER";
     private final AtomicLong reportCounter=new AtomicLong();
@@ -84,7 +85,6 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     protected void addVehicleControls(LinearLayout container) {}
     protected void addVehicleWelcomeActions(LinearLayout menu) {}
     protected android.graphics.drawable.Drawable vehicleCover() { return new RoadCover(); }
-    private boolean inviteAfterJourneyStart;
     protected void inspectExtraDiagnostics() {}
     protected void addPhoneCollectionContent(LinearLayout container) {}
     protected void onRoomData(JSONObject room) {}
@@ -97,16 +97,6 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
 
     private boolean cleanVehicleUi() { return isCar() && !showVehicleDiagnostics(); }
 
-    private String seatLabel(String seat) {
-        switch (seat) {
-            case "DRIVER": return "운전석";
-            case "FRONT_PASSENGER": return "조수석";
-            case "REAR_LEFT": return "뒷좌석 왼쪽";
-            case "REAR_RIGHT": return "뒷좌석 오른쪽";
-            default: return "좌석 미정";
-        }
-    }
-
     protected final int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
@@ -115,27 +105,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         if (lobby == null) return;
         int visibility = visible && connected && foreground && localAllowed ? View.VISIBLE : View.GONE;
         lobby.setVisibility(visibility);
-        roomLabel.setVisibility(visibility);
-        if (visibility == View.VISIBLE && inviteAfterJourneyStart && client.isAuthenticated()) requestPhoneInvite();
-    }
-
-    private LinearLayout lobbyCard() {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(24), dp(18), dp(24), dp(18));
-        styleVehicleCard(card, 0xff171a29);
-        return card;
-    }
-
-    private void addLobbyCard(LinearLayout row, LinearLayout card, boolean wide, boolean second) {
-        LinearLayout.LayoutParams params = wide
-                ? new LinearLayout.LayoutParams(0, -2, 1)
-                : new LinearLayout.LayoutParams(-1, -2);
-        if (second) {
-            if (wide) params.setMarginStart(dp(12));
-            else params.topMargin = dp(12);
-        }
-        row.addView(card, params);
+        if (visibility != View.VISIBLE) lobby.dismissInvite();
     }
 
     @Override public void onCreate(Bundle state) {
@@ -194,7 +164,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             parkedHint.setTypeface(null, android.graphics.Typeface.BOLD);
             root.addView(parkedHint);
         }
-        connectButton=button(cleanVehicleUi()?"여정 시작  ›":isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->{inviteAfterJourneyStart=cleanVehicleUi();connectRoom();});
+        connectButton=button(cleanVehicleUi()?"여정 시작  ›":isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->connectRoom());
         if (partyWelcome == null) root.addView(connectButton);
         else {
             LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(-1, dp(62));
@@ -202,38 +172,30 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             partyWelcome.addView(connectButton, action);
         }
         status=text(cleanVehicleUi()?"":"연결 전",16);root.addView(status);
-        roomLabel=text(cleanVehicleUi()?"동승자 합류":"ROOM —",cleanVehicleUi()?30:18);root.addView(roomLabel);
-        if (cleanVehicleUi()) roomLabel.setTypeface(null, android.graphics.Typeface.BOLD);
-        LinearLayout inviteContainer=root, rosterContainer=root;
-        if(cleanVehicleUi()){
-            lobby=new LinearLayout(this);
-            boolean wide=getResources().getConfiguration().screenWidthDp>=640;
-            lobby.setOrientation(wide?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);
-            root.addView(lobby);
-            inviteContainer=lobbyCard();
-            rosterContainer=lobbyCard();
-            addLobbyCard(lobby,inviteContainer,wide,false);
-            addLobbyCard(lobby,rosterContainer,wide,true);
-            TextView inviteTitle = text("동승자 초대", 26);
-            inviteTitle.setTypeface(null, android.graphics.Typeface.BOLD);
-            inviteContainer.addView(inviteTitle);
-            TextView rosterTitle = text("참가 좌석", 26);
-            rosterTitle.setTypeface(null, android.graphics.Typeface.BOLD);
-            rosterContainer.addView(rosterTitle);
-        }
+        roomLabel=text("ROOM —",18);
+        if (!cleanVehicleUi()) root.addView(roomLabel);
         if(isCar()){
-            inviteButton=button(cleanVehicleUi()?"새 QR 발급":"폰 초대 QR 발급",v->requestPhoneInvite());
-            inviteInfo=text(cleanVehicleUi()?"휴대폰 카메라로 QR을 스캔하세요.":"서버 연결 후 주차 상태에서 QR을 발급합니다 · 폰 로그인 후 차량 승인",cleanVehicleUi()?18:14);inviteContainer.addView(inviteInfo);
-            inviteQr=new ImageView(this);inviteQr.setContentDescription("동승자 초대 QR");inviteQr.setBackgroundColor(Color.WHITE);inviteQr.setVisibility(View.GONE);int qrSize=cleanVehicleUi()?dp(240):512;
-            LinearLayout.LayoutParams qrParams=new LinearLayout.LayoutParams(qrSize,qrSize);
-            qrParams.gravity=android.view.Gravity.CENTER_HORIZONTAL;
-            inviteContainer.addView(inviteQr,qrParams);
-            inviteContainer.addView(inviteButton);
+            inviteButton=button(cleanVehicleUi()?"QR 갱신":"폰 초대 QR 발급",v->requestPhoneInvite());
+            inviteInfo=text(cleanVehicleUi()?"":"서버 연결 후 주차 상태에서 QR을 발급합니다 · 폰 로그인 후 차량 승인",14);
+            inviteQr=new ImageView(this);inviteQr.setContentDescription("동승자 초대 QR");inviteQr.setBackgroundColor(Color.WHITE);inviteQr.setVisibility(View.GONE);
+            if (cleanVehicleUi()) {
+                lobby = new CrewLobby(this, vehicleCover(), inviteQr, inviteInfo, inviteButton,
+                        this::requestPhoneInvite, (id, seat) -> client.approve(id, seat));
+                root.addView(lobby);
+            } else {
+                root.addView(inviteInfo);
+                LinearLayout.LayoutParams qrParams=new LinearLayout.LayoutParams(512,512);
+                qrParams.gravity=android.view.Gravity.CENTER_HORIZONTAL;
+                root.addView(inviteQr,qrParams);
+                root.addView(inviteButton);
+            }
         }
-        memberLabel=text("",cleanVehicleUi()?18:13);
-        if (cleanVehicleUi()) memberLabel.setLineSpacing(dp(8), 1f);
-        rosterContainer.addView(memberLabel);
-        approvals=new LinearLayout(this);approvals.setOrientation(LinearLayout.VERTICAL);rosterContainer.addView(approvals);
+        memberLabel=text("",13);
+        approvals=new LinearLayout(this);approvals.setOrientation(LinearLayout.VERTICAL);
+        if (!cleanVehicleUi()) {
+            root.addView(memberLabel);
+            root.addView(approvals);
+        }
         if(!isCar()){
             collectionPanel=new LinearLayout(this);collectionPanel.setOrientation(LinearLayout.VERTICAL);root.addView(collectionPanel);
             collectionPanel.addView(text("동승자 독립 수집 · 전투는 주차 후",18));
@@ -305,23 +267,28 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private void connectRoom(){((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(serverInput.getWindowToken(),0);client.close();connected=false;sawRoom=false;lastShotTime=0;reportCounter.set(0);localSeat=isCar()?"DRIVER":seats.getSelectedItem().toString();String accessKey=accessKeyInput.getText().toString();accessKeyInput.setText("");client.connect(serverInput.getText().toString().trim(),isCar(),nicknameInput.getText().toString().trim(),isCar()?"":codeInput.getText().toString(),localSeat,accessKey);}
     @Override protected void onResume(){super.onResume();DebugCommandReceiver.attach(this);foreground=true;onVehicleForegroundChanged(true);main.post(reporter);}
     @Override protected void onPause(){foreground=false;onVehicleForegroundChanged(false);if(isCar())sendVehicle();main.removeCallbacks(reporter);localAllowed=false;updateGameVisibility();super.onPause();}
-    @Override protected void onDestroy(){DebugCommandReceiver.detach(this);if(accessKeyInput!=null)accessKeyInput.setText("");main.removeCallbacks(expireInvite);main.removeCallbacks(reporter);main.removeCallbacks(testRunner);if(gameAudio!=null)gameAudio.close();if(!retainClientOnDestroy())client.destroy();super.onDestroy();}
+    @Override protected void onDestroy(){DebugCommandReceiver.detach(this);if(accessKeyInput!=null)accessKeyInput.setText("");if(lobby!=null)lobby.dismissInvite();main.removeCallbacks(expireInvite);main.removeCallbacks(reporter);main.removeCallbacks(testRunner);if(gameAudio!=null)gameAudio.close();if(!retainClientOnDestroy())client.destroy();super.onDestroy();}
     private void requestPhoneInvite(){
         if(!isCar()||!connected||!foreground||!localAllowed||room==null)return;
-        if(cleanVehicleUi()&&(lobby.getVisibility()!=View.VISIBLE||inviteSeatCount(false)>=3))return;
+        if(lobby!=null&&(lobby.getVisibility()!=View.VISIBLE||!lobby.isInviteOpen()||inviteSeatCount()>=3))return;
         final String requested=room.optString("roomId");
         if(requested.equals(invitePendingRoomId))return;
-        inviteAfterJourneyStart=false;
         invitePendingRoomId=requested;
         inviteButton.setEnabled(false);
-        if(cleanVehicleUi()&&inviteQr.getDrawable()==null)inviteInfo.setText("초대 QR을 만드는 중…");
+        if(lobby!=null){
+            main.removeCallbacks(expireInvite);
+            inviteRoomId=null;
+            inviteQr.setImageDrawable(null);
+            lobby.showQr(false);
+            inviteInfo.setText("초대 QR 준비 중…");
+        }
         client.postApi("/api/rooms/"+requested+"/party/invite",new JSONObject(),new RoomClient.ApiCallback(){
             public void onResponse(JSONObject value){main.post(()->{if(!finishInviteRequest(requested))return;try{
                 long ttl=value.getLong("expiresAt")-System.currentTimeMillis();if(ttl<=0)throw new IllegalStateException("초대 시간이 만료됨");
                 BitMatrix bits=new MultiFormatWriter().encode(value.getString("joinUrl"),BarcodeFormat.QR_CODE,512,512);
                 Bitmap bitmap=Bitmap.createBitmap(512,512,Bitmap.Config.ARGB_8888);int[] pixels=new int[512*512];
                 for(int y=0;y<512;y++)for(int x=0;x<512;x++)pixels[y*512+x]=bits.get(x,y)?Color.BLACK:Color.WHITE;
-                bitmap.setPixels(pixels,0,512,0,0,512,512);inviteRoomId=requested;inviteQr.setImageBitmap(bitmap);inviteQr.setVisibility(View.VISIBLE);inviteInfo.setText("휴대폰으로 QR을 스캔하고 좌석을 선택하세요.");main.removeCallbacks(expireInvite);main.postDelayed(expireInvite,ttl);
+                bitmap.setPixels(pixels,0,512,0,0,512,512);inviteRoomId=requested;inviteQr.setImageBitmap(bitmap);inviteInfo.setText(lobby==null?"휴대폰으로 QR을 스캔하고 좌석을 선택하세요.":"");main.removeCallbacks(expireInvite);main.postDelayed(expireInvite,ttl);
             }catch(Exception e){inviteInfo.setText("QR 발급 실패 · 다시 발급해 주세요");}updateGameVisibility();});}
             public void onError(String error){main.post(()->{if(!finishInviteRequest(requested))return;inviteInfo.setText("QR 발급 실패 · 서버 연결을 확인해 주세요");updateGameVisibility();});}
         });
@@ -329,15 +296,15 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private boolean finishInviteRequest(String requested){
         if(!requested.equals(invitePendingRoomId))return false;
         invitePendingRoomId=null;
-        return room!=null&&requested.equals(room.optString("roomId"));
+        return !isDestroyed()&&room!=null&&requested.equals(room.optString("roomId"));
     }
-    private int inviteSeatCount(boolean pendingOnly){
+    private int inviteSeatCount(){
         JSONArray members=room==null?null:room.optJSONArray("members");
         if(members==null)return 0;
         int count=0;
         for(int i=0;i<members.length();i++){
             JSONObject member=members.optJSONObject(i);
-            if(member==null||(pendingOnly&&member.optBoolean("approved")))continue;
+            if(member==null)continue;
             String seat=member.optString("seat");
             if("FRONT_PASSENGER".equals(seat)||"REAR_LEFT".equals(seat)||"REAR_RIGHT".equals(seat))count++;
         }
@@ -352,47 +319,48 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             inviteQr.setImageDrawable(null);
             inviteRoomId=null;
         }
-        boolean full=cleanVehicleUi()&&inviteSeatCount(false)>=3;
-        if(cleanVehicleUi()){
+        boolean full=lobby!=null&&inviteSeatCount()>=3;
+        if(lobby!=null){
             connectButton.setVisibility(!connected&&parked?View.VISIBLE:View.GONE);
-            inviteInfo.setVisibility(connected&&parked?View.VISIBLE:View.GONE);
+            inviteInfo.setVisibility(connected&&parked&&inviteInfo.length()>0?View.VISIBLE:View.GONE);
             if(full){
                 main.removeCallbacks(expireInvite);
                 inviteQr.setImageDrawable(null);
                 inviteRoomId=null;
-                inviteAfterJourneyStart=true;
-                int pending=inviteSeatCount(true);
-                inviteInfo.setText(pending==0?"동승자 3명이 함께해요.":"동승자 "+pending+"명의 참가 요청을 승인해 주세요.");
+                lobby.dismissInvite();
             }
         }
-        inviteButton.setEnabled(connected&&parked&&!full&&!id.equals(invitePendingRoomId));
+        boolean ready=connected&&parked&&!full;
+        inviteButton.setEnabled(ready&&!id.equals(invitePendingRoomId));
         inviteButton.setVisibility(parked&&(!cleanVehicleUi()||connected)&&!full?View.VISIBLE:View.GONE);
-        inviteQr.setVisibility(connected&&parked&&!full&&inviteQr.getDrawable()!=null?View.VISIBLE:View.GONE);
+        if(lobby!=null)lobby.showQr(ready&&inviteQr.getDrawable()!=null);
+        else inviteQr.setVisibility(ready&&inviteQr.getDrawable()!=null?View.VISIBLE:View.GONE);
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);acceptTestIntent(intent);}
     final void receiveDebugCommand(Intent intent){main.post(()->acceptTestIntent(intent));}
     public void onStatus(String value){main.post(()->status.setText(!cleanVehicleUi()?value:value.startsWith("Connected")?"파티 연결됨":value.startsWith("Connecting")?"파티에 연결하는 중":"파티 연결 상태를 확인해 주세요"));event("connection",newJSONObject("message",value));}
     public void onDisconnected(){main.post(()->{connected=false;updateGameVisibility();});}
-    public void onRoom(JSONObject value){main.post(()->{connected=true;room=value;updateGameVisibility();roomLabel.setText(cleanVehicleUi()?"동승자 합류":"ROOM "+value.optString("roomId")+"  CODE "+value.optString("joinCode","—")+"  "+value.optString("state"));
+    public void onRoom(JSONObject value){main.post(()->{connected=true;room=value;
+        if(lobby!=null)lobby.render(value.optJSONArray("members"));
+        else updateReferenceRoster(value);
+        JSONObject stats=value.optJSONObject("stats");if(stats!=null){JSONObject collection=value.optJSONObject("collection");JSONObject inventory=collection==null?null:collection.optJSONObject("inventory");statsLabel.setText("SHOTS "+stats.optInt("shots")+" · HITS "+stats.optInt("hits")+" · KILLS "+stats.optInt("kills")+" · SUPPLIES "+(inventory==null?0:inventory.optInt("supplies"))+(stats.optBoolean("supportActive")?" · SUPPORT ×"+stats.optInt("supportDamage",2):""));JSONObject shot=stats.optJSONObject("lastShot");if(shot!=null){long time=shot.optLong("time");if(sawRoom&&time>lastShotTime&&shot.optBoolean("accepted"))gameAudio.feedback(shot.optBoolean("hit"));lastShotTime=Math.max(lastShotTime,time);}}sawRoom=true;
+        if(!isCar())refreshCollection(value);
+        arena.setRoom(value);updateGameVisibility();onRoomData(value);});
+        event("snapshot",summary(value));
+        // Debug APK private state enables adb run-as verification without logging join secrets.
+        try(FileWriter file=new FileWriter(new File(getFilesDir(),"room-state.json"),false)){file.write(value.toString(2));}catch(Exception ignored){}
+    }
+    private void updateReferenceRoster(JSONObject value) {
+        roomLabel.setText("ROOM "+value.optString("roomId")+"  CODE "+value.optString("joinCode","—")+"  "+value.optString("state"));
         JSONArray members=value.optJSONArray("members");StringBuilder label=new StringBuilder(),pending=new StringBuilder();
         if(isCar()&&members!=null)for(int i=0;i<members.length();i++){JSONObject m=members.optJSONObject(i);if(m!=null&&!m.optBoolean("approved"))pending.append(m.optString("memberId")).append('|').append(m.optString("seat")).append('|').append(m.optString("nickname")).append('\n');}
         String nextApprovals=value.optString("roomId")+":"+pending;boolean refreshApprovals=!nextApprovals.equals(approvalSignature);
         if(refreshApprovals){approvals.removeAllViews();approvalSignature=nextApprovals;}
         if(members!=null)for(int i=0;i<members.length();i++){JSONObject m=members.optJSONObject(i);if(m==null)continue;if(!isCar()&&m.optString("sessionId").equals(client.getSessionId()))localSeat=m.optString("seat",localSeat);
-            if (cleanVehicleUi() && "DRIVER".equals(m.optString("seat"))) continue;
-            label.append(m.optString("nickname")).append(" · ");
-            if(cleanVehicleUi())label.append(seatLabel(m.optString("seat")));
-            else label.append(m.optString("role")).append(" / ").append(m.optString("seatEvidence"));
+            label.append(m.optString("nickname")).append(" · ").append(m.optString("role")).append(" / ").append(m.optString("seatEvidence"));
             label.append(m.optBoolean("approved")?" · 참가 완료":" · 승인 대기").append("\n");
-            if(isCar()&&refreshApprovals&&!m.optBoolean("approved")){final String id=m.optString("memberId"),seat=m.optString("seat");approvals.addView(button(m.optString("nickname")+" · "+(cleanVehicleUi()?seatLabel(seat):seat)+" 승인",v->client.approve(id,seat)));}}
-        JSONObject stats=value.optJSONObject("stats");if(stats!=null){JSONObject collection=value.optJSONObject("collection");JSONObject inventory=collection==null?null:collection.optJSONObject("inventory");statsLabel.setText("SHOTS "+stats.optInt("shots")+" · HITS "+stats.optInt("hits")+" · KILLS "+stats.optInt("kills")+" · SUPPLIES "+(inventory==null?0:inventory.optInt("supplies"))+(stats.optBoolean("supportActive")?" · SUPPORT ×"+stats.optInt("supportDamage",2):""));JSONObject shot=stats.optJSONObject("lastShot");if(shot!=null){long time=shot.optLong("time");if(sawRoom&&time>lastShotTime&&shot.optBoolean("accepted"))gameAudio.feedback(shot.optBoolean("hit"));lastShotTime=Math.max(lastShotTime,time);}}sawRoom=true;
-        if(!isCar())refreshCollection(value);
-        memberLabel.setText(cleanVehicleUi() && label.length() == 0
-                ? "아직 참가한 동승자가 없어요.\nQR을 보여주고 함께 시작하세요."
-                : label.toString().trim());arena.setRoom(value);updateGameVisibility();onRoomData(value);});
-        event("snapshot",summary(value));
-        // Debug APK private state enables adb run-as verification without logging join secrets.
-        try(FileWriter file=new FileWriter(new File(getFilesDir(),"room-state.json"),false)){file.write(value.toString(2));}catch(Exception ignored){}
+            if(isCar()&&refreshApprovals&&!m.optBoolean("approved")){final String id=m.optString("memberId"),seat=m.optString("seat");approvals.addView(button(m.optString("nickname")+" · "+seat+" 승인",v->client.approve(id,seat)));}}
+        memberLabel.setText(label.toString().trim());
     }
     private JSONObject summary(JSONObject value){JSONObject x=new JSONObject();try{x.put("roomId",value.optString("roomId")).put("state",value.optString("state")).put("roomEpoch",value.optLong("roomEpoch")).put("vehicle",value.optJSONObject("vehicle")).put("members",value.optJSONArray("members"));}catch(Exception ignored){}return x;}
     public void onResult(JSONObject value){main.post(()->resultLabel.setText(value.toString()));String action=pendingCommands.remove(value.optString("commandId"));if(action!=null){try{JSONObject receipt=new JSONObject(value.toString()).put("requestedAction",action);writePrivate("last-action-result.json",receipt);}catch(Exception ignored){}}event("server.result",value);}
