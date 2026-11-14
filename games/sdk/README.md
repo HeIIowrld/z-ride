@@ -16,7 +16,7 @@
 ```
 
 - 허브는 게임 규칙을 모른다. 페이지를 띄우고, 차 신호를 넘기고, 실내 요청을 안전 조건에 맞춰 적용만 한다.
-- 게임 서버와 폰 통신 방식은 자유다. 예시는 `games/electric-thief`(WebSocket)를 본다.
+- 게임 서버와 폰 통신 방식은 자유다. 예시는 `games/power-castle`(WebSocket)과 Cloudflare 배포판 `games/cloudflare`를 본다.
 
 ## 1. 차 화면 페이지에 SDK 넣기
 

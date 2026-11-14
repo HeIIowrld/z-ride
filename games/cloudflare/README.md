@@ -22,3 +22,8 @@ npm run deploy                     # 4종 배포(Cloudflare 로그인 필요)
 - [x] `wrangler dev`로 로컬 시험: 4종 모두 방 만들기·참가·잘못된 토큰 차단·규칙→경기 시작 확인, Power Castle은 번개 도착까지 확인
 - [x] 배포: 4종 + 게임 모음 화면(zride-charge-hub)을 workers.dev에 올리고 공개 주소로 방 만들기·참가·경기 시작 확인
 - [ ] PLY 서버에 충전 게임 주소 설정 추가, carapp 충전 메뉴를 4종으로 교체(PR)
+
+## 어디서 열리나
+- PLY 차량 앱(carapp) 충전 메뉴의 4종(Power Castle, Volt Rush, Power Tug, 충전 릴레이)은 **모두 여기 Cloudflare 배포판**을 `ChargeGameActivity`로 연다. 참가는 게임 화면의 QR로 한다.
+- PLY 서버의 충전소 게임(`server/venue-electric-thief.mjs`, `server/venue-charge-relay.mjs`, `/venue-game` API)은 차량 앱 메뉴에서 더 이상 쓰지 않는다. 서버 쪽 정리는 서버 담당이 따로 한다.
+- 전기도둑은 없앴다(`games/electric-thief` 삭제, 차량 앱 메뉴에서 제거).
