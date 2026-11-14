@@ -19,19 +19,27 @@ import android.widget.TextView;
 
 public final class MainActivity extends DemoActivity {
     private enum Game {
-        THIEF("전기도둑", "목표 합계에 맞춰 충전하고 도둑을 찾아라.", R.drawable.arcade_thief, 0xffc0baff),
-        RELAY("충전 릴레이", "그림과 답을 넘겨 처음 단어를 맞혀라.", R.drawable.arcade_relay, 0xffffc097),
-        DEADZONE("DEADZONE", "각자 맡은 방향에서 차량을 지켜라.", R.drawable.arcade_deadzone, 0xffff796c);
+        // 충전 게임 4종 중 3종은 Cloudflare에 따로 배포한 웹 게임이다(DEADZONE처럼 주소로만 연결).
+        CASTLE("Power Castle", "내 성에 전기를 모으고 남의 성 전기를 끌어와라.", R.drawable.arcade_thief, 0xff3ef2ff, "power-castle"),
+        VOLT("Volt Rush", "선을 깔며 가운데 충전기에 먼저 닿아라.", R.drawable.arcade_thief, 0xffffd23f, "volt-rush"),
+        TUG("Power Tug", "폰을 연타해 전기를 우리 팀 배터리로 끌어와라.", R.drawable.arcade_relay, 0xff2bffc6, "power-tug"),
+        RELAY("충전 릴레이", "그림과 답을 넘겨 처음 단어를 맞혀라.", R.drawable.arcade_relay, 0xffffc097, null),
+        DEADZONE("DEADZONE", "각자 맡은 방향에서 차량을 지켜라.", R.drawable.arcade_deadzone, 0xffff796c, null),
+        // 서버 쪽 전기도둑이 이미 진행 중일 때 결과를 보여 주려고만 남겨 둔다. 메뉴에는 없다.
+        THIEF("전기도둑", "목표 합계에 맞춰 충전하고 도둑을 찾아라.", R.drawable.arcade_thief, 0xffc0baff, null);
 
-        final String title, description;
+        final String title, description, webId;
         final int art, accent;
 
-        Game(String title, String description, int art, int accent) {
+        Game(String title, String description, int art, int accent, String webId) {
             this.title = title;
             this.description = description;
             this.art = art;
             this.accent = accent;
+            this.webId = webId;
         }
+        boolean inMenu() { return this != THIEF; }
+        boolean web() { return webId != null; }
     }
 
     private static final String[] SEATS = {"FRONT_PASSENGER", "REAR_LEFT", "REAR_RIGHT"};
@@ -367,6 +375,7 @@ public final class MainActivity extends DemoActivity {
         LinearLayout choices = new LinearLayout(this);
         gameSelection.addView(choices);
         for (Game game : Game.values()) {
+            if (!game.inMenu()) continue;
             Button choice = gameTab(game.title);
             choice.setOnClickListener(view -> {
                 selectedGame = game;
@@ -446,7 +455,7 @@ public final class MainActivity extends DemoActivity {
         gameSelection.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (!visible) return;
 
-        if (venueVisible && !chargingGamesShown && selectedGame == Game.DEADZONE) selectedGame = Game.THIEF;
+        if (venueVisible && !chargingGamesShown && selectedGame == Game.DEADZONE) selectedGame = Game.CASTLE;
         chargingGamesShown = venueVisible;
         Game game = selectedGame;
         if (featuredArtwork != game) {
@@ -457,7 +466,7 @@ public final class MainActivity extends DemoActivity {
             gameEnter.setContentDescription(game.title + " 로비 열기");
         }
         for (Game choice : Game.values())
-            updateGameTab(gameChoices[choice.ordinal()], choice.accent, choice == game, true);
+            if (choice.inMenu()) updateGameTab(gameChoices[choice.ordinal()], choice.accent, choice == game, true);
 
         int passengers = approvedPassengers();
         String requirement;
@@ -466,7 +475,8 @@ public final class MainActivity extends DemoActivity {
             else if (routeInProgress()) requirement = "내비 안내 종료 후 입장";
             else if (venueVisible) requirement = "충전소에서는 충전 게임 입장 가능";
             else requirement = passengers == 0 ? "동승자 1명 합류 필요" : "주차 중 입장 가능";
-        } else if (!venueVisible) requirement = "지원 충전소에서 충전하면 입장 가능";
+        } else if (!venueVisible) requirement = "지원 충전소에 정차하면 입장 가능";
+        else if (game.web()) requirement = "충전·대기 중 입장 가능 · QR로 참가";
         else if (passengers < 2) requirement = "동승자 2명 합류 필요";
         else if (!batteryReady(game)) requirement = "배터리 잔량 95% 이하 필요";
         else requirement = "충전 중 입장 가능";
@@ -474,6 +484,7 @@ public final class MainActivity extends DemoActivity {
         gameAvailability.setTextColor(game.accent);
         boolean available = game == Game.DEADZONE
                 ? deadzoneAvailable && (passengers > 0 || showVehicleDiagnostics())
+                : game.web() ? venueVisible
                 : venueVisible && passengers >= 2 && batteryReady(game) && !venuePending;
         updateGameTab(gameEnter, game.accent, available, available);
         String entry = available ? "로비 열기  ›" : "입장 대기";
@@ -498,6 +509,13 @@ public final class MainActivity extends DemoActivity {
     }
 
     private void openSelectedGame() {
+        if (selectedGame.web()) {
+            // 웹 게임은 따로 띄운 화면에서 연다. 방 만들기·QR 참가는 게임 페이지가 한다
+            startActivity(new android.content.Intent(this, ChargeGameActivity.class)
+                    .putExtra(ChargeGameActivity.EXTRA_ID, selectedGame.webId)
+                    .putExtra(ChargeGameActivity.EXTRA_URL, ChargeGameActivity.urlFor(selectedGame.webId)));
+            return;
+        }
         switch (selectedGame) {
             case THIEF: requestVenue("open", "thief"); break;
             case RELAY: requestVenue("open", "relay"); break;
