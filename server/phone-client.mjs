@@ -7,6 +7,7 @@ const FILES = new Map([
   ['/play/', ['index.html', 'text/html; charset=utf-8']],
   ['/play/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/play/account.js', ['account.js', 'text/javascript; charset=utf-8']],
+  ['/play/journey-map.js', ['journey-map.js', 'text/javascript; charset=utf-8']],
   ['/play/style.css', ['style.css', 'text/css; charset=utf-8']],
   ...['thief', 'relay', 'deadzone'].map(game => ['/play/' + game + '.webp', [game + '.webp', 'image/webp']]),
   ...['ply-lockup.jpg', 'ply-symbol.jpg', 'ply-road-portrait.jpg'].map(file => ['/play/' + file, [file, 'image/jpeg']]),
@@ -52,7 +53,11 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
     const type = DRIVE_TYPES[file.split('.').at(-1)] + '; charset=utf-8';
     assets.set('/play/drive/' + file, { bytes: readFileSync(new URL(file, driveRoot)), type });
   }
-  assets.set('/play/qrcode.js',{bytes:readFileSync(createRequire(import.meta.url).resolve('qrcode-generator')),type:'text/javascript; charset=utf-8'});
+  const require = createRequire(import.meta.url);
+  assets.set('/play/qrcode.js',{bytes:readFileSync(require.resolve('qrcode-generator')),type:'text/javascript; charset=utf-8'});
+  assets.set('/play/leaflet.js', { bytes: readFileSync(require.resolve('leaflet')), type: 'text/javascript; charset=utf-8' });
+  assets.set('/play/leaflet.css', { bytes: readFileSync(require.resolve('leaflet/dist/leaflet.css')), type: 'text/css; charset=utf-8' });
+  assets.set('/play/leaflet-license', { bytes: readFileSync(require.resolve('leaflet/LICENSE')), type: 'text/plain; charset=utf-8' });
   assets.set('/play/config.js',{bytes:Buffer.from('window.GAME_CONFIG=window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin,displayName})+');\n'),type:'text/javascript; charset=utf-8'});
   return {
     driveGamesAvailable,
@@ -71,9 +76,10 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
       if (/^(?:\[[0-9a-fA-F:]+\]|[a-zA-Z0-9.-]+)(?::\d{1,5})?$/.test(hostHeader)) {
         try { const host = new URL('http://' + hostHeader).host; socketSources = ' ws://' + host + ' wss://' + host; } catch {}
       }
+      const mapSource = path === '/play' || path === '/play/' ? ' https://tile.openstreetmap.org' : '';
       res.writeHead(200, {
         'content-type': file.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-        'content-security-policy': "default-src 'none'; img-src 'self' data:; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src 'self' https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
+        'content-security-policy': "default-src 'none'; img-src 'self' data:" + mapSource + "; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src 'self' https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/" + socketSources + (apiOrigin?' '+apiOrigin+' '+apiOrigin.replace(/^http/,'ws'):'') + "; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
         'cross-origin-opener-policy': 'same-origin-allow-popups',
         'referrer-policy': 'strict-origin-when-cross-origin', 'permissions-policy': 'camera=(), microphone=(), geolocation=()',
       });

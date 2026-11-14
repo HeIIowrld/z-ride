@@ -7,10 +7,13 @@
   <title>PLY · 동승자</title>
   <link rel="icon" href="/play/ply-symbol.jpg" type="image/jpeg">
   <link rel="stylesheet" href="/play/drive/shared/ply.css">
+  <link rel="stylesheet" href="/play/leaflet.css">
   <link rel="stylesheet" href="/play/style.css">
   <script type="module" src="/play/drive/shared/item-icons.js"></script>
   <script src="/play/account.js" defer></script>
   <link rel="stylesheet" href="/play/arena.css">
+  <script src="/play/leaflet.js" defer></script>
+  <script src="/play/journey-map.js" defer></script>
   <script src="/play/app.js" defer></script>
   <script src="/play/arena.js" defer></script>
   <script src="/play/config.js"></script>
@@ -86,7 +89,14 @@
             <p id="journey-guidance-destination"></p>
             <p id="journey-guidance-progress" class="subtle"></p>
           </div>
-          <div id="journey-plot" aria-label="차량 주변 지도"><span class="map-north" aria-hidden="true">북 ↑</span></div>
+          <div class="journey-map-frame">
+            <div id="journey-plot" aria-label="차량 주변 지도"></div>
+            <button id="journey-recenter" type="button" aria-label="내 차량 위치로 이동" hidden>내 차량</button>
+            <div id="journey-map-tiles" class="map-tiles-status" hidden>
+              <span role="status">지도를 불러오지 못했어요.</span>
+              <button id="journey-map-retry" type="button">다시 시도</button>
+            </div>
+          </div>
           <p id="journey-map-status" class="map-status" role="status"></p>
           <div id="journey-next" class="journey-next" hidden>
             <div class="item-inline"><ply-supply-icon id="journey-next-icon" hidden></ply-supply-icon><p id="journey-next-label" class="eyebrow"></p></div>
@@ -109,7 +119,6 @@
             <p id="journey-place-status" class="subtle"></p>
             <button id="journey-enter" type="button" class="primary" hidden></button>
           </div>
-          <p class="footnote">© OpenStreetMap contributors</p>
         </section>
         <section id="journey-game" hidden>
           <button id="journey-back" type="button" class="quiet">‹ 지도</button>
