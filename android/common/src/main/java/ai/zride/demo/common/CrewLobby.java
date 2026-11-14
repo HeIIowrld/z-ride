@@ -41,6 +41,7 @@ final class CrewLobby extends LinearLayout {
 
     private final Slot[] slots = new Slot[SEATS.length];
     private final TextView count;
+    private final Button inviteCrew;
     private final TextView inviteTitle;
     private final TextView inviteSeatHint;
     private final Dialog inviteDialog;
@@ -74,6 +75,18 @@ final class CrewLobby extends LinearLayout {
         header.addView(count);
         addView(header, new LayoutParams(-1, -2));
 
+        inviteCrew = new Button(context);
+        inviteCrew.setAllCaps(false);
+        inviteCrew.setTextSize(19);
+        inviteCrew.setTypeface(null, Typeface.BOLD);
+        inviteCrew.setTextColor(0xff062b29);
+        inviteCrew.setBackground(ripple(surface(MINT, MINT, MINT, 8)));
+        inviteCrew.setText("동승자 초대");
+        inviteCrew.setOnClickListener(view -> openInvite(-1, requestInvite));
+        LayoutParams inviteAction = new LayoutParams(-1, dp(54));
+        inviteAction.topMargin = dp(12);
+        addView(inviteCrew, inviteAction);
+
         boolean wide = !compact && getResources().getConfiguration().screenWidthDp >= 700;
         int portraitHeight = compact ? 98 : wide ? Math.min(210, Math.max(112,
                 getResources().getConfiguration().screenHeightDp / 3 - 26)) : 88;
@@ -82,7 +95,7 @@ final class CrewLobby extends LinearLayout {
             if (index % (wide ? 4 : 2) == 0) {
                 row = new LinearLayout(context);
                 LayoutParams rowParams = new LayoutParams(-1, -2);
-                rowParams.topMargin = dp(18);
+                rowParams.topMargin = dp(10);
                 addView(row, rowParams);
             }
             final int slotIndex = index;
@@ -113,6 +126,7 @@ final class CrewLobby extends LinearLayout {
         invite.addView(top);
         inviteSeatHint = label("", 16, Typeface.NORMAL, INK);
         inviteSeatHint.setGravity(Gravity.CENTER);
+        inviteSeatHint.setSingleLine(false);
         invite.addView(inviteSeatHint, new LayoutParams(-1, -2));
         hint.setTextColor(INK);
         hint.setGravity(Gravity.CENTER);
@@ -120,7 +134,7 @@ final class CrewLobby extends LinearLayout {
 
         qrFrame = new FrameLayout(context);
         qrFrame.setBackground(surface(0xff204454, DemoActivity.PLY_NAVY, MINT, 8));
-        int qrSize = Math.min(224, Math.max(144, getResources().getConfiguration().screenHeightDp - 226));
+        int qrSize = Math.min(312, Math.max(144, getResources().getConfiguration().screenHeightDp - 210));
         qrFrame.addView(qr, new FrameLayout.LayoutParams(dp(qrSize), dp(qrSize), Gravity.CENTER));
         LayoutParams frameParams = new LayoutParams(dp(qrSize + 24), dp(qrSize + 24));
         frameParams.gravity = Gravity.CENTER_HORIZONTAL;
@@ -137,12 +151,13 @@ final class CrewLobby extends LinearLayout {
     }
 
     private void openInvite(int seat, Runnable requestInvite) {
-        inviteTitle.setText(NAMES[seat] + " 초대");
-        inviteTitle.setTextColor(ACCENTS[seat]);
-        inviteSeatHint.setText("스캔하고 폰에서 " + NAMES[seat] + " 선택");
+        inviteTitle.setText(seat < 0 ? "크루 참가 QR" : NAMES[seat] + " 초대");
+        inviteTitle.setTextColor(seat < 0 ? MINT : ACCENTS[seat]);
+        inviteSeatHint.setText(seat < 0 ? "폰 카메라로 스캔하고 빈 좌석을 선택하세요."
+                : "폰 카메라로 스캔하고 " + NAMES[seat] + "을 선택하세요.");
         inviteDialog.show();
         Window window = inviteDialog.getWindow();
-        if (window != null) window.setLayout(dp(Math.min(392,
+        if (window != null) window.setLayout(dp(Math.min(440,
                 getResources().getConfiguration().screenWidthDp - 24)), -2);
         requestInvite.run();
     }
@@ -168,6 +183,9 @@ final class CrewLobby extends LinearLayout {
         }
         if ((nextOccupiedSeats & ~occupiedSeats) != 0) dismissInvite();
         occupiedSeats = nextOccupiedSeats;
+        int empty = slots.length - 1 - Integer.bitCount(occupiedSeats);
+        inviteCrew.setText(empty == 0 ? "크루 초대 마감" : "동승자 초대  ·  " + empty + "자리");
+        inviteCrew.setVisibility(empty == 0 ? GONE : VISIBLE);
         String filled = connected + " / " + slots.length + "  합류";
         if (!filled.contentEquals(count.getText())) count.setText(filled);
     }
@@ -272,6 +290,8 @@ final class CrewLobby extends LinearLayout {
             state.setTextColor(connected ? tint : MUTED);
             state.setVisibility(open || pending ? GONE : VISIBLE);
             action.setVisibility(open || pending ? VISIBLE : GONE);
+            setOnClickListener(open ? view -> invite.run() : null);
+            setClickable(open);
             if (open || pending) {
                 action.setText(open ? "+  초대" : "승인 대기  ›");
                 action.setTextColor(open ? INK : 0xff332008);

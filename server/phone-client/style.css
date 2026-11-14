@@ -117,6 +117,7 @@
 .crew-entry .check { margin: 15px 0; }
 .crew-pending { border-color: #b88c5d; }
 .crew-pending h2 { color: #ffcf8a; font-size: 20px; }
+.connection.pending { color: #ffcf8a; }
 
 button, input, select { touch-action: manipulation; }
 
@@ -132,6 +133,9 @@ button, input, select { touch-action: manipulation; }
 .drive-game-list span { font-size: 12px; opacity: .85; }
 #drive-play, #journey-bag-view { margin-top: 8px; }
 #drive-play iframe, #journey-bag-view iframe { display: block; width: 100%; height: min(760px, calc(100dvh - 54px)); min-height: 280px; border: 0; border-radius: 12px; }
+#journey-bag-view { padding: 0; overflow: hidden; }
+#journey-bag-loading { padding: 18px; margin: 0; color: var(--ply-muted); }
+#journey-bag-view iframe[aria-busy="true"] { display: none; }
 
 
 .journey-bag { min-height: 36px; }
@@ -264,28 +268,28 @@ main:has(> #game:not([hidden])) .app-header .ply-symbol { display: block; }
   background: #141e34;
   border-bottom: 1px solid var(--ply-line);
 }
-#journey-venue.venue-lobby .venue-header { min-height: 150px; align-content: end; }
+#journey-venue:is(.venue-lobby, .venue-finale) .venue-header { min-height: 150px; align-content: end; }
 #journey-venue .venue-header h2 { font-size: clamp(25px, 7vw, 36px); }
 #journey-venue .venue-header .venue-phase { color: #e5eaf0; font-weight: 800; }
 #journey-venue .venue-header .venue-objective { max-width: 24ch; color: #eef4fa; line-height: 1.45; }
 #journey-venue .venue-header .item-inline { margin-top: 5px; width: fit-content; }
-.venue-roster { display: grid; margin: 12px 0; padding: 0; list-style: none; border-top: 1px solid #39444e; }
+.venue-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 12px 0; padding: 0; list-style: none; }
 .venue-roster li {
   display: grid;
-  grid-template-columns: minmax(76px, auto) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 43px;
-  padding: 6px 8px;
-  border-bottom: 1px solid #39444e;
+  align-content: start;
+  gap: 6px;
+  min-height: 112px;
+  padding: 8px;
 }
-.venue-roster li.own-seat { background: #1d2b31; border-left: 2px solid var(--ply-primary); }
+.venue-roster li.own-seat { border-color: var(--position); box-shadow: inset 0 0 0 1px var(--position); }
 .venue-roster strong { overflow-wrap: anywhere; font-size: 14px; }
 .venue-roster small { color: var(--ply-muted); }
 .venue-roster li > span { font-size: 12px; }
 .venue-roster [data-state="ready"] { color: var(--ply-primary); font-weight: 800; }
 .venue-roster [data-state="waiting"] { color: #a6b7c7; }
 #journey-venue .game-status { font-size: 14px; line-height: 1.45; margin: 12px 0; }
+#journey-venue.venue-finale .game-status { font-weight: 800; font-size: clamp(20px, 6vw, 28px); }
+#journey-venue .venue-result-back { width: 100%; }
 #journey-venue button { border-radius: 4px; }
 .route-prompt:empty { display: none; }
 .route-prompt[data-stage="memorize"] {

@@ -17,6 +17,7 @@ const wrongKey = 'zride.quiz.wrongNote', readWrong = () => { try { const x=JSON.
 const engine = createQuizEngine({ bank });
 let phase='waiting', score=0, current=null, shownAt=0, timer=null, bannerTimer=null, lastActivity=Date.now(), speedStillSince=null, distanceM=0, startedAt=Date.now(), reviewList=[], reviewIndex=0, reviewMode=false, items={}, responseTimes=[];
 const typeItem = { sign:'ammo', situation:'medkit', weather_time:'coolant', enforcement:'supply' };
+const typeLabel = { sign: '교통 표지', situation: '도로 상황', weather_time: '날씨·시간대', enforcement: '교통 단속' };
 function state() { return { phase, score, asked:engine.summary().asked, correct:engine.summary().correct, combo:engine.summary().combo, currentQuestionId:current?.id||null, wrongNote:readWrong(), lastAskedAt:engine.lastAskedAt }; }
 function setPhase(value) { phase=value; for(const id of ['waiting','banner','question','result','report','review']) $(`#${id}`).classList.toggle('hidden',id!==value); }
 function updateHud(){const s=engine.summary();$('#score').textContent=score;$('#correct').textContent=s.correct;$('#combo').textContent=s.combo;$('#review-button').disabled=!(speedStillSince&&Date.now()-speedStillSince>=5000&&readWrong().length);}
@@ -34,7 +35,41 @@ if (wasCorrect) {
 } else reward.textContent = '오답노트에 저장했어요';
 current=null;setPhase('result');updateHud();}
 const idName = id => ITEMS[id]?.name ?? id;
-function endDrive(){clearInterval(timer);clearTimeout(bannerTimer);const s=engine.summary(),rate=Object.entries(s.byType).map(([type,v])=>`<div class="quiz-report-row">${type}<strong>${v.correct}/${v.asked} (${Math.round(v.accuracy*100)}%)</strong></div>`).join('');$('#report-content').innerHTML=`<div class="quiz-report-row">출제 ${s.asked}문제 · 정답 ${s.correct}문제<strong>${score}점</strong></div>${rate}<div class="quiz-report-row">최고 콤보<strong>${s.maxCombo}</strong></div><div class="quiz-report-row">평균 응답 시간<strong>${Math.round(s.avgResponseMs/1000)}초</strong></div><div class="quiz-report-row">보급품<strong>${Object.entries(items).map(([k,v])=>`${idName(k)} ${v}`).join(' · ')||'없음'}</strong></div><div class="quiz-report-row">오답노트<strong>${readWrong().length}문제</strong></div>`;saveRecord({gameId:'license-quiz',score,durationMs:Date.now()-startedAt,distanceM,stats:{asked:s.asked,correct:s.correct,byType:s.byType,maxCombo:s.maxCombo,avgResponseMs:s.avgResponseMs,wrongIds:s.wrongIds,items:{...items}},endReason:'drive_end'});setPhase('report');awardMinigame('license-quiz',{score,correctByType:s.byType}).then(out=>{const line=document.createElement('p');line.textContent=`추가 획득 아이템: ${(out.items||[]).map(x=>x.name).join(', ')||'없음'}`;$('#report-content').append(line);});}
+function endDrive() {
+  clearInterval(timer);
+  clearTimeout(bannerTimer);
+  const summary = engine.summary();
+  const rates = Object.entries(summary.byType).flatMap(([type, stats]) => typeLabel[type] ? [
+    [typeLabel[type], `${stats.correct}/${stats.asked} (${Math.round(stats.accuracy * 100)}%)`],
+  ] : []);
+  const rows = [
+    [`출제 ${summary.asked}문제 · 정답 ${summary.correct}문제`, score + '점'],
+    ...rates,
+    ['최고 콤보', summary.maxCombo],
+    ['평균 응답 시간', Math.round(summary.avgResponseMs / 1000) + '초'],
+    ['보급품', Object.entries(items).map(([id, count]) => `${idName(id)} ${count}`).join(' · ') || '없음'],
+    ['오답노트', readWrong().length + '문제'],
+  ];
+  const report = $('#report-content');
+  report.replaceChildren(...rows.map(([label, value]) => {
+    const row = document.createElement('div');
+    row.className = 'quiz-report-row';
+    const stat = document.createElement('strong');
+    stat.textContent = value;
+    row.append(label, stat);
+    return row;
+  }));
+  saveRecord({ gameId: 'license-quiz', score, durationMs: Date.now() - startedAt, distanceM,
+    stats: { asked: summary.asked, correct: summary.correct, byType: summary.byType,
+      maxCombo: summary.maxCombo, avgResponseMs: summary.avgResponseMs, wrongIds: summary.wrongIds, items: { ...items } },
+    endReason: 'drive_end' });
+  setPhase('report');
+  awardMinigame('license-quiz', { score, correctByType: summary.byType }).then(out => {
+    const line = document.createElement('p');
+    line.textContent = `추가 획득 아이템: ${(out.items || []).map(item => item.name).join(', ') || '없음'}`;
+    report.append(line);
+  });
+}
 function showReview(){reviewList=readWrong().map(id=>bank.find(q=>q.id===id)).filter(Boolean);reviewIndex=0;if(!reviewList.length)return;setPhase('review');renderReview();}
 function renderReview(){const q=reviewList[reviewIndex];if(!q){setPhase('waiting');updateHud();return;}$('#review-question').textContent=q.question;$('#review-choices').replaceChildren(...q.choices.map((text,index)=>{const button=document.createElement('button');button.textContent=text;button.onclick=()=>{if(index===q.answer){score+=5;const ids=readWrong().filter(id=>id!==q.id);writeWrong(ids);reviewList=reviewList.filter(item=>item.id!==q.id);$('#review-question').textContent='정답입니다. 복습 보너스 +5점';}else $('#review-question').textContent=`다시 생각해 보세요. ${q.explanation}`;setTimeout(()=>{reviewIndex++;renderReview();updateHud();},900);};return button;}));}
 $('#banner').onclick=()=>{if(phase==='banner'){clearTimeout(bannerTimer);setPhase('question');}};$('#banner').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#banner').click();}};$('#continue-button').onclick=()=>{current=null;setPhase('waiting');updateHud();};$('#end-button').onclick=endDrive;$('#report-close').onclick=()=>{if(inJourney)returnToJourney();else location.href='../../index.html';};$('#review-button').onclick=showReview;$('#review-close').onclick=()=>{setPhase('waiting');updateHud();};
@@ -42,11 +77,14 @@ const feed=createVehicleFeed({dev,session});if(!SERVER_URL)feed.on('trigger',eve
 setInterval(()=>{const now=Date.now();if(now-lastActivity>=300000){trigger('idle',{},false);}if(new Date().getHours()>=19||new Date().getHours()<6){if(!window.__nightSent){window.__nightSent=true;trigger('night',{},false);}}updateHud();},1000);
 if(dev){const panel=document.querySelector('.vehicle-dev');if(panel){const controls=document.createElement('div');controls.className='quiz-dev';controls.innerHTML='<label><input id="ignore-gap" type="checkbox" checked> 출제 간격 무시</label><div class="quiz-dev-buttons"></div>';panel.append(controls);const defs=[['우회전 안내','tbt',{turn:'right'}],['좌회전 안내','tbt',{turn:'left'}],['과속방지턱 통과','caution',{kind:'speed_bump'}],['어린이보호구역 통과','caution',{kind:'school_zone'}],['와이퍼 켜짐','wiper',{on:true,level:1}],['단속카메라','camera',{kind:'fixed'}],['구간단속','camera',{kind:'section'}],['방향지시등','turnSignal',{side:'right'}],['야간','night',{}]];const box=controls.querySelector('.quiz-dev-buttons');for(const [label,type,detail] of defs){const button=document.createElement('button');button.textContent=label;button.onclick=()=>trigger(type,detail);box.append(button);}}}
 if (inJourney) {
+  $('#report-close').textContent = '여행 지도로 돌아가기';
+  $('#end-button').className = 'secondary-button';
+  $('#end-button').textContent = '성적표 보기';
   const practice = document.createElement('button');
   practice.className = 'primary-button';
   practice.textContent = '일반 문제 풀기';
   practice.onclick = () => trigger('practice');
-  $('#waiting').append(practice);
+  $('#waiting .quiz-actions').before(practice);
 }
 window.__licenseQuiz={getState:state,trigger:(type,detail)=>trigger(type,detail)};
 if(new Date().getHours()>=19||new Date().getHours()<6){window.__nightSent=true;trigger('night',{},false);}await ensurePassenger();updateHud();

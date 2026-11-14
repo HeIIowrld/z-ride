@@ -74,3 +74,13 @@
 }
 .ply-bag .loot-card h3 { font-size: 15px; }
 .ply-bag .loot-card :is(p, small) { color: var(--ply-muted); font-size: 12px; }
+.ply-bag.crew-bag { background: var(--ply-surface); }
+.crew-bag .loot-tabs button { flex: 1; }
+.ply-bag .bag-empty {
+  margin: 0;
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--ply-muted);
+  border: 1px dashed var(--ply-line);
+  border-radius: var(--ply-radius);
+}

@@ -46,7 +46,7 @@
     </section>
     <section id="login-panel" class="panel login crew-entry">
       <h1>크루 합류</h1>
-      <p id="join-description" class="subtle">Pleos에서 빈자리를 선택한 뒤 QR을 스캔하세요.</p>
+      <p id="join-description" class="subtle">Pleos의 크루 로비에서 초대 QR을 열고 폰 카메라로 스캔하세요.</p>
       <form id="join-form">
         <p id="invite-status" class="subtle" role="status">차량 QR을 기다리는 중</p>
         <label id="switch-label" class="check" hidden><input id="switch-confirm" type="checkbox"><span>새 차량에서 승인하면 기존 파티에서 나옴. 기존 파티 재고는 이동하지 않음.</span></label>
@@ -128,7 +128,9 @@
         <section id="journey-game" hidden>
           <button id="journey-back" type="button" class="quiet">‹ 지도</button>
           <div id="drive-play" hidden></div>
-          <div id="journey-bag-view" hidden></div>
+          <section id="journey-bag-view" class="panel" aria-label="크루 아이템 가방" hidden>
+            <p id="journey-bag-loading" role="status" hidden>크루 가방을 여는 중…</p>
+          </section>
         </section>
         <details id="journey-party"><summary>파티 정보와 연습 기능</summary>
         <div class="status-grid"><article class="panel stat"><span>공동 전투</span><strong id="battle-state">대기</strong><small id="battle-reason"></small></article><article class="panel stat"><span>공동 보급품</span><strong><b id="supplies">0</b><em>개</em></strong><small id="support-state">차량 지원 대기</small></article></div>
