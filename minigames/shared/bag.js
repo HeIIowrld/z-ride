@@ -12,7 +12,7 @@ const categories = {
 const rarities = { common: '일반', uncommon: '고급', rare: '희귀', regional: '지역 한정' };
 const scopes = ['common', 'specialized'];
 const crewBag = new URLSearchParams(location.search).get('journey') === '1';
-let parentOrigin;
+const embedded = crewBag && window.parent !== window;
 let scope = 'common';
 let counts;
 
@@ -21,11 +21,9 @@ if (crewBag) {
   document.querySelector('#bag-back').hidden = true;
   document.querySelector('#bag-codex').hidden = true;
   document.querySelector('#bag-note').hidden = false;
-  if (window.parent !== window && document.referrer) {
-    const origin = new URL(document.referrer).origin;
-    parentOrigin = origin;
+  if (embedded) {
     window.addEventListener('message', event => {
-      if (event.source !== window.parent || event.origin !== origin ||
+      if (event.source !== window.parent || event.origin !== location.origin ||
           event.data?.type !== 'ply:crew-inventory') return;
       const { supplies, ...itemsById } = event.data.inventory ?? {};
       const next = { ...itemsById, supply: supplies };
@@ -88,10 +86,11 @@ function render(activeScope) {
   const empty = document.createElement('p');
   empty.className = 'bag-empty';
   empty.setAttribute('role', 'status');
+  const emptyCollection = crewBag ? '크루가 획득한 ' : '획득한 ';
   empty.textContent = !items ? '아이템을 불러오지 못했어요. 가방을 다시 열어 주세요.'
     : !counts ? '크루 아이템을 불러오는 중이에요.'
-    : scope === 'common' ? '크루가 획득한 공통 아이템이 없어요.' : '크루가 획득한 게임 특화 아이템이 없어요.';
+    : emptyCollection + (scope === 'common' ? '공통 아이템이 없어요.' : '게임 특화 아이템이 없어요.');
   cards.replaceChildren(...(groups.length ? groups : [empty]));
 }
 render('common');
-if (parentOrigin) window.parent.postMessage({ type: 'ply:crew-bag-ready' }, parentOrigin);
+if (embedded) window.parent.postMessage({ type: 'ply:crew-bag-ready' }, location.origin);

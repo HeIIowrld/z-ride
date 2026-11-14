@@ -637,9 +637,12 @@ $('journey-bag').onclick = () => {
   frame.title = '아이템 가방';
   frame.src = new URL('bag.html?journey=1', driveAssets).href;
   crewBagLoading.hidden = false;
-  frame.className = 'crew-bag-frame';
   frame.setAttribute('aria-busy', 'true');
-  frame.addEventListener('load', renderCrewBag);
+  frame.addEventListener('load', () => {
+    crewBagLoading.hidden = true;
+    frame.removeAttribute('aria-busy');
+    renderCrewBag();
+  });
   crewBagView.append(frame);
   showJourney('bag');
   $('journey-game').scrollIntoView({ block: 'start' });
