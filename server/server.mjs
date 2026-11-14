@@ -3,7 +3,7 @@ import { Game as ChargeRelay } from './venue-charge-relay.mjs';
 import http from 'node:http';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { realpathSync } from 'node:fs';
+import { realpathSync, readFileSync } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createWorldService } from './world.mjs';
 import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
@@ -14,6 +14,7 @@ import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
 import { createPlacesService } from './places.mjs';
 import {navigationReport,navigationSnapshot} from './navigation.mjs';
+import { createRoutePlanner, osrmRouter, pickReward, SIGN_GAMES, SIGN_POLICY } from './route-signs.mjs';
 import { createPartyApi } from './party-api.mjs';
 import { createAccounts } from './accounts.mjs';
 import { createAccountApi } from './account-api.mjs';
@@ -88,6 +89,20 @@ export function createDemoServer(options = {}) {
   const gameState = createGameStateService({ clock: options.gameClock ?? Date.now });
   const cabin = createCabinService({ clock: options.cabinClock ?? Date.now });
   const places = createPlacesService({ catalogPath: options.placesPath, catalog: options.placesCatalog, clock:options.eventClock??Date.now, eventPolicy:options.eventPolicy });
+  // 경로 표지판: 경로선(등록 경로 또는 Pleos 목적지 + 외부 길찾기) 위 랜덤 표지판 → 게임 → 크루 가방 보상
+  const routeRouter = options.routeRouter !== undefined ? options.routeRouter
+    : options.routingUrl ? osrmRouter(options.routingUrl) : null;
+  const routePlanner = createRoutePlanner({ router: routeRouter, clock: options.signClock ?? Date.now,
+    onReady: roomId => { const room = rooms.get(roomId); if (room && !room.closedAt) change(room); } });
+  const signChallenges = new WeakMap();
+  const rerouteCounts = new Map(); // 경로 이탈로 다시 길찾기한 횟수(방별)
+  let rewardCatalog = options.rewardCatalog ?? null;
+  if (!rewardCatalog && phoneClient.driveGamesAvailable) {
+    try {
+      const read = file => JSON.parse(readFileSync(new URL(file, phoneClient.driveRoot), 'utf8'));
+      rewardCatalog = { items: read('data/items.json'), tables: read('data/loot_tables.json') };
+    } catch { rewardCatalog = null; }
+  }
   let publicOrigin = options.publicOrigin ?? '';
   if (publicOrigin) { const url = new URL(publicOrigin); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('publicOrigin must be a plain HTTP(S) origin'); publicOrigin = url.origin; }
   const accounts=createAccounts({clock:options.accountClock??Date.now,googleClientId:options.googleClientId??'',publicOrigin,verifyGoogleIdToken:options.verifyGoogleIdToken});
@@ -248,6 +263,40 @@ export function createDemoServer(options = {}) {
     const charge = room.vehicle.charge;
     if (!gate(room).allowed || charge.state !== 'CHARGING' || charge.portConnection !== 'CONNECTED') return null;
     return places.arrivedCharger(navigationSnapshot(room).position);
+  }
+
+  // undefined = 현재 계획 유지(일시적인 신호 끊김), null = 계획 해제
+  function journeyRouteContext(room) {
+    if (room.closedAt) return null;
+    const registered = places.routeGeometry(room.roomId);
+    if (registered) {
+      const info = places.routeInfo(room.roomId);
+      return { key: 'route:' + info.routeRevision, source: info.source, geometry: registered };
+    }
+    const nav = navigationSnapshot(room);
+    if (!nav.available) return undefined;
+    if (!['ROUTE_READY', 'ROUTE_DRIVE', 'ARRIVED'].includes(nav.status) || !nav.destinationPosition) return null;
+    const destination = nav.destinationPosition;
+    // 목적지·Pleos 경로 revision(재탐색)·서버 이탈 재탐색 횟수 중 하나라도 바뀌면 새 경로를 받아온다.
+    const key = 'native:' + nav.nativeRouteRevision + ':' + destination.latitude.toFixed(5) + ',' + destination.longitude.toFixed(5) +
+      ':' + (rerouteCounts.get(room.roomId) ?? 0);
+    if (routePlanner.key(room.roomId) === key) return { key };
+    if (!nav.position) return undefined;
+    return { key, source: 'EXTERNAL_ROUTING_OSRM', origin: nav.position, destination, native: true };
+  }
+  function syncJourneyRoute(room) {
+    const context = journeyRouteContext(room);
+    if (context !== undefined) routePlanner.sync(room.roomId, context);
+    routePlanner.observe(room.roomId, navigationSnapshot(room).position);
+    if (routePlanner.offRoute(room.roomId)) {
+      rerouteCounts.set(room.roomId, (rerouteCounts.get(room.roomId) ?? 0) + 1);
+      const rerouted = journeyRouteContext(room);
+      if (rerouted) routePlanner.sync(room.roomId, rerouted);
+    }
+  }
+  function journeyRouteView(room, viewer) {
+    return routePlanner.view(room.roomId, navigationSnapshot(room).position,
+      room.collection.routeSignClaims ?? {}, viewer.memberId);
   }
 
   function routeSupplyContext(room) {
@@ -487,6 +536,8 @@ export function createDemoServer(options = {}) {
       ...(phoneClient.driveGamesAvailable && !room.closedAt
         ? { driveGamesAvailable: true, ...(room.driveGame ? { driveGame: room.driveGame } : {}) } : {}),
       ...routeSupplyView(room, viewer),
+      ...(() => { const journeyRoute = journeyRouteView(room, viewer); return journeyRoute ? { journeyRoute } : {}; })(),
+      ...(room.collection.routeSignHistory?.length ? { routeSignHistory: room.collection.routeSignHistory } : {}),
       sectors: SECTORS,
       trust: 'LOCAL_DEMO_CLIENT_REPORT_NOT_VEHICLE_ATTESTATION',
       serverTime: Date.now(),
@@ -521,6 +572,7 @@ export function createDemoServer(options = {}) {
     }
   }
   function change(room) {
+    syncJourneyRoute(room);
     const eventChanged=places.events.observe(room);
     if(eventChanged)for(const member of room.members.values())if(member.approved&&member.socket)send(member.socket,{type:'mission.changed',...places.events.projection(room),refreshResults:true,refreshRewards:true});
     room.stateVersion++;
@@ -926,6 +978,49 @@ export function createDemoServer(options = {}) {
           broadcast(room);
           return result(res, 200, { challengeId: challenge.id, sequence: challenge.sequence, placeName: spot.name });
         }
+        if (path === '/api/world/route-sign') {
+          if (seatEvidence(room, member.seat) === 'EMPTY')
+            throw fail('PASSENGER_CONFIRMATION_REQUIRED', 'Occupied or unverified passenger seat required', 403);
+          const claims = room.collection.routeSignClaims ??= {};
+          if (body.challengeId !== undefined) {
+            const challenge = signChallenges.get(member);
+            if (typeof body.challengeId !== 'string' || !challenge || challenge.id !== body.challengeId)
+              throw fail('SIGN_CHALLENGE_INVALID', 'This attempt is closed', 409);
+            const now = Date.now();
+            if (challenge.expiresAt < now) { signChallenges.delete(member); throw fail('SIGN_CHALLENGE_EXPIRED', 'Attempt expired', 409); }
+            if (now - challenge.startedAt < (options.signMinPlayMs ?? SIGN_POLICY.minPlayMs)) throw fail('SIGN_CHALLENGE_TOO_FAST', 'Play the game first', 409);
+            const claimKey = challenge.planKey + ':' + challenge.signId;
+            const claimers = claims[claimKey] ??= [];
+            signChallenges.delete(member);
+            if (claimers.includes(member.memberId)) throw fail('ALREADY_CLAIMED', 'Already rewarded at this sign', 409);
+            claimers.push(member.memberId);
+            const item = pickReward(rewardCatalog, challenge.gameId);
+            const inventory = room.collection.inventory;
+            // 'supply' 아이템은 파티 보급품 카운터와 같은 것으로 본다(가방 화면도 supplies를 supply로 표시).
+            if (item && item.id !== 'supply') inventory[item.id] = (Number(inventory[item.id]) || 0) + 1;
+            else inventory.supplies++;
+            room.collection.routeSignHistory = [
+              { signId: challenge.signId, gameId: challenge.gameId, itemId: item?.id ?? 'supply', itemName: item?.name ?? '보급품',
+                nickname: member.nickname, at: now },
+              ...(room.collection.routeSignHistory ?? []).slice(0, 19),
+            ];
+            collectionChanged(room);
+            return result(res, 200, { signId: challenge.signId, gameId: challenge.gameId,
+              items: item ? [item] : [], supplies: inventory.supplies, inventory: { ...inventory } });
+          }
+          if (!SIGN_GAMES.includes(body.gameId)) throw fail('INVALID_GAME', 'Unknown sign game', 400);
+          if (typeof body.signId !== 'string' || body.signId.length > 16) throw fail('INVALID_SIGN', 'signId required', 400);
+          const found = routePlanner.sign(room.roomId, body.signId, navigationSnapshot(room).position);
+          if (!found) throw fail('SIGN_UNAVAILABLE', 'No active route sign', 409);
+          if ((claims[found.plan.key + ':' + body.signId] ?? []).includes(member.memberId))
+            throw fail('ALREADY_CLAIMED', 'Already rewarded at this sign', 409);
+          if (found.state !== 'READY') throw fail('SIGN_NOT_NEAR', 'Move closer to the sign', 409);
+          const challenge = { id: randomUUID(), signId: body.signId, planKey: found.plan.key, gameId: body.gameId,
+            startedAt: Date.now(), expiresAt: Date.now() + SIGN_POLICY.challengeMs };
+          signChallenges.set(member, challenge);
+          return result(res, 200, { challengeId: challenge.id, signId: challenge.signId, gameId: challenge.gameId,
+            expiresAt: challenge.expiresAt, minPlayMs: SIGN_POLICY.minPlayMs });
+        }
         if (path === '/api/world/nearby') return result(res, 200, world.nearby(room,member, body));
         if (path === '/api/world/location') return result(res, 200, world.observe(member, body));
         if (path === '/api/world/claim') {
@@ -1322,6 +1417,12 @@ export function createDemoServer(options = {}) {
   };
 }
 
+// 기본은 OSRM 공개 데모 서버(데모 용도 한정). 운영 시 자체 OSRM 주소로 바꾸거나 'off'로 끈다.
+function routingUrlFromEnv() {
+  const value = process.env.ZRIDE_ROUTING_URL ?? 'https://router.project-osrm.org';
+  return value === 'off' ? null : value;
+}
+
 function isDirectEntrypoint() {
   if (!process.argv[1]) return false;
   try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); }
@@ -1329,7 +1430,7 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ ...deploymentOptions(), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, chargeGames: chargeGamesFromEnv(process.env.GAME_CHARGE_GAMES ?? process.env.ZRIDE_CHARGE_GAMES), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN });
+  const app = createDemoServer({ ...deploymentOptions(), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, chargeGames: chargeGamesFromEnv(process.env.GAME_CHARGE_GAMES ?? process.env.ZRIDE_CHARGE_GAMES), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN, routingUrl: routingUrlFromEnv() });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
   console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 10, persistence: app.persistence, exposure: (process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY) ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });

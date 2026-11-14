@@ -79,6 +79,7 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
     if (lengthM < 1 || lengthM > 500000) throw fail('INVALID_ROUTE', 'Route length 1m..500km');
     routes.set(roomId, { revision: revision+1, source: body.source, geometry, lengthM: Math.round(lengthM), expiresAt: clock()+routeTtlMs }); return routeInfo(roomId);
   }
+  function routeGeometry(roomId) { const r = routes.get(roomId); return r && r.expiresAt > clock() && r.geometry?.length >= 2 ? r.geometry.map(p => ({ ...p })) : null; }
   function routeInfo(roomId) { const r = routes.get(roomId); return { routeRevision: r?.revision ?? 0, active: !!r && r.expiresAt > clock(), source: r?.source ?? 'NONE', lengthM: r?.lengthM ?? 0, expiresAt: r?.expiresAt ?? null }; }
   function routeSpots(roomId, body) {
     const r = routes.get(roomId); if (!r || r.expiresAt <= clock()) throw fail('ROUTE_REQUIRED', 'Submit a fresh route', 409);
@@ -155,5 +156,5 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
     return events.contribute(room,body,gateAllowed);
   }
   function closeParty(roomId) { delete state.parties[roomId]; routes.delete(roomId); state.revision++; }
-  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeSpots, routeSupplySpot, arrivedCharger, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent, partySpot:id=>state.parties[id]?.spotId??null, partyName:id=>state.parties[id]?.name??'차량 파티' };
+  return { status, restore, durable, review, nearby, setRoute, routeInfo, routeGeometry, routeSpots, routeSupplySpot, arrivedCharger, setParty, shared, contribute, closeParty, inviteIds, events, joinEvent, partySpot:id=>state.parties[id]?.spotId??null, partyName:id=>state.parties[id]?.name??'차량 파티' };
 }

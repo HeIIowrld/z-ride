@@ -28,7 +28,7 @@ Activity가 내려가면 vehicle.report.foreground=false이며 UX 제한·P 조�
 
 ## 도로 형상과 GPS 시험의 한계
 
-NaviHelper3.0.5의 TripSummary.routePoints는 POI/경유 지점 요약이며 전체 도로 폴리라인이 아니다. 이 점들을 직선으로 이어 `PLEOS_ROUTE`라고 등록하지 않는다. SDK 모드 진입은 이전 DEMO_ROUTE geometry를 해제하고 `snapshot.navigation.geometryAvailable=false`를 전달한다. 실제 내비 도로 형상으로 경로 주변 스팟을 계산하는 부분은 공인 도로 형상을 공급받기 전까지 활성화하지 않는다. 외부 라우팅을 연결할 경우에도 출처를 구분해야 한다.
+NaviHelper3.0.5의 TripSummary.routePoints는 POI/경유 지점 요약이며 전체 도로 폴리라인이 아니다. 이 점들을 직선으로 이어 `PLEOS_ROUTE`라고 등록하지 않는다. 동승자 지도와 경로 표지판에는 목적지 좌표로 외부 길찾기(OSRM)를 호출한 경로선을 쓴다([route-signs.md](route-signs.md)). SDK 모드 진입은 이전 DEMO_ROUTE geometry를 해제하고 `snapshot.navigation.geometryAvailable=false`를 전달한다. 실제 내비 도로 형상으로 경로 주변 스팟을 계산하는 부분은 공인 도로 형상을 공급받기 전까지 활성화하지 않는다. 외부 라우팅을 연결할 경우에도 출처를 구분해야 한다.
 
 ‘GPS 다음 시험 지점’은 여의도 합성 좌표를 Android GNSS에 보낸다. Pleos 2.1.0 차량 이미지에서는 체크섬을 수정해 Android 위치가 바뀌어도 순정 내비가 보고하는 위치와 남은 거리가 고정되는 것을 확인했다. 내비 거리·시간은 SDK 응답을 표시한다.
 

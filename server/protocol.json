@@ -39,6 +39,29 @@
     },
     {
       "method": "POST",
+      "path": "/api/world/route-sign",
+      "auth": "Approved passenger (not CAR_HOST), seat not EMPTY",
+      "availability": "snapshot.room.journeyRoute: status PENDING/READY, key, source (registered route source, EXTERNAL_ROUTING_OSRM or STRAIGHT_LINE_FALLBACK), lengthM, progressM, offRouteM, rerouting (new route being fetched; current one still shown), geometry (<=400 simplified points), destination, readyRadiusM, signs[] {signId, latitude, longitude, alongM, aheadM, distanceM, state AHEAD/READY/CLAIMED/MISSED, crewClaims}",
+      "history": "snapshot.room.routeSignHistory contains up to 20 recent rewards {signId, gameId, itemId, itemName, nickname, at}",
+      "body": {
+        "start": {
+          "signId": "s1",
+          "gameId": "license-quiz | pole-jump | raindrop"
+        },
+        "complete": {
+          "challengeId": "from start",
+          "result": {
+            "score": "number, informational"
+          }
+        }
+      },
+      "response": {
+        "start": "challengeId, signId, gameId, expiresAt (5 min), minPlayMs",
+        "completion": "items (one common item), supplies, inventory"
+      }
+    },
+    {
+      "method": "POST",
       "path": "/api/rooms/{roomId}/deadzone",
       "auth": "CAR_HOST with fresh parked foreground vehicle",
       "availability": "snapshot.room.deadzoneAvailable is exposed to the vehicle host. Show DEADZONE entry only when true.",
@@ -1170,7 +1193,10 @@
       "latitude": 37.5,
       "longitude": 126.9,
       "locationAgeMs": 100,
-      "geometryAvailable": false
+      "geometryAvailable": false,
+      "destinationLatitude": 37.5547,
+      "destinationLongitude": 126.9707,
+      "heading": 180
     }
   },
   "nativeNavigation": {
@@ -1180,6 +1206,7 @@
     "freshness": "Report expires after10s; position sample and age must remain within10s; reconnect/restart resets state",
     "persistence": "SDK coordinates and navigation state excluded from SQLite checkpoints",
     "callbacks": "Request success alone is not route readiness; callback delivery depends on the navigation app. Destination changes can be detected from SDK destination responses.",
-    "screen": "Existing game UX gates preserved; no APP_MAPS or driving exemption"
+    "screen": "Existing game UX gates preserved; no APP_MAPS or driving exemption",
+    "routeSigns": "Optional destinationLatitude/destinationLongitude (0,0 ignored) and heading 0..360 are accepted. With a destination and position the server fetches one OSRM route per nativeRouteRevision+destination (ZRIDE_ROUTING_URL, default public OSRM demo, \"off\" disables) and falls back to a straight line. The route is used for the passenger map and route signs only; it is not attested Pleos road geometry. positionSource SIMULATED is accepted for clearly labelled test reports."
   }
 }

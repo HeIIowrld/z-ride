@@ -104,7 +104,7 @@ final class NavigationProbe implements AutoCloseable {
             put("tripInspection",trip);
             emit("TRIP_INFO");
         });}
-        @Override public void onDestinationInfo(DestinationInfo value){main.post(()->{if(arrived)return;String signature=value.getLatitude()+":"+value.getLongitude()+":"+value.getName();if(!signature.equals(destinationSignature)){if(destinationSignature!=null||!value.getName().isEmpty())revision++;destinationSignature=signature;}put("destination",value.getName());put("remainingDistanceM",value.getRemainDistance());put("remainingTimeSec",value.getRemainTime());emit("DESTINATION_INFO");});}
+        @Override public void onDestinationInfo(DestinationInfo value){main.post(()->{if(arrived)return;String signature=value.getLatitude()+":"+value.getLongitude()+":"+value.getName();if(!signature.equals(destinationSignature)){if(destinationSignature!=null||!value.getName().isEmpty())revision++;destinationSignature=signature;}put("destination",value.getName());put("destinationLatitude",value.getLatitude());put("destinationLongitude",value.getLongitude());put("remainingDistanceM",value.getRemainDistance());put("remainingTimeSec",value.getRemainTime());emit("DESTINATION_INFO");});}
         @Override public void onRouteStateInfo(RouteStateInfo value){main.post(()->{put("termsAgreed",value.getTermsAgreement());put("routing",value.isRouting());put("routeOption",value.getRouteOption().name());emit("ROUTE_STATE");});}
         @Override public void onError(NaviErrorCode value){main.post(()->failure(value.name()));}
     };

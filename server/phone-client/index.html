@@ -13,6 +13,7 @@
   <script src="/play/account.js" defer></script>
   <link rel="stylesheet" href="/play/arena.css">
   <script src="/play/leaflet.js" defer></script>
+  <script src="/play/route-sign/config.js" defer></script>
   <script src="/play/journey-map.js" defer></script>
   <script src="/play/app.js" defer></script>
   <script src="/play/arena.js" defer></script>
@@ -88,16 +89,28 @@
           <div id="journey-guidance" class="journey-guidance" hidden>
             <p id="journey-guidance-destination"></p>
             <p id="journey-guidance-progress" class="subtle"></p>
+            <p id="journey-guidance-sign" class="journey-sign-next" hidden></p>
           </div>
           <div class="journey-map-frame">
             <div id="journey-plot" aria-label="차량 주변 지도"></div>
-            <button id="journey-recenter" type="button" aria-label="내 차량 위치로 이동" hidden>내 차량</button>
+            <div class="journey-zoom"><button id="journey-zoom-in" type="button" aria-label="지도 확대">+</button><button id="journey-zoom-out" type="button" aria-label="지도 축소">−</button></div>
+            <button id="journey-recenter" type="button" aria-label="현재 위치로 돌아가기" title="현재 위치" hidden><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 4 33 35 20 28 7 35Z"/></svg></button>
+            <span class="journey-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></span>
             <div id="journey-map-tiles" class="map-tiles-status" hidden>
               <span role="status">지도를 불러오지 못했어요.</span>
               <button id="journey-map-retry" type="button">다시 시도</button>
             </div>
           </div>
           <p id="journey-map-status" class="map-status" role="status"></p>
+          <section id="journey-sign" class="journey-place journey-sign" hidden>
+            <div class="journey-sign-head"><img id="journey-sign-icon" alt="" width="40" height="40"><div><h2 id="journey-sign-title">경로 표지판</h2><span id="journey-sign-count" class="journey-sign-count"></span></div><button id="journey-sign-close" class="quiet" type="button">닫기</button></div>
+            <p id="journey-sign-status" class="subtle" role="status"></p>
+            <div id="journey-sign-games" class="drive-game-list">
+              <button type="button" data-sign-game="license-quiz"><strong>운전면허 퀴즈</strong><span>도로 상황 퀴즈</span></button>
+              <button type="button" data-sign-game="pole-jump"><strong>폴짝 전봇대</strong><span>타이밍 점프</span></button>
+              <button type="button" data-sign-game="raindrop"><strong>빗방울 캐치</strong><span>차창 빗방울 받기</span></button>
+            </div>
+          </section>
           <section id="journey-pin-group" class="journey-place" hidden>
             <div class="section-heading"><h2 id="journey-pin-group-title"></h2><button id="journey-pin-group-close" class="quiet" type="button">닫기</button></div>
             <div id="journey-pin-group-spots" class="journey-spots"></div>
