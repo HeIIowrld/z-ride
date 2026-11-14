@@ -49,12 +49,12 @@ final class CrewLobby extends LinearLayout {
     private int occupiedSeats;
 
     CrewLobby(Context context, Drawable cover, ImageView qr, TextView hint, Button renew,
-              Runnable requestInvite, BiConsumer<String, String> approve) {
+              boolean compact, Runnable requestInvite, BiConsumer<String, String> approve) {
         super(context);
         this.qr = qr;
         setOrientation(VERTICAL);
         setBackground(cover);
-        setPadding(dp(24), dp(28), dp(24), dp(26));
+        setPadding(dp(20), dp(20), dp(20), dp(20));
 
         LinearLayout header = new LinearLayout(context);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -71,8 +71,8 @@ final class CrewLobby extends LinearLayout {
         header.addView(count);
         addView(header, new LayoutParams(-1, -2));
 
-        boolean wide = getResources().getConfiguration().screenWidthDp >= 700;
-        int portraitHeight = wide ? Math.min(244, Math.max(112,
+        boolean wide = !compact && getResources().getConfiguration().screenWidthDp >= 700;
+        int portraitHeight = compact ? 98 : wide ? Math.min(210, Math.max(112,
                 getResources().getConfiguration().screenHeightDp / 3 - 26)) : 88;
         LinearLayout row = null;
         for (int index = 0; index < slots.length; index++) {
