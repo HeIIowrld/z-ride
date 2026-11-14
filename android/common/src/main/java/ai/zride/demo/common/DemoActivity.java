@@ -83,7 +83,6 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     protected RoomClient retainedClient(){return null;}
     protected boolean retainClientOnDestroy(){return false;}
     protected void addVehicleControls(LinearLayout container) {}
-    protected void addVehicleWelcomeActions(LinearLayout menu) {}
     protected android.graphics.drawable.Drawable vehicleCover() { return new RoadCover(); }
     protected void inspectExtraDiagnostics() {}
     protected void addPhoneCollectionContent(LinearLayout container) {}
@@ -164,12 +163,11 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
                     partyWelcome.setLayoutParams(menu);
                 }
             });
-            addVehicleWelcomeActions(partyWelcome);
             parkedHint = text("주차하면 파티를 시작할 수 있어요", 26);
             parkedHint.setTypeface(null, android.graphics.Typeface.BOLD);
             root.addView(parkedHint);
         }
-        connectButton=button(cleanVehicleUi()?"여정 시작  ›":isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->connectRoom());
+        connectButton=button(cleanVehicleUi()?"크루 로비 열기  ›":isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->connectRoom());
         if (partyWelcome == null) root.addView(connectButton);
         else {
             LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(-1, dp(62));

@@ -12,7 +12,7 @@ SDK 관측 revision은 SDK callback/목적지 응답 변화를 앱이 관찰한 
 
 ## 내비 화면을 열어도 유지되는 서비스
 
-내비 목적지 요청은 OEM 내비 화면을 열 수 있고 게임 Activity는 종료될 수 있다. 따라서 unexported dataSync foreground service가 SDK 구독·차량 읽기·기존 HOST WS 연결을 유지한다. 알림 ‘차량 내비 상태 연결 중’이 표시된다. HOST 자격증명은 RoomClient 프로세스 메모리에만 두고 Intent·URL·공개 상태 JSON으로 넘기지 않는다. 게임 Activity를 다시 열면 같은 RoomClient/파티에 재부착한다. 앱 강제 종료/서비스 종료/프로세스 종료 시 자원을 정리하며 세션이 자동 복구됐다고 주장하지 않는다.
+운전자가 Pleos 내비로 전환하면 PLY Activity가 화면에서 내려갈 수 있다. PLY의 내부 foreground service가 SDK 구독·차량 읽기·기존 HOST WS 연결을 유지한다. 알림 ‘차량 내비 상태 연결 중’이 표시된다. HOST 자격증명은 RoomClient 프로세스 메모리에만 두고 Intent·URL·공개 상태 JSON으로 넘기지 않는다. 게임 Activity를 다시 열면 같은 RoomClient/파티에 재부착한다. 앱이나 서비스 프로세스를 종료하면 연결이 끊긴다.
 
 Activity가 내려가면 vehicle.report.foreground=false이며 UX 제한·P 조건·6초 차량 lease가 계속 적용된다. 서비스는 게임 화면/게임 오디오/4D 출력을 실행하지 않고 APP_MAPS나 distractionOptimized 선언으로 게임 제한을 피하지 않는다. 새로운 차량 연결마다 telemetry sequence를 리셋하지 않으며 UI 재생성에도 같은 연결의 sequence는 증가한다.
 
@@ -56,8 +56,8 @@ python tools/verify-native-drive.py --serial emulator-5560 \
 서버 테스트는 HOST 권한·승인된 폰 전파·역순/위조 거절·DEMO geometry 해제·freshness·영속 저장 제외를 검사한다. 실제 SDK 서비스 연결, 약관 동의 상태, 목적지 요청 후 ROUTE_DRIVE·목적지·남은 거리/시간 응답을 AVD에서 확인했다. 이동/재탐색·폰 최종 결과는 별도 실제 검증 기록으로 구분한다.
 
 [공식 SDK 가져오기](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/importing-sdk) · [목적지](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/destinations) · [재탐색](https://document.pleos.ai/en/docs/pleos-only/connect-sdk-pleos/NaviHelper/routes) · [callback](https://document.pleos.ai/en/api-reference/connect-sdk-pleos/NaviHelper/event-listeners) · [3.0.5 좌표 인자 변경](https://document.pleos.ai/en/docs/pleos-only/release-note/sdk-261015).
-## 목적지 설정
+## 실제 이용 흐름
 
-Pleos 차량을 P에 두고 Z-RIDE 시작 화면의 **목적지 설정**을 누른다. 파티가 이미 열려 있으면 상단 차량 메뉴에서 같은 버튼을 쓸 수 있다. 장소명이나 주소를 입력하면 NaviHelper가 그 검색어로 순정 내비 검색 화면을 연다. 순정 내비의 결과에서 목적지나 경유지를 선택하고 경로를 확인한다. 이후 안내 상태는 기존 차량 SDK 경로로 파티에 전달된다.
+목적지와 경유지는 Pleos 내비에서 설정한다. PLY에서는 주차 중 **크루 로비 열기**로 파티를 만들고 동승자를 초대한다. 로비는 내비 경로 없이도 열 수 있다. Pleos 내비에서 안내를 시작하면 PLY가 NaviHelper에서 안내 상태를 읽어 파티에 전달한다. 승인된 동승자는 폰에서 주행 중 보급품과 게임을 이용할 수 있다.
 
-검색 화면 요청에는 `NAVI_CUSTOM_MAP` 권한을 사용한다. 이 입력은 Z-RIDE 파티 가입이나 게임 시작 요청을 만들지 않는다.
+공유 에뮬레이터의 고정 목적지·재탐색·취소 버튼은 위 시연 절차에서 사용한다.

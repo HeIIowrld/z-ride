@@ -6,7 +6,7 @@
 
 | 모듈 | 패키지 | 역할 |
 | --- | --- | --- |
-| carapp | `ai.zride.demo.car` | 통합 여정 시연. 목적지 검색·QR 합류·차량 상태·충전 게임·DEADZONE |
+| carapp | `ai.zride.demo.car` | PLY 크루 로비, QR 합류, Pleos 내비 상태 연동, 차량 상태, 충전 게임, DEADZONE |
 | phoneapp | `ai.zride.demo.phone` | 코드 참가·좌석 선택, 서울 실지도·폰 위치·서버 지점 수집, 차량 상대각 사격 |
 | pleoshub | `ai.zride.hub` | Z-RIDE 게임 허브(Pleos): 게임 목록에서 웹 게임을 띄우고, 공통 브리지 v1로 배터리·기어·속도를 넘기며 무드등·설정 온도를 바꾼다. [연동 가이드](../games/sdk/README.md) |
 | carhost | `ai.zride.car` | **제품용 차량 화면(앱 팀)**: 파티 열기·QR 초대·대원 승인·주차 중 전투 시작·지원·해산. 아래 [carhost](#carhost--제품용-차량-화면) 참고 |
