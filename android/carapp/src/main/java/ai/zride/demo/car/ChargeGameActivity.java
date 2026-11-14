@@ -114,6 +114,8 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
         boolean debug = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         String override = debug && gameId != null ? getIntent().getStringExtra("url." + gameId) : null;
         if (override != null) url = override;
+        // 디버그 시험용: --ez fresh true면 저장된 방을 지우고 새 방으로 연다
+        if (debug && getIntent().getBooleanExtra("fresh", false)) android.webkit.WebStorage.getInstance().deleteAllData();
         if (gameId == null || url == null) { finish(); return; }
         Uri uri = Uri.parse(url);
         gameOrigin = uri.getScheme() + "://" + uri.getAuthority();
