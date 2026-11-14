@@ -49,6 +49,7 @@
     const mates = state.players.filter(x => x.team === t && x.id !== p.id).map(x => x.name);
     card.append(h('p', 'hint', mates.length ? `같은 팀: ${mates.join(', ')}` : '아직 혼자예요'));
     card.append(button('팀 바꾸기', 'ghost', () => net.send({ type: 'team' })));
+    if (state.phase === 'RULES') card.append(h('p', 'lead rules-now', '차 화면에서 게임 방법을 보는 중이에요'));
     card.append(h('p', 'hint', '차 화면에서 시작하면 폰 화면 전체가 버튼이 돼요.'));
     wrap.append(card);
     return wrap;
@@ -110,7 +111,7 @@
     if (key === viewKey) { paint(); return; }
     if (state.phase === 'READY') mine = 0;
     viewKey = key; live = null;
-    const view = state.phase === 'LOBBY' ? lobbyView()
+    const view = state.phase === 'LOBBY' || state.phase === 'RULES' ? lobbyView()
       : state.phase === 'READY' || state.phase === 'PULL' ? padView() : resultView();
     app.replaceChildren(view);
   }

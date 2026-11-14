@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, PULL_MS, READY_MS, GAP_MS, MAX_TAPS_PER_SEC } from '../game.mjs';
+import { Game, PULL_MS, READY_MS, GAP_MS, MAX_TAPS_PER_SEC, RULES_MS } from '../game.mjs';
 
 function setup(names = ['엄마', '아빠']) {
   let t = 0;
@@ -83,4 +83,13 @@ test('무승부만 이어지면 5판에서 무승부로 끝난다', () => {
   const s = setup(); s.g.start();
   for (let r = 0; r < 5; r++) { s.advance(READY_MS); s.g.expire(); s.advance(PULL_MS); s.g.expire(); if (r < 4) { s.advance(GAP_MS); s.g.expire(); } }
   assert.equal(s.g.phase, 'END'); assert.equal(s.g.winner, null); assert.equal(s.g.round, 5);
+});
+
+test('시작을 누르면 차 화면에 규칙이 먼저 뜨고, 15초 뒤 첫 판이 준비된다', () => {
+  const s = setup();
+  s.g.showRules();
+  assert.equal(s.g.phase, 'RULES');
+  s.advance(RULES_MS - 1); assert.equal(s.g.expire(), false);
+  s.advance(1); s.g.expire();
+  assert.equal(s.g.phase, 'READY'); assert.equal(s.g.round, 1);
 });

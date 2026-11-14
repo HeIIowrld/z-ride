@@ -6,6 +6,7 @@
 
 export const MIN_PLAYERS = 2, MAX_PLAYERS = 4;
 export const TEAMS = ['MINT', 'PINK'];
+export const RULES_MS = 15_000;
 export const READY_MS = 3_000, PULL_MS = 20_000, GAP_MS = 5_000, WINS_NEEDED = 2, MAX_ROUNDS = 5;
 export const STEP = 4;            // 한 사람 한 번 연타가 줄을 미는 양(팀 인원으로 나눈다)
 export const MAX_TAPS_PER_SEC = 16; // 사람 손으로 낼 수 있는 정도. 넘는 건 버린다
@@ -54,8 +55,17 @@ export class Game {
     order.forEach((p, i) => { p.team = TEAMS[i % 2]; });
   }
 
+  /** 시작을 누르면 먼저 차 화면에 규칙을 띄운다(15초, 건너뛰기 가능). 다시 하기는 바로 시작. */
+  showRules() {
+    if (this.phase === 'END') return this.start();
+    if (this.phase !== 'LOBBY') throw new Error('BAD_PHASE');
+    if (this.players.length < MIN_PLAYERS) throw new Error('TOO_FEW');
+    if (!this.size('MINT') || !this.size('PINK')) throw new Error('EMPTY_TEAM');
+    this.phase = 'RULES'; this.deadline = this.now() + RULES_MS;
+  }
+
   start() {
-    if (this.phase !== 'LOBBY' && this.phase !== 'END') throw new Error('BAD_PHASE');
+    if (!['LOBBY', 'END', 'RULES'].includes(this.phase)) throw new Error('BAD_PHASE');
     if (this.players.length < MIN_PLAYERS) throw new Error('TOO_FEW');
     if (!this.size('MINT') || !this.size('PINK')) throw new Error('EMPTY_TEAM');
     const keep = this.players;
@@ -72,6 +82,7 @@ export class Game {
 
   /** 시간이 다 된 단계를 넘긴다. 서버 타이머가 부른다. */
   expire() {
+    if (this.phase === 'RULES' && this.now() >= this.deadline) { this.start(); return true; }
     if (this.phase === 'READY' && this.now() >= this.deadline) { this.phase = 'PULL'; this.deadline = this.now() + PULL_MS; return true; }
     if (this.phase === 'PULL' && this.now() >= this.deadline) { this.finishRound(this.pos === 0 ? null : this.pos < 0 ? 'MINT' : 'PINK'); return true; }
     if (this.phase === 'ROUND_END' && this.now() >= this.deadline) { this.nextRound(); return true; }

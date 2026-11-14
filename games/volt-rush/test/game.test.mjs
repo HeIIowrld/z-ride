@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Game, budgetFor, W, H, CHARGER, READY_MS, MOVE_GAP_MS, BOLT, EVENT_EVERY_MS } from '../game.mjs';
+import { Game, budgetFor, W, H, CHARGER, READY_MS, MOVE_GAP_MS, BOLT, EVENT_EVERY_MS, RULES_MS } from '../game.mjs';
 
 function setup(n = 2, seed = 1) {
   let t = 1000, s = seed;
@@ -102,4 +102,14 @@ test('시간이 끝나면 가장 가까운 사람이 가져가고, 3판 뒤 점�
   assert.equal(g.phase, 'END');
   assert.ok(g.winners.length >= 1);
   assert.throws(() => g.addPlayer('x', 'x'), /GAME_STARTED/);
+});
+
+test('시작을 누르면 차 화면에 규칙이 먼저 뜨고, 15초 뒤 첫 판이 준비된다', () => {
+  const { g, tick } = setup();
+  g.showRules();
+  assert.equal(g.phase, 'RULES');
+  assert.equal(g.wakeAt(), g.deadline);
+  tick(RULES_MS); g.wake();
+  assert.equal(g.phase, 'READY'); assert.equal(g.round, 1);
+  assert.throws(() => new Game().showRules(), /NEED_PLAYERS/);
 });

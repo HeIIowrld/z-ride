@@ -131,7 +131,8 @@ export function createTugServer({ publicOrigin = '', now = Date.now } = {}) {
   function handle(ws, message) {
     const { room } = ws, { game } = room;
     if (ws.role === 'HOST') {
-      if (message.type === 'start') game.start();
+      if (message.type === 'start') game.showRules();
+      else if (message.type === 'skip') { if (game.phase === 'RULES') game.start(); }
       else if (message.type === 'next') game.next();
       else if (message.type === 'shuffle') game.shuffleTeams();
       else if (message.type === 'lobby') game.backToLobby();

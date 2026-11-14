@@ -133,7 +133,8 @@ export function createVoltServer({ publicOrigin = '', now = Date.now } = {}) {
   function handle(ws, message) {
     const { room } = ws, { game } = room;
     if (ws.role === 'HOST') {
-      if (message.type === 'start') game.start();
+      if (message.type === 'start') game.showRules();
+      else if (message.type === 'skip') { if (game.phase === 'RULES') game.start(); }
       else if (message.type === 'next') game.next();
       else if (message.type === 'lobby') game.backToLobby();
       else if (message.type === 'kick') game.removePlayer(message.playerId);

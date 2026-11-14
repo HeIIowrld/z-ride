@@ -7,6 +7,7 @@ export const COLORS = ['MINT', 'PINK', 'YELLOW', 'BLUE'];
 const STARTS = [{ x: 0, y: 0 }, { x: 12, y: 8 }, { x: 12, y: 0 }, { x: 0, y: 8 }];
 const DIRS = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] };
 export const MAX_PLAYERS = 4, ROUNDS = 3;
+export const RULES_MS = 15_000;
 export const READY_MS = 3000, ROUND_MS = 90_000, GAP_MS = 6000;
 export const MOVE_GAP_MS = 130; // 패드 연타로 순간이동하지 않게
 export const BOLT = 3, ITEM_CELL = 5, BOOST_MS = 8000, BLACKOUT_MS = 5000, SHIELD_MS = 10_000, SCAN_MS = 6000;
@@ -93,8 +94,16 @@ export class Game {
     else this.event = { kind, until: t + BLACKOUT_MS };
   }
 
+  /** 시작을 누르면 먼저 차 화면에 규칙을 띄운다(15초, 건너뛰기 가능). 다시 하기는 바로 시작. */
+  showRules() {
+    if (this.phase === 'END') return this.start();
+    if (this.phase !== 'LOBBY') throw new Error('NOT_LOBBY');
+    if (this.players.length < 2) throw new Error('NEED_PLAYERS');
+    this.phase = 'RULES'; this.deadline = this.now() + RULES_MS;
+  }
+
   start() {
-    if (this.phase !== 'LOBBY' && this.phase !== 'END') throw new Error('NOT_LOBBY');
+    if (!['LOBBY', 'END', 'RULES'].includes(this.phase)) throw new Error('NOT_LOBBY');
     if (this.players.length < 2) throw new Error('NEED_PLAYERS');
     this.budget = budgetFor(this.soc, this.target);
     const kinds = Object.keys(ITEMS);
@@ -156,6 +165,7 @@ export class Game {
   }
 
   expire() {
+    if (this.phase === 'RULES') return this.start();
     if (this.phase === 'READY') { this.phase = 'PLAY'; this.deadline = this.now() + ROUND_MS; this.nextEventAt = this.now() + EVENT_EVERY_MS; }
     else if (this.phase === 'PLAY') this.finishRound(null);
     else if (this.phase === 'ROUND_END') this.next();

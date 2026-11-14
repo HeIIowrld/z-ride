@@ -57,6 +57,8 @@ test('방을 열고 두 명이 들어와 연타로 한 판을 끝낸다', async 
   assert.deepEqual(host.state.players.map(p => p.team), ['MINT', 'PINK']);
 
   host.send({ type: 'start' });
+  await host.until(c => c.state.phase === 'RULES');
+  host.send({ type: 'skip' });
   await pa.until(c => c.state?.phase === 'PULL', 5000);
   // 민트이 계속 두드린다. 초당 16번 상한이라 끝에 닿는 데 몇 초 걸린다
   const timer = setInterval(() => pa.send({ type: 'tap', n: 2 }), 120);

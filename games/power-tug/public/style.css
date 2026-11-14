@@ -120,3 +120,15 @@ input { width: 100%; min-height: 54px; padding: 10px 14px; border: 2px solid var
 .pad-meter { width: 70%; height: 14px; border-radius: 7px; background: rgba(0, 0, 0, .3); overflow: hidden; }
 .pad-fill { height: 100%; width: 50%; background: currentColor; transition: width .12s linear; }
 .pad-count { font-size: 16px; opacity: .85; }
+
+/* 시작 전 규칙 화면 */
+.rules { display: grid; grid-template-rows: auto 1fr auto; gap: 18px; }
+.rules-head h2 { font-size: 34px; font-weight: 800; margin: 8px 0; letter-spacing: -.5px; }
+.rules-head .hint { font-size: 18px; }
+.steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 16px; align-content: center; list-style: none; padding: 0; margin: 0; }
+.steps li { display: flex; flex-direction: column; gap: 12px; padding: 26px 22px; min-height: 240px; border: 2px solid var(--line); border-radius: 20px; background: var(--panel); }
+.step-no { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--volt); color: #1a1a1a; font-weight: 800; font-size: 20px; }
+.steps b { font-size: 24px; }
+.steps p { color: var(--muted); font-size: 18px; line-height: 1.6; }
+.rules-foot { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; }
+.rules-now { color: var(--volt); font-weight: 700; }

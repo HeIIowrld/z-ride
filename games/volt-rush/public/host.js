@@ -61,12 +61,38 @@
     side.append(tip(state.soc != null
       ? `지금 배터리 ${state.soc}% → 목표 ${state.target}%. 충전할 양만큼 각자 ⚡${state.budget}로 시작해요.`
       : `배터리 정보가 없어 기본 ⚡${state.budget}로 시작해요.`));
-    const start = button(state.players.length < 2 ? '2명부터 시작할 수 있어요' : '시작하기', 'primary big', () => send({ type: 'start' }));
+    const start = button(state.players.length < 2 ? '2명부터 시작할 수 있어요' : '규칙 보고 시작하기', 'primary big', () => send({ type: 'start' }));
     start.disabled = state.players.length < 2;
     side.append(start);
     wrap.append(qrCard, side);
     return wrap;
   }
+
+  /** 시작 전 규칙 화면. 15초 뒤 자동으로 시작하고 '바로 시작'으로 건너뛸 수 있다. */
+  function rules() {
+    const wrap = h('section', 'rules');
+    const head = h('div', 'rules-head');
+    head.append(h('p', 'eyebrow', '게임 방법'), h('h2', '', '선을 깔며 가운데 충전기에 먼저 닿으면 이겨요'), h('p', 'hint', `3판을 해요. 각자 ⚡${state.budget}로 시작하고, 판이 바뀌어도 ⚡는 다시 채워지지 않아요.`));
+    const steps = h('ol', 'steps');
+    [
+      ['이동', '폰의 방향 버튼을 한 번 누르면 한 칸 가고 ⚡1을 써요. 누르고 있으면 계속 같은 쪽으로 가요.'],
+      ['지나간 길은 벽', '내가 깐 선은 아무도 못 지나가요. 상대 앞을 가로질러 막아 보세요. 바리케이드는 돌아가고, ⚡ 칸을 밟으면 ⚡+3.'],
+      ['아이템', '시작할 때 가방에 2개가 들어와요. 막힌 칸 넘기, 남의 선 끊기, 방패, 가장 짧은 길 보기, ⚡+5.'],
+      ['전력 이벤트', '판마다 30초·60초에 터져요. 서지(모든 선 사라짐) → 무료 이동 8초 → 정전 5초 순서예요.'],
+    ].forEach(([title, text], i) => {
+      const li = h('li');
+      li.append(h('span', 'step-no', String(i + 1)), h('b', '', title), h('p', '', text));
+      steps.append(li);
+    });
+    const foot = h('div', 'rules-foot');
+    const timer = h('p', 'hint rules-timer');
+    foot.append(tip('아무도 못 닿으면 90초가 끝났을 때 충전기에 가장 가까운 사람이 이겨요.'), timer, button('바로 시작', 'primary', () => send({ type: 'skip' })));
+    wrap.append(head, steps, foot);
+    rulesTimer = timer; tickRules();
+    return wrap;
+  }
+  let rulesTimer = null;
+  function tickRules() { if (state?.phase === 'RULES' && rulesTimer) rulesTimer.textContent = `${secondsLeft(state.deadline)}초 뒤 시작해요`; }
 
   function arena() {
     const wrap = h('section', 'arena-v');
@@ -225,11 +251,11 @@
     if (key === viewKey) { paint(); return; }
     viewKey = key; live = null;
     if (state.phase === 'LOBBY') cabin('NORMAL');
-    const view = state.phase === 'LOBBY' ? lobby() : state.phase === 'END' ? finished() : arena();
+    const view = state.phase === 'LOBBY' ? lobby() : state.phase === 'RULES' ? rules() : state.phase === 'END' ? finished() : arena();
     stage.replaceChildren(view);
     if (live) requestAnimationFrame(paint);
   }
-  setInterval(paint, 250);
+  setInterval(() => { tickRules(); paint(); }, 250);
   addEventListener('resize', () => { if (live) { live.canvas.width = 0; paint(); } });
 
   function link(value) { $('link').textContent = value === 'LIVE' ? '' : value === 'RETRYING' ? '다시 연결 중…' : '연결 중…'; }

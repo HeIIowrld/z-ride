@@ -46,6 +46,7 @@
     const wrap = h('section', `screen ${tone()}`);
     const card = h('div', 'card center tinted');
     card.append(avatar(p, 'xl'), h('p', 'eyebrow', '내 색'), h('h2', 'huge', COLOR[p.color].name));
+    if (state.phase === 'RULES') card.append(h('p', 'lead rules-now', '차 화면에서 게임 방법을 보는 중이에요'));
     card.append(h('p', 'hint', '차 화면에서 시작하면 방향 버튼이 나와요. 한 번 누르면 한 칸(⚡1), 누르고 있으면 계속 가요.'));
     card.append(h('p', 'hint', '시작하면 오는 길에 얻은 아이템 2개가 가방에 들어와요. (지금은 테스트 가방)'));
     wrap.append(card);
@@ -122,7 +123,7 @@
     const key = state.phase + state.round + state.bag?.map(b => b.id).join() + (state.phase === 'LOBBY' ? me().color : '');
     if (key === viewKey) { paint(); return; }
     viewKey = key; live = null; stopHold();
-    const view = state.phase === 'LOBBY' ? lobbyView()
+    const view = state.phase === 'LOBBY' || state.phase === 'RULES' ? lobbyView()
       : state.phase === 'READY' || state.phase === 'PLAY' ? padView() : resultView();
     app.replaceChildren(view);
   }

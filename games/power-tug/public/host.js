@@ -55,13 +55,38 @@
     const row = h('div', 'row');
     row.append(button('팀 섞기', 'ghost', () => send({ type: 'shuffle' })));
     const ready = state.players.length >= 2 && team('MINT').length && team('PINK').length;
-    const start = button(state.players.length < 2 ? '2명부터 시작할 수 있어요' : ready ? '시작하기' : '두 팀 모두 한 명 이상 있어야 해요', 'primary big', () => send({ type: 'start' }));
+    const start = button(state.players.length < 2 ? '2명부터 시작할 수 있어요' : ready ? '규칙 보고 시작하기' : '두 팀 모두 한 명 이상 있어야 해요', 'primary big', () => send({ type: 'start' }));
     start.disabled = !ready;
     row.append(start);
     side.append(row);
     wrap.append(qrCard, side);
     return wrap;
   }
+
+  /** 시작 전 규칙 화면. 15초 뒤 자동으로 시작하고 '바로 시작'으로 건너뛸 수 있다. */
+  function rules() {
+    const wrap = h('section', 'rules');
+    const head = h('div', 'rules-head');
+    head.append(h('p', 'eyebrow', '게임 방법'), h('h2', '', '폰을 연타해서 가운데 전기를 우리 팀 쪽으로 끌어와요'), h('p', 'hint', '2판을 먼저 이기는 팀이 승리해요. 한 판은 20초예요.'));
+    const steps = h('ol', 'steps');
+    [
+      ['팀 나누기', '민트 팀과 핑크 팀으로 나눠요. 팀은 폰에서 바꿀 수 있고, 인원이 달라도 1인당 속도로 계산해서 공평해요.'],
+      ['연타', '시작하면 폰 화면 전체가 버튼이 돼요. 손가락 여러 개로 두드려도 돼요. 초당 16번이 넘는 연타는 세지 않아요.'],
+      ['끌어오기', '가운데 불꽃이 연타가 많은 팀 쪽으로 움직여요. 끝까지 끌어오거나 20초가 끝났을 때 우리 쪽에 있으면 그 판을 이겨요.'],
+    ].forEach(([title, text], i) => {
+      const li = h('li');
+      li.append(h('span', 'step-no', String(i + 1)), h('b', '', title), h('p', '', text));
+      steps.append(li);
+    });
+    const foot = h('div', 'rules-foot');
+    const timer = h('p', 'hint rules-timer');
+    foot.append(tip('이기고 있는 팀 색으로 실내등이 바뀌어요.'), timer, button('바로 시작', 'primary', () => send({ type: 'skip' })));
+    wrap.append(head, steps, foot);
+    rulesTimer = timer; tickRules();
+    return wrap;
+  }
+  let rulesTimer = null;
+  function tickRules() { if (state?.phase === 'RULES' && rulesTimer) rulesTimer.textContent = `${secondsLeft(state.deadline)}초 뒤 시작해요`; }
 
   function battery(t) {
     const box = h('div', `battery ${t.toLowerCase()}`);
@@ -145,10 +170,11 @@
     if (key === viewKey) { paint(); return; }
     viewKey = key; live = null;
     if (state.phase === 'LOBBY') cabin('NORMAL');
-    const view = { LOBBY: lobby, READY: arena, PULL: arena, ROUND_END: roundEnd, END: finished }[state.phase]();
+    const view = { LOBBY: lobby, RULES: rules, READY: arena, PULL: arena, ROUND_END: roundEnd, END: finished }[state.phase]();
     stage.replaceChildren(view);
   }
   setInterval(() => {
+    tickRules();
     paint();
     if (state?.phase === 'ROUND_END' && live) live.timer.textContent = `다음 판 ${secondsLeft(state.deadline)}초 뒤`;
   }, 250);

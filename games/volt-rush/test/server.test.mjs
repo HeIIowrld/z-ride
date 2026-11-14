@@ -56,6 +56,8 @@ test('방을 열고 두 명이 들어와 움직이고 아이템을 쓴다', asyn
   host.send({ type: 'soc', soc: 30, target: 80 });
   await host.until(c => c.state.budget === 60);
   host.send({ type: 'start' });
+  await host.until(c => c.state.phase === 'RULES');
+  host.send({ type: 'skip' });
   await pa.until(c => c.state?.phase === 'PLAY', 5000);
   assert.equal(pa.state.bag.length, 2);
   assert.equal(host.state.bag, undefined, '큰 화면엔 가방 내용이 없다');
