@@ -7,9 +7,12 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs && wrangler dev -c dist/$GAME/wrangler.jsonc",
-    "deploy": "node build.mjs && for g in charge-relay power-tug volt-rush power-castle; do wrangler deploy -c dist/$g/wrangler.jsonc || exit 1; done"
+    "deploy": "node build.mjs && for g in charge-relay power-tug volt-rush power-castle charge-hub; do wrangler deploy -c dist/$g/wrangler.jsonc || exit 1; done"
   },
   "devDependencies": {
     "wrangler": "4.156.1"
+  },
+  "allowScripts": {
+    "workerd@1.20261101.1": true
   }
 }
