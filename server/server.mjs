@@ -44,6 +44,17 @@ const fail = (code, message, status = 400) => Object.assign(new Error(message), 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const angularDistance = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 const asText = (value, max = 128) => typeof value === 'string' && value.length > 0 && value.length <= max;
+// 충전 게임 4종의 기본 주소(Cloudflare 배포, games/cloudflare). GAME_CHARGE_GAMES에 {"게임id":"주소"} JSON을 주면 바꾸고, off면 끈다.
+export const DEFAULT_CHARGE_GAMES = Object.fromEntries(['power-castle', 'volt-rush', 'power-tug', 'charge-relay']
+  .map(id => [id, `https://zride-${id}.zride-charge-games-cloudflare.workers.dev`]));
+export function chargeGamesFromEnv(value) {
+  if (value === undefined || value === '') return DEFAULT_CHARGE_GAMES;
+  if (value === 'off') return {};
+  const parsed = JSON.parse(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('GAME_CHARGE_GAMES must be a JSON object or off');
+  for (const origin of Object.values(parsed)) new URL(origin);
+  return parsed;
+}
 const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 
@@ -60,6 +71,10 @@ export function createDemoServer(options = {}) {
   const world = createWorldService({ clock: options.worldClock ?? Date.now, maxReceipts, respawnMs:options.pickupRespawnMs??300000 });
   const deadzoneOrigin = options.deadzoneOrigin ? new URL(options.deadzoneOrigin).origin : null;
   const deadzonePending = new Set();
+  // 충전 게임(Power Castle 등)은 DEADZONE처럼 밖에 따로 배포돼 있다. 게임 id → 그 게임 서버 주소
+  const chargeGames = new Map(Object.entries(options.chargeGames ?? {}).map(([id, origin]) => [id, new URL(origin).origin]));
+  const chargeLinks = new WeakMap(); // room → { game, origin, code, hostToken, seats: { memberId: { playerId, token } } }
+  const chargePending = new Set();
   const supplyChallenges = new WeakMap();
   const venueGames = new WeakMap();
   function deadzoneScope(room) {
@@ -457,6 +472,8 @@ export function createDemoServer(options = {}) {
       zombies: room.zombies.map(z => ({ ...z })),
       effects: effects.snapshot(room.roomId),
       ...(viewer.role === 'CAR_HOST' ? { deadzoneAvailable: Boolean(deadzoneOrigin) && !room.closedAt } : {}),
+      ...(viewer.role === 'CAR_HOST' && chargeGames.size && !room.closedAt ? { chargeGamesAvailable: [...chargeGames.keys()] } : {}),
+      ...chargeGameView(room, viewer),
       ...(viewer.approved && !room.closedAt && linkedDeadzone(room)?.state !== 'ended' && linkedDeadzone(room) &&
           (!linkedDeadzone(room).partySeats || linkedDeadzone(room).partySeats[viewer.memberId]) ? {
         deadzoneJoinUrl: deadzoneOrigin + '/j/' + linkedDeadzone(room).code +
@@ -575,6 +592,89 @@ export function createDemoServer(options = {}) {
     } catch {
       throw fail('DEADZONE_UNAVAILABLE', 'Game server did not respond', 502);
     }
+  }
+
+  /** 주차해서 검증된 충전소 구역에 있으면 그 충전소. 충전 중이 아니어도(충전기 대기 중) 된다. */
+  function chargeStop(room) {
+    return gate(room).allowed ? places.arrivedCharger(navigationSnapshot(room).position) : null;
+  }
+  function chargeGameView(room, viewer) {
+    const link = chargeLinks.get(room);
+    if (!link || room.closedAt || !gate(room).allowed) return {};
+    if (viewer.role === 'CAR_HOST') return { chargeGame: { game: link.game } };
+    const seat = viewer.approved && link.seats[viewer.memberId];
+    return seat ? { chargeGame: { game: link.game, joinUrl: link.origin + '/p#join=' + link.code + '.' + seat.playerId + '.' + seat.token } } : {};
+  }
+  async function chargeRequest(origin, path, init) {
+    try {
+      const response = await fetch(new URL(path, origin), { ...init, redirect: 'error', signal: AbortSignal.timeout(3500) });
+      if (!response.ok) throw new Error('upstream status');
+      return await response.json();
+    } catch {
+      throw fail('CHARGE_GAME_UNAVAILABLE', 'Charging game server did not respond', 502);
+    }
+  }
+  /**
+   * 충전 게임 열기·보급품 쓰기·닫기. 게임 진행은 게임 서버가 하고, 여기서는 DEADZONE처럼
+   * 방을 만들어 승인된 크루를 미리 참가시키고(입장권), 파티 보급품만 관리한다.
+   */
+  async function handleChargeGame(req, res, roomId, body) {
+    if (!chargeGames.size) throw fail('CHARGE_GAMES_DISABLED', 'Charging game integration is disabled', 404);
+    const session = authenticate(req);
+    const room = roomFor(roomId);
+    const member = requireHost(room, session);
+    if (body.action === 'close') {
+      if (chargeLinks.delete(room)) atomic(() => change(room));
+      return result(res, 200, { closed: true });
+    }
+    if (body.action === 'item') {
+      const link = chargeLinks.get(room);
+      if (!link || link.game !== body.game) throw fail('NO_CHARGE_GAME', 'Open the charging game first', 409);
+      if (!chargeStop(room)) throw fail('CHARGING_STOP_REQUIRED', 'Park at an approved charging stop', 409);
+      atomic(() => {
+        if (room.collection.inventory.supplies < 1) throw fail('SUPPLY_REQUIRED', 'Collect a supply first', 409);
+        room.collection.inventory.supplies--;
+        collectionChanged(room);
+      });
+      return result(res, 200, { supplies: room.collection.inventory.supplies });
+    }
+    if (body.action !== 'open') throw fail('INVALID_CHARGE_ACTION', 'action must be open, item or close');
+    const origin = chargeGames.get(body.game);
+    if (!origin) throw fail('UNKNOWN_GAME', 'Choose a charging game');
+    if (!chargeStop(room)) throw fail('CHARGING_STOP_REQUIRED', 'Park at an approved charging stop', 409);
+    if (linkedDeadzone(room)?.state === 'playing') throw fail('GAME_ALREADY_ACTIVE', 'Finish DEADZONE before starting another game', 409);
+    if (chargePending.has(roomId)) throw fail('CHARGE_GAME_BUSY', 'Charging game is opening', 409);
+    const epoch = room.roomEpoch, socket = member.socket;
+    chargePending.add(roomId);
+    try {
+      const riders = [...room.members.values()].filter(item => item.approved && passengerSeat(item.seat) &&
+        seatEvidence(room, item.seat) !== 'EMPTY').slice(0, 4);
+      const created = await chargeRequest(origin, '/api/rooms', { method: 'POST' });
+      if (!/^[A-Z0-9]{5}$/.test(created.code) || !asText(created.hostToken, 128))
+        throw fail('CHARGE_GAME_BAD_ROOM', 'Invalid upstream room', 502);
+      const seats = {};
+      for (const rider of riders) {
+        const joined = await chargeRequest(origin, '/api/rooms/' + created.code + '/join', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: [...rider.nickname].slice(0, 10).join('') }),
+        });
+        if (!/^[0-9a-f-]{36}$/.test(joined.playerId) || !asText(joined.token, 128))
+          throw fail('CHARGE_GAME_BAD_ROOM', 'Invalid upstream seat', 502);
+        seats[rider.memberId] = { playerId: joined.playerId, token: joined.token };
+      }
+      if (storageFailed) throw unavailable();
+      if (roomFor(roomId) !== room || memberFor(room, session) !== member || member.socket !== socket ||
+          room.roomEpoch !== epoch || !chargeStop(room))
+        throw fail('CHARGE_GAME_STALE', 'Vehicle state changed while opening the game', 409);
+      atomic(() => {
+        chargeLinks.set(room, { game: body.game, origin, code: created.code, hostToken: created.hostToken, seats });
+        change(room);
+      });
+      return result(res, 200, {
+        game: body.game, hostUrl: origin + '/#host=' + created.code + '.' + created.hostToken,
+        crew: riders.length, supplies: room.collection.inventory.supplies,
+      });
+    } finally { chargePending.delete(roomId); }
   }
 
   async function handleDeadzone(req, res, roomId, body) {
@@ -734,6 +834,8 @@ export function createDemoServer(options = {}) {
       }
       const deadzoneRoute = path.match(/^\/api\/rooms\/([^/]+)\/deadzone$/);
       if (deadzoneRoute && req.method === 'POST') return await handleDeadzone(req, res, deadzoneRoute[1], body);
+      const chargeRoute = path.match(/^\/api\/rooms\/([^/]+)\/charge-game$/);
+      if (chargeRoute && req.method === 'POST') return await handleChargeGame(req, res, chargeRoute[1], body);
       const driveRoute = path.match(/^\/api\/rooms\/([^/]+)\/drive-game$/);
       if (driveRoute && req.method === 'POST') {
         const room = roomFor(driveRoute[1]);
@@ -1227,7 +1329,7 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ ...deploymentOptions(), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN });
+  const app = createDemoServer({ ...deploymentOptions(), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, chargeGames: chargeGamesFromEnv(process.env.GAME_CHARGE_GAMES ?? process.env.ZRIDE_CHARGE_GAMES), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
   console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 10, persistence: app.persistence, exposure: (process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY) ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });

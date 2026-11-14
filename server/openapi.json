@@ -2276,6 +2276,35 @@
         }
       }
     },
+    "/api/rooms/{roomId}/charge-game": {
+      "parameters": [
+        {"name": "roomId", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}}
+      ],
+      "post": {
+        "operationId": "chargeGame",
+        "summary": "Open an external charging game for the party, spend a party supply in it, or close it (parked vehicle host at an approved charging stop)",
+        "description": "Like DEADZONE, the game runs on its own server (GAME_CHARGE_GAMES; defaults to the Cloudflare deployment of games/cloudflare). open creates a room there, joins every approved passenger in advance and returns the car screen URL with its host ticket. Charging is not required, so a car waiting for a charger can play.",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"type": "object", "required": ["action"], "properties": {
+            "action": {"type": "string", "enum": ["open", "item", "close"]},
+            "game": {"type": "string", "description": "Game id from snapshot.room.chargeGamesAvailable; required for open and item"}
+          }}}}
+        },
+        "responses": {
+          "200": {"description": "open: hostUrl (car screen with #host ticket), crew count and supplies; item: remaining supplies; close: closed",
+            "content": {"application/json": {"schema": {"type": "object", "properties": {
+              "game": {"type": "string"}, "hostUrl": {"type": "string", "format": "uri"},
+              "crew": {"type": "integer"}, "supplies": {"type": "integer"}, "closed": {"type": "boolean"}
+            }}}}},
+          "403": {"description": "Not the vehicle host", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}, "x-error-codes": ["ROLE_FORBIDDEN"]},
+          "404": {"description": "Charging games are not configured", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}, "x-error-codes": ["CHARGE_GAMES_DISABLED"]},
+          "409": {"description": "Not parked at an approved charging stop, no open game, no supply, or another game is active", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}, "x-error-codes": ["CHARGING_STOP_REQUIRED", "NO_CHARGE_GAME", "SUPPLY_REQUIRED", "GAME_ALREADY_ACTIVE", "CHARGE_GAME_BUSY", "CHARGE_GAME_STALE"]},
+          "502": {"description": "Charging game server did not respond or returned an invalid room", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}, "x-error-codes": ["CHARGE_GAME_UNAVAILABLE", "CHARGE_GAME_BAD_ROOM"]},
+          "503": {"description": "Durable storage unavailable", "x-error-codes": ["STORAGE_UNAVAILABLE"]}
+        }
+      }
+    },
     "/api/rooms/{roomId}/deadzone": {
       "parameters": [
         {
@@ -11063,6 +11092,11 @@
             "format": "uri",
             "description": "Optional game link exposed to approved members of the matching party venue"
           },
+          "chargeGame": {
+            "type": "object",
+            "description": "Charging game opened for this party while the vehicle stays parked. Approved crew members with a seat in it also get joinUrl, a personal ticket link (#join=code.player.token).",
+            "properties": {"game": {"type": "string"}, "joinUrl": {"type": "string", "format": "uri"}}
+          },
           "roomId": {
             "$ref": "#/components/schemas/Id"
           },
@@ -11113,6 +11147,10 @@
           "deadzoneAvailable": {
             "type": "boolean",
             "description": "Vehicle host projection indicating whether the DEADZONE service is configured for this active party."
+          },
+          "chargeGamesAvailable": {
+            "type": "array", "items": {"type": "string"},
+            "description": "Vehicle host projection listing the configured charging games (power-castle, volt-rush, power-tug, charge-relay)."
           },
           "driveGamesAvailable": {"type": "boolean"},
           "driveGame": {

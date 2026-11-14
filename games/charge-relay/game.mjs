@@ -48,7 +48,7 @@ export class Game {
   reset() {
     this.phase = 'LOBBY';
     this.rounds = 3; this.round = 0; this.step = 0;
-    this.books = []; this.deadline = 0; this.cursor = null;
+    this.books = []; this.deadline = 0; this.cursor = null; this.extendedRound = 0;
     this.family = { success: 0, total: 0 };
     this.pool = [];
     for (const p of this.players) p.hearts = 0;
@@ -134,6 +134,14 @@ export class Game {
     this.books[this.bookOf(index)].entries.push({ kind: this.stepKind(), authorId: this.players[index].id, hearts: new Set(), ...content });
   }
 
+  /** PLY 파티 보급품을 쓰면 지금 구간 시간을 15초 늘린다. 판마다 한 번. 보급품 차감은 PLY 서버가 한다. */
+  extend(ms = 15_000) {
+    if (this.phase !== 'PLAY') throw new Error('NOT_PLAYING');
+    if (this.extendedRound === this.round) throw new Error('ALREADY_EXTENDED');
+    this.extendedRound = this.round;
+    this.deadline += ms;
+  }
+
   /** 시간이 다 되면(또는 진행자가 넘기면) 못 낸 사람 칸은 빈 칸으로 채운다. */
   expire() {
     if (this.phase !== 'PLAY') return;
@@ -190,6 +198,7 @@ export class Game {
     const view = {
       phase: this.phase, round: this.round, rounds: this.rounds, step: this.step, steps: this.steps,
       stepKind: this.phase === 'PLAY' ? this.stepKind() : null, deadline: this.deadline, family: this.family,
+      extendable: this.phase === 'PLAY' && this.extendedRound !== this.round,
       players: this.players.map((p, index) => ({
         id: p.id, name: p.name, connected: p.connected, hearts: p.hearts,
         done: this.phase === 'PLAY' && this.hasSubmitted(index),

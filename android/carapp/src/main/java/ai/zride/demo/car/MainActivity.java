@@ -52,6 +52,7 @@ public final class MainActivity extends DemoActivity {
     private Button venueStart, venueNext, venueItem, venueReturn;
     private Game venueCoverGame;
     private boolean venuePending, venueStatusPending, venueVisible;
+    private boolean chargePending; // 충전 게임을 PLY 서버에 여는 중
     private boolean venueGameFocused;
     private String dismissedVenueResultRoom;
     private String venueStopName = "";
@@ -471,13 +472,14 @@ public final class MainActivity extends DemoActivity {
             else if (routeInProgress()) requirement = "내비 안내 종료 후 입장";
             else if (venueVisible) requirement = "충전소에서는 충전 게임 입장 가능";
             else requirement = passengers == 0 ? "동승자 1명 합류 필요" : "주차 중 입장 가능";
-        } else if (!venueVisible) requirement = "지원 충전소에 정차하면 입장 가능";
+        } else if (chargeOffered(game)) requirement = chargePending ? "게임 방 여는 중…" : "충전소 주차 중 입장 · 크루 바로 참가";
+        else if (!venueVisible) requirement = "지원 충전소에 정차하면 입장 가능";
         else requirement = "충전·대기 중 입장 가능 · QR로 참가";
         if (!requirement.contentEquals(gameAvailability.getText())) gameAvailability.setText(requirement);
         gameAvailability.setTextColor(game.accent);
         boolean available = game == Game.DEADZONE
                 ? deadzoneAvailable && (passengers > 0 || showVehicleDiagnostics())
-                : venueVisible;
+                : (chargeOffered(game) || venueVisible) && !chargePending;
         updateGameTab(gameEnter, game.accent, available, available);
         String entry = available ? "로비 열기  ›" : "입장 대기";
         if (!entry.contentEquals(gameEnter.getText())) gameEnter.setText(entry);
@@ -493,9 +495,54 @@ public final class MainActivity extends DemoActivity {
         if (!message.contentEquals(driveStatus.getText())) driveStatus.setText(message);
     }
 
+    /** PLY 서버가 이 충전 게임을 열어 줄 수 있는지(스냅샷 chargeGamesAvailable). */
+    private boolean chargeOffered(Game game) {
+        if (!game.web() || room == null) return false;
+        org.json.JSONArray offered = room.optJSONArray("chargeGamesAvailable");
+        if (offered == null) return false;
+        for (int i = 0; i < offered.length(); i++) if (game.webId.equals(offered.optString(i))) return true;
+        return false;
+    }
+
+    /**
+     * DEADZONE처럼 PLY 서버가 게임 서버에 방을 만들고 승인된 크루를 미리 참가시킨다.
+     * 차 화면은 서버가 돌려준 호스트 입장권 주소로 열고, 보급품은 서버 재고에서 쓴다.
+     */
+    private void openPartyChargeGame(Game game) {
+        if (room == null || !client.isAuthenticated() || chargePending) return;
+        String roomId = room.optString("roomId");
+        JSONObject body = newJSONObject("action", "open");
+        try { body.put("game", game.webId); } catch (org.json.JSONException error) { return; }
+        chargePending = true;
+        updateArcadeVisibility();
+        client.postApi("/api/rooms/" + roomId + "/charge-game", body, new RoomClient.ApiCallback() {
+            public void onResponse(JSONObject value) { main.post(() -> {
+                chargePending = false;
+                updateArcadeVisibility();
+                String hostUrl = value.optString("hostUrl", "");
+                if (!foreground || room == null || !roomId.equals(room.optString("roomId")) || hostUrl.isEmpty()) return;
+                ChargeGameActivity.party = new ChargeGameActivity.PartyLink(client, roomId, game.webId);
+                startActivity(new android.content.Intent(MainActivity.this, ChargeGameActivity.class)
+                        .putExtra(ChargeGameActivity.EXTRA_ID, game.webId)
+                        .putExtra(ChargeGameActivity.EXTRA_URL, hostUrl)
+                        .putExtra(ChargeGameActivity.EXTRA_SUPPLIES, value.optInt("supplies", 0)));
+            }); }
+            public void onError(String error) { main.post(() -> {
+                chargePending = false;
+                updateArcadeVisibility();
+                if (!foreground) return;
+                String message = error.contains("CHARGING_STOP_REQUIRED") ? "승인된 충전소에 주차하면 열 수 있어요."
+                        : error.contains("GAME_ALREADY_ACTIVE") ? "DEADZONE을 먼저 끝내 주세요."
+                        : "게임 서버에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+                android.widget.Toast.makeText(MainActivity.this, message, android.widget.Toast.LENGTH_SHORT).show();
+            }); }
+        });
+    }
+
     private void openSelectedGame() {
         if (selectedGame.web()) {
-            // 웹 게임은 따로 띄운 화면에서 연다. 방 만들기·QR 참가는 게임 페이지가 한다
+            if (chargeOffered(selectedGame)) { openPartyChargeGame(selectedGame); return; }
+            // 서버에 충전 게임 연결이 없으면 게임 페이지가 직접 방을 만들고 QR로 참가한다
             startActivity(new android.content.Intent(this, ChargeGameActivity.class)
                     .putExtra(ChargeGameActivity.EXTRA_ID, selectedGame.webId)
                     .putExtra(ChargeGameActivity.EXTRA_URL, ChargeGameActivity.urlFor(selectedGame.webId)));

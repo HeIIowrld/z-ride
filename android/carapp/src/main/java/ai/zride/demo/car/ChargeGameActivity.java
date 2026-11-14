@@ -34,7 +34,16 @@ import org.json.JSONObject;
  * 주차가 풀리거나 화면을 닫으면 실내 설정을 원래대로 돌린다.
  */
 public final class ChargeGameActivity extends Activity implements ChargeDrivingGate.Listener {
-    static final String EXTRA_ID = "chargeGame", EXTRA_URL = "chargeGameUrl";
+    static final String EXTRA_ID = "chargeGame", EXTRA_URL = "chargeGameUrl", EXTRA_SUPPLIES = "chargeSupplies";
+
+    /** PLY 파티로 연 게임이면 MainActivity가 넣어 준다. 보급품 사용과 닫기를 PLY 서버에 알린다. */
+    static final class PartyLink {
+        final ai.zride.demo.common.RoomClient client;
+        final String roomId, game;
+        PartyLink(ai.zride.demo.common.RoomClient client, String roomId, String game) { this.client = client; this.roomId = roomId; this.game = game; }
+        String path() { return "/api/rooms/" + roomId + "/charge-game"; }
+    }
+    static volatile PartyLink party;
     private static final String TAG = "ZRideCharge";
     private static final int BRIDGE_VERSION = 1;
     // Cloudflare workers.dev 주소. 게임마다 zride-<게임>이라는 Worker로 올라가 있다
@@ -57,6 +66,8 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
     private EvBatteryStateOfChargeListener socListener;
     private volatile ChargeCabin cabin;
     private Integer soc;
+    private Integer supplies; // PLY 파티 보급품. 파티로 연 게임이 아니면 null
+    private PartyLink link;
     private boolean foreground, pageFailed;
     private String gameId, url;
     private volatile String gameOrigin; // 브리지는 이 출처의 페이지에만 답한다
@@ -102,6 +113,26 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
             return true;
         }
 
+        /**
+         * PLY 파티 보급품을 하나 쓴다. PLY 서버에서 차감되면 페이지에 {ok:true, supplies}를 돌려준다.
+         * 결과는 window.__zrideSupply로 간다(games/sdk/zride-car.js의 useSupply).
+         */
+        @JavascriptInterface public void useSupply(String game) {
+            final PartyLink target = link;
+            if (target == null || !target.game.equals(game)) { supplyResult(false, null, "NO_PARTY"); return; }
+            if (!allowed()) { supplyResult(false, null, "NOT_PARKED"); return; }
+            org.json.JSONObject body = new org.json.JSONObject();
+            try { body.put("action", "item").put("game", game); } catch (Exception e) { supplyResult(false, null, "ERROR"); return; }
+            target.client.postApi(target.path(), body, new ai.zride.demo.common.RoomClient.ApiCallback() {
+                public void onResponse(JSONObject value) { main.post(() -> { supplies = value.optInt("supplies", 0); supplyResult(true, supplies, null); signal(true); }); }
+                public void onError(String error) {
+                    String code = error.contains("SUPPLY_REQUIRED") ? "SUPPLY_REQUIRED" : error.contains("CHARGING_STOP_REQUIRED") ? "NOT_AT_STOP"
+                            : error.contains("NO_CHARGE_GAME") ? "NO_PARTY" : "ERROR";
+                    main.post(() -> supplyResult(false, null, code));
+                }
+            });
+        }
+
         /** 게임을 닫고 PLY 화면으로 돌아간다. */
         @JavascriptInterface public void exit() { main.post(ChargeGameActivity.this::finish); }
     }
@@ -117,6 +148,10 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
         // 디버그 시험용: --ez fresh true면 저장된 방을 지우고 새 방으로 연다
         if (debug && getIntent().getBooleanExtra("fresh", false)) android.webkit.WebStorage.getInstance().deleteAllData();
         if (gameId == null || url == null) { finish(); return; }
+        // 파티로 연 게임이면 MainActivity가 넣어 둔 연결을 이 화면이 맡는다
+        PartyLink handed = party;
+        party = null;
+        if (handed != null && handed.game.equals(gameId)) { link = handed; supplies = getIntent().getIntExtra(EXTRA_SUPPLIES, 0); }
         Uri uri = Uri.parse(url);
         gameOrigin = uri.getScheme() + "://" + uri.getAuthority();
         carThread.start();
@@ -169,6 +204,18 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
         web.loadUrl(url);
     }
 
+    private void supplyResult(boolean ok, Integer left, String error) {
+        main.post(() -> {
+            if (web == null) return;
+            try {
+                JSONObject value = new JSONObject().put("ok", ok);
+                if (left != null) value.put("supplies", left);
+                if (error != null) value.put("error", error);
+                web.evaluateJavascript("window.__zrideSupply&&window.__zrideSupply(" + value + ")", null);
+            } catch (Exception e) { Log.w(TAG, "supply: " + e); }
+        });
+    }
+
     private void startBattery() {
         try {
             battery = vehicle.getEvBattery();
@@ -210,7 +257,8 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
                 .put("ux", gate == null ? "UNKNOWN" : gate.ux())
                 .put("speedKmh", speed == null ? JSONObject.NULL : Math.round(speed * 10) / 10.0)
                 .put("visible", foreground)
-                .put("parked", allowed()).toString();
+                .put("parked", allowed())
+                .put("supplies", supplies == null ? JSONObject.NULL : supplies).toString();
             if (!force && json.equals(lastSignal)) return;
             lastSignal = json;
             web.evaluateJavascript("window.__zrideCar&&window.__zrideCar(" + json + ")", null);
@@ -224,6 +272,13 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
         main.removeCallbacksAndMessages(null);
         foreground = false;
         if (cabin != null) car.post(cabin::restore); // 화면을 닫으면 주차 여부와 관계없이 원래대로
+        if (link != null) {
+            // 크루 폰의 입장 링크를 내린다
+            try { link.client.postApi(link.path(), new JSONObject().put("action", "close"), new ai.zride.demo.common.RoomClient.ApiCallback() {
+                public void onResponse(JSONObject value) {}
+                public void onError(String error) { Log.w(TAG, "close: " + error); }
+            }); } catch (Exception ignored) {}
+        }
         carThread.quitSafely();
         if (battery != null && socListener != null) try { battery.unregisterEvBatteryStateOfCharge(socListener); } catch (Exception ignored) {}
         if (gate != null) gate.close();

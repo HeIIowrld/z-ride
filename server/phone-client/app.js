@@ -7,6 +7,11 @@ const coopGames = {
   thief: { title: '전기도둑', objective: '목표 합계에 맞춰 충전하고 도둑을 찾아라.' },
   relay: { title: '충전 릴레이', objective: '그림과 답을 넘겨 처음 단어를 맞혀라.' },
   deadzone: { title: 'DEADZONE', objective: '각자 맡은 방향에서 차량을 지켜라.' },
+  // 충전 게임 4종(밖에 따로 배포, 서버가 크루 입장권을 준다). art는 기존 그림을 빌려 쓴다
+  'power-castle': { title: 'Power Castle', objective: '내 성에 전기를 모으고 남의 성 전기를 끌어와라.', art: 'thief' },
+  'volt-rush': { title: 'Volt Rush', objective: '선을 깔며 가운데 충전기에 먼저 닿아라.', art: 'thief' },
+  'power-tug': { title: 'Power Tug', objective: '폰을 연타해 전기를 우리 팀 배터리로 끌어와라.', art: 'relay' },
+  'charge-relay': { title: '충전 릴레이', objective: '그림과 답을 넘겨 처음 단어를 맞혀라.', art: 'relay' },
 };
 const venuePhases = {
   LOBBY: '대기실', BRIEFING: '역할 확인', CHARGING: '충전 중', CASE: '카드 선택',
@@ -231,6 +236,12 @@ deadzoneLink.target = '_blank';
 deadzoneLink.rel = 'noopener noreferrer';
 deadzoneLink.hidden = true;
 $('journey-place').append(deadzoneLink);
+// 충전 게임 입장권 링크. 크루마다 자기 자리로 바로 들어간다(이름 입력·QR 없음)
+const chargeGameLink = document.createElement('a');
+chargeGameLink.target = '_blank';
+chargeGameLink.rel = 'noopener noreferrer';
+chargeGameLink.hidden = true;
+$('journey-place').append(chargeGameLink);
 
 const routeGame = document.createElement('section');
 routeGame.className = 'panel ply-game-panel';
@@ -790,6 +801,12 @@ function renderJourneyHistory(entries) {
 }
 
 function enterJourneyActivity(spot) {
+  if (spot.activity === 'chargeGame') {
+    if (!room?.chargeGame?.joinUrl) return;
+    chargeGameLink.href = room.chargeGame.joinUrl;
+    chargeGameLink.click();
+    return;
+  }
   if (spot.activity === 'deadzone') {
     if (room?.deadzoneJoinUrl) deadzoneLink.click();
     return;
@@ -803,6 +820,10 @@ function enterJourneyActivity(spot) {
 function journeyActivityCopy(activity) {
   if (activity === 'supply') return ['경로 보급품', '성공 보상 · 공통 아이템 · 보급품 ×1', '도전 열기'];
   if (activity === 'deadzone') return ['정차 게임', coopGames.deadzone.objective, 'DEADZONE 입장'];
+  if (activity === 'chargeGame') {
+    const game = coopGames[room.chargeGame?.game];
+    return ['충전소', game?.objective ?? '', (game?.title ?? '충전 게임') + ' 입장'];
+  }
   const gameName = coopGames[venueStatus.kind]?.title;
   if (venueStatus.game?.phase === 'END') return ['충전소', gameName + '이 끝났어요.', '결과 보기'];
   return venueStatus.game
@@ -822,13 +843,16 @@ function renderJourneyMap() {
   if (supply) points.set(supply.placeId, { ...points.get(supply.placeId), ...supply, activity: 'supply' });
   if (stop) points.set(stop.placeId, { ...points.get(stop.placeId), ...stop, activity: 'charge' });
   const spots = [...points.values()].sort((a, b) => Number(Boolean(b.activity)) - Number(Boolean(a.activity))).slice(0, 10);
-  const next = spots.find(spot => spot.activity)
+  // 차량이 연 충전 게임이 있으면 그 입장권이 먼저다
+  const next = (room.chargeGame?.joinUrl ? { name: coopGames[room.chargeGame.game]?.title ?? '충전 게임', activity: 'chargeGame' } : null)
+    ?? spots.find(spot => spot.activity)
     ?? (room.deadzoneJoinUrl ? { name: 'DEADZONE', activity: 'deadzone' } : null);
   $('journey-next').hidden = !next;
   if (next) {
     const [label, description, action] = journeyActivityCopy(next.activity);
-    const game = next.activity === 'charge' ? venueStatus?.kind : next.activity === 'deadzone' ? 'deadzone' : null;
-    setGameArt($('journey-next'), game);
+    const game = next.activity === 'chargeGame' ? room.chargeGame.game
+      : next.activity === 'charge' ? venueStatus?.kind : next.activity === 'deadzone' ? 'deadzone' : null;
+    setGameArt($('journey-next'), coopGames[game]?.art ?? game);
     $('journey-next-icon').hidden = next.activity !== 'supply';
     $('journey-next-label').textContent = label;
     $('journey-next-name').textContent = coopGames[game]?.title ?? journeySpotName(next);
