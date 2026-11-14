@@ -32,16 +32,9 @@ public final class NavigationRelayService extends Service implements RoomClient.
     public static JSONObject currentState(){return instance==null?null:instance.state;}
     public static JSONObject currentRoom(){return instance==null||instance.client==null||!instance.client.isAuthenticated()?null:instance.room;}
     public static boolean sdkMode(){return instance!=null&&instance.sdkMode;}
-    public static boolean searchPlace(String keyword) {
-        return instance != null && uiForeground && instance.vehicleAllowed
-                && instance.probe != null && instance.probe.searchPlace(keyword);
-    }
     public static void attach(RoomClient c){if(instance!=null)instance.client=c;}
     public static void attach(RoomClient c,JSONObject room){if(instance!=null){instance.client=c;instance.room=room;}}
     public static boolean detach(RoomClient c){if(instance==null||instance.client!=c)return false;c.setListener(instance);return true;}
-    public static void destination(double lat,double lon,String name){if(instance!=null){instance.sdkMode=true;instance.probe.destination(lat,lon,name);}}
-    public static void reroute(){if(instance!=null)instance.probe.reroute();}
-    public static void cancel(){if(instance!=null)instance.probe.cancel();}
     @Override public void onCreate(){super.onCreate();instance=this;
         NotificationManager manager=getSystemService(NotificationManager.class);manager.createNotificationChannel(new NotificationChannel("navigation-relay","차량 내비 상태 연결",NotificationManager.IMPORTANCE_LOW));
         notification=new Notification.Builder(this,"navigation-relay").setContentTitle("차량 내비 상태 연결 중").setContentText("내비 SDK 상태를 현재 파티에 전달합니다.").setSmallIcon(android.R.drawable.ic_menu_mylocation).setOngoing(true).build();
@@ -95,8 +88,11 @@ public final class NavigationRelayService extends Service implements RoomClient.
                     probe.destination(lat,lon,name,new ai.pleos.playground.navi.data.RequestWaypointInfo(
                             viaLat,viaLon,via.getString("name"),
                             ai.pleos.playground.navi.constants.WaypointIndex.FIRST,"","","0",""));
-                } else destination(lat,lon,name);
-            }else if(action.equals("reroute"))reroute();else if(action.equals("cancel"))cancel();else return;lastCommand=id;
+                } else {
+                    sdkMode=true;
+                    probe.destination(lat,lon,name);
+                }
+            }else if(action.equals("reroute"))probe.reroute();else if(action.equals("cancel"))probe.cancel();else return;lastCommand=id;
         }catch(Exception ignored){}
     }
     private void write(String name,JSONObject value){try{File temp=new File(getFilesDir(),name+".tmp");try(FileWriter file=new FileWriter(temp)){file.write(value.toString());}temp.renameTo(new File(getFilesDir(),name));}catch(Exception ignored){}}

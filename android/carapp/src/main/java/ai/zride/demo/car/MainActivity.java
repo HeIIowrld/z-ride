@@ -1,18 +1,14 @@
 package ai.zride.demo.car;
 
 import android.os.Bundle;
-import android.app.Dialog;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import ai.zride.demo.common.DemoActivity;
 import org.json.JSONObject;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import java.io.File;
 import java.io.FileWriter;
@@ -274,9 +270,6 @@ public final class MainActivity extends DemoActivity {
     private Button settingsButton;
     private LinearLayout arcadeToolbar;
     private Button cabinButton;
-    private Button welcomeDestinationButton;
-    private Button destinationToolbarButton;
-    private Dialog destinationDialog;
     private TextView cabinSummary;
     private CabinEffectReadout venueLight, venueFan, deadzoneLight;
     private TextView journeySummary;
@@ -298,9 +291,6 @@ public final class MainActivity extends DemoActivity {
         if (arcadeToolbar != null)
             arcadeToolbar.setVisibility(foreground && localAllowed ? View.VISIBLE : View.GONE);
         if (!localAllowed && cabinDialog != null) cabinDialog.dismiss();
-        if (destinationToolbarButton != null)
-            destinationToolbarButton.setVisibility(connected ? View.VISIBLE : View.GONE);
-        if ((!foreground || !localAllowed) && destinationDialog != null) destinationDialog.dismiss();
         updateArcadeVisibility();
     }
 
@@ -595,7 +585,6 @@ public final class MainActivity extends DemoActivity {
         probe=NavigationRelayService.probe();JSONObject v=NavigationRelayService.vehicle();if(v!=null)applyVehicle(v,NavigationRelayService.vehicleAllowed());
         JSONObject cabin=NavigationRelayService.cabin();if(cabin!=null&&showVehicleDiagnostics())applyExtraDiagnostics(cabin);
         navigationState=NavigationRelayService.currentState();sdkNavigationOwned=NavigationRelayService.sdkMode();
-        updateWelcomeDestination();
         if (routeInProgress() && showMatchOnly) {
             showMatchOnly = false;
             deadzonePolling = false;
@@ -625,119 +614,7 @@ public final class MainActivity extends DemoActivity {
     }
     private void saveRouteReceipt(String command,JSONObject route,String error){try(FileWriter f=new FileWriter(new File(getFilesDir(),"demo-route-result.json"))){f.write(new JSONObject().put("commandId",command).put("route",route==null?JSONObject.NULL:route).put("error",error==null?JSONObject.NULL:error).toString());}catch(Exception ignored){}}
     @Override protected boolean isCar() { return true; }
-    @Override protected void addVehicleWelcomeActions(LinearLayout menu) {
-        welcomeDestinationButton = destinationButton();
-        welcomeDestinationButton.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-        welcomeDestinationButton.setPaddingRelative(dp(20), 0, dp(20), 0);
-        welcomeDestinationButton.setSingleLine();
-        welcomeDestinationButton.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        menu.addView(welcomeDestinationButton, new LinearLayout.LayoutParams(-1, dp(58)));
-    }
-
-    private void updateWelcomeDestination() {
-        if (welcomeDestinationButton == null) return;
-        String state = navigationState == null ? "" : navigationState.optString("status");
-        String name = "";
-        if ("ROUTE_DRIVE".equals(state) || "ROUTE_READY".equals(state)) {
-            if (!navigationState.isNull("destination")) name = navigationState.optString("destination");
-        }
-        String label = name.isEmpty() ? "목적지 설정" : "목적지 · " + name;
-        if (!label.contentEquals(welcomeDestinationButton.getText())) {
-            welcomeDestinationButton.setText(label);
-            welcomeDestinationButton.setContentDescription(name.isEmpty() ? label : label + ", 변경");
-        }
-    }
-
-    private Button destinationButton() {
-        Button button = new Button(this);
-        button.setText("목적지 설정");
-        styleVehicleButton(button, false);
-        button.setOnClickListener(view -> openDestinationSearch());
-        return button;
-    }
-
-    private void openDestinationSearch() {
-        if (!foreground || !localAllowed || destinationDialog != null) return;
-        Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        LinearLayout content = column();
-        content.setPadding(dp(30), dp(23), dp(30), dp(25));
-        content.setBackground(destinationSurface(0xff141924, 0xff383d56, 22));
-        content.setFocusableInTouchMode(true);
-        LinearLayout heading = new LinearLayout(this);
-        heading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = dashboardText(heading, 32, true);
-        title.setText("목적지 검색");
-        title.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1));
-        Button close = new Button(this);
-        close.setText("닫기");
-        styleVehicleButton(close, false);
-        close.setOnClickListener(view -> dialog.dismiss());
-        heading.addView(close, new LinearLayout.LayoutParams(dp(88), dp(54)));
-        content.addView(heading);
-
-        EditText query = new EditText(this);
-        query.setHint("장소 이름 또는 주소");
-        query.setSingleLine(true);
-        query.setTextSize(23);
-        query.setTextColor(0xfff5f7ff);
-        query.setHintTextColor(0xffa7afc5);
-        query.setPaddingRelative(dp(20), 0, dp(20), 0);
-        query.setBackground(destinationSurface(0xff0c101a, 0xff505976, 13));
-        query.setOnFocusChangeListener((view, focused) ->
-                query.setBackground(destinationSurface(0xff0c101a, focused ? 0xffaeb7ff : 0xff505976, 13)));
-        query.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
-        query.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
-        query.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(80)});
-        query.setSaveEnabled(false);
-        LinearLayout.LayoutParams field = new LinearLayout.LayoutParams(-1, dp(64));
-        field.topMargin = dp(19);
-        content.addView(query, field);
-        TextView feedback = dashboardText(content, 16, false);
-        feedback.setTextColor(0xffffb9ac);
-        feedback.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        feedback.setVisibility(View.GONE);
-        Button submit = new Button(this);
-        submit.setText("순정 내비에서 검색");
-        styleVehicleButton(submit);
-        LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(-2, dp(58));
-        action.gravity = Gravity.END;
-        action.topMargin = dp(17);
-        content.addView(submit, action);
-        dialog.setContentView(content);
-        destinationDialog = dialog;
-        dialog.setOnDismissListener(ignored -> destinationDialog = null);
-        dialog.show();
-        Window window = dialog.getWindow();
-        window.setBackgroundDrawableResource(android.R.color.transparent);
-        window.setDimAmount(.62f);
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-                | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
-        window.setLayout(Math.min(dp(680), getWindow().getDecorView().getWidth() - dp(36)), -2);
-        content.requestFocus();
-        Runnable search = () -> {
-            String keyword = query.getText().toString().trim();
-            if (keyword.isEmpty()) {
-                feedback.setText("장소 이름이나 주소를 입력해 주세요.");
-                feedback.setVisibility(View.VISIBLE);
-            } else if (!foreground || !localAllowed) {
-                dialog.dismiss();
-            } else if (NavigationRelayService.searchPlace(keyword)) {
-                dialog.dismiss();
-            } else {
-                feedback.setText("순정 내비에 연결 중이에요. 잠시 후 다시 검색해 주세요.");
-                feedback.setVisibility(View.VISIBLE);
-            }
-        };
-        submit.setOnClickListener(view -> search.run());
-        query.setOnEditorActionListener((view, actionId, event) -> {
-            if (actionId != android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) return false;
-            search.run();
-            return true;
-        });
-    }
-
-    private GradientDrawable destinationSurface(int fill, int border, int radius) {
+    private GradientDrawable seatSurface(int fill, int border, int radius) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(fill);
         drawable.setCornerRadius(dp(radius));
@@ -783,8 +660,6 @@ public final class MainActivity extends DemoActivity {
         styleVehicleButton(cabinButton, false);
         cabinButton.setOnClickListener(view -> openCabinPanel());
         arcadeToolbar.addView(cabinButton, new LinearLayout.LayoutParams(-2, -2));
-        destinationToolbarButton = destinationButton();
-        arcadeToolbar.addView(destinationToolbarButton, new LinearLayout.LayoutParams(-2, -2));
         cabinSummary = new TextView(this);
         cabinSummary.setTextSize(17);
         cabinSummary.setTextColor(0xffc3c9e0);
@@ -1004,8 +879,7 @@ public final class MainActivity extends DemoActivity {
         for (int index = 0; index < SEATS.length; index++) {
             LinearLayout tile = column();
             tile.setPadding(dp(16), dp(10), dp(16), dp(10));
-            GradientDrawable seatSurface = destinationSurface(0xff191f27, 0xff465461, 6);
-            tile.setBackground(seatSurface);
+            tile.setBackground(seatSurface(0xff191f27, 0xff465461, 6));
             LinearLayout.LayoutParams layout = wide ? new LinearLayout.LayoutParams(0, -2, 1)
                     : new LinearLayout.LayoutParams(-1, -2);
             layout.topMargin = dp(8);
@@ -1178,13 +1052,8 @@ public final class MainActivity extends DemoActivity {
     private void addNavigationControls(LinearLayout container){
         navigationLabel=new TextView(this);navigationLabel.setText("Pleos Navi SDK 연결 대기");container.addView(navigationLabel);
         Button permission=new Button(this);permission.setText("내비 SDK 권한 요청");permission.setOnClickListener(v->requestPermissions(new String[]{"pleos.car.permission.NAVI_ROUTE","pleos.car.permission.NAVI_ROUTE_SEARCH","android.permission.ACCESS_FINE_LOCATION","android.permission.ACCESS_COARSE_LOCATION"},102));container.addView(permission);
-        String[] names={"여의도 동쪽 목적지 (실제 내비)","여의도 서쪽 목적지 (실제 내비)"};
-        for(int n=0;n<2;n++){final int index=n;Button b=new Button(this);b.setText(names[n]);b.setOnClickListener(v->{if(localAllowed){NavigationRelayService.destination(index==0?37.532:37.529,index==0?126.932:126.910,names[index]);}});container.addView(b);}
-        Button reroute=new Button(this);reroute.setText("실제 내비 재탐색");reroute.setOnClickListener(v->{if(localAllowed)NavigationRelayService.reroute();});container.addView(reroute);
-        Button cancel=new Button(this);cancel.setText("실제 내비 안내 취소");cancel.setOnClickListener(v->{if(localAllowed)NavigationRelayService.cancel();});container.addView(cancel);
     }
     @Override protected void onVehicleForegroundChanged(boolean value){
-        if (!value && destinationDialog != null) destinationDialog.dismiss();
         NavigationRelayService.setUiForeground(value);
         NavigationRelayService.watchCabin(value ? this::updateCabinPanel : null);
         updateArcadeVisibility();
