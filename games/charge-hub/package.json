@@ -1,0 +1,14 @@
+{
+  "name": "zride-charge-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "충전소 게임 모음 첫 화면. 게임 카드에서 큰 화면 방 만들기와 폰 참가로 이어 준다",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
