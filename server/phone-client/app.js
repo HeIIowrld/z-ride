@@ -97,7 +97,7 @@ function connect() {
     if (message.type === 'auth.ok') {
       memberId = message.memberId;
       retry = 0;
-      status('같은 방에 연결됨', 'live');
+      status('크루 상태 확인 중…');
       if (['현재 파티에 연결 중…', '다시 연결하는 중…'].includes($('action-result').textContent)) result('');
       render();
     }
@@ -404,20 +404,34 @@ const lobbySeats = [
 
 function updateVenueRoster(roster, state) {
   const players = new Map(state.players.map(player => [player.id, player]));
-  roster.replaceChildren(...lobbySeats.map(([seatId, label]) => {
-    const member = room.members.find(member => member.seat === seatId);
+  const lineup = lobbySeats.map(([seatId, label]) => {
+    const member = room?.members?.find(member => member.seat === seatId && member.seatEvidence !== 'EMPTY');
     const player = players.get(member?.memberId);
     const connected = member?.connected && member.approved && member.seatEvidence !== 'EMPTY';
+    const ready = state.phase === 'BRIEFING' && player?.done;
+    const text = !member ? '빈 자리' : !member.approved ? '승인 대기' : !connected ? '연결 끊김'
+      : !player ? '미참가' : ready ? '✓ 준비 완료' : state.phase === 'BRIEFING' ? '준비 중' : '합류 완료';
+    return { seatId, label, name: player?.name ?? member?.nickname ?? '—',
+      own: !!player && player.id === state.me, text, ready, connected };
+  });
+  const signature = JSON.stringify(lineup);
+  if (roster.dataset.lineup === signature) return;
+  roster.dataset.lineup = signature;
+  roster.replaceChildren(...lineup.map(({ seatId, label, name, own, text, ready, connected }) => {
     const row = document.createElement('li');
-    row.classList.toggle('own-seat', player?.id === state.me);
+    row.className = 'crew-position';
+    row.dataset.seat = seatId;
+    row.classList.toggle('own-seat', own);
     const seat = document.createElement('small');
     seat.textContent = label;
-    const name = document.createElement('strong');
-    name.textContent = player ? player.name + (player.id === state.me ? ' (나)' : '') : '—';
+    const portrait = document.createElement('i');
+    portrait.setAttribute('aria-hidden', 'true');
+    const nickname = document.createElement('strong');
+    nickname.textContent = name + (own ? ' (나)' : '');
     const status = document.createElement('span');
-    status.dataset.state = !player || !connected ? 'waiting' : player.done ? 'ready' : 'online';
-    status.textContent = !player ? '빈 자리' : !connected ? '연결 대기' : player.done ? '준비 완료' : '접속';
-    row.append(seat, name, status);
+    status.dataset.state = ready ? 'ready' : connected ? 'online' : 'waiting';
+    status.textContent = text;
+    row.append(seat, portrait, nickname, status);
     return row;
   }));
 }
@@ -429,10 +443,12 @@ function showVenue(value) {
   const lobby = ['LOBBY', 'BRIEFING'].includes(state?.phase);
   const key = JSON.stringify([value.kind,state?.phase,state?.caseNo,state?.round,state?.step,
     state?.submitted,state?.players?.find(p=>p.id===state?.me)?.done,state?.reveal?.book,
-    state?.reveal?.shown,state?.result?.saved,value.paused,value.stop?.placeId]);
+    state?.reveal?.shown,state?.result?.saved,state?.winner,state?.nextAt,
+    state?.family?.success,state?.family?.total,value.paused,value.stop?.placeId]);
   venuePanel.hidden = !state && !value.paused && !value.stop;
   venuePanel.dataset.game = value.kind || '';
   venuePanel.classList.toggle('venue-lobby', lobby);
+  venuePanel.classList.toggle('venue-finale', ['ROUND_END', 'END'].includes(state?.phase));
   const supplyText = '파티 보급품 ' + value.supplies + '개';
   if (key === venueSignature) {
     const count = venuePanel.querySelector('.venue-supply-count');
@@ -461,8 +477,8 @@ function showVenue(value) {
     objective.className = 'venue-objective';
     objective.textContent = game.objective;
     header.append(objective);
-    setGameArt(header, value.kind);
   }
+  if (lobby || ['ROUND_END', 'END'].includes(state?.phase)) setGameArt(header, value.kind);
   venuePanel.append(header);
   const info = document.createElement('p');
   info.className = 'game-status';
@@ -557,7 +573,12 @@ function showVenue(value) {
     }
   } else if (['ROUND_END', 'END'].includes(state.phase)) {
     info.textContent = '크루 전달 성공 ' + state.family.success + ' / ' + state.family.total;
-    if (state.phase === 'ROUND_END') info.textContent += ' · 차량에서 다음 진행 대기';
+    if (state.phase === 'ROUND_END') {
+      const waiting = document.createElement('p');
+      waiting.className = 'subtle';
+      waiting.textContent = '차량에서 다음 라운드를 진행할 때까지 기다려 주세요.';
+      venuePanel.append(waiting);
+    }
   }
   if (state.phase === 'END') {
     const back = document.createElement('button');
@@ -581,6 +602,9 @@ let journeyMap;
 let routeFeedback = '';
 let selectedPinGroup = [];
 let historySignature;
+const crewBagView = $('journey-bag-view');
+let crewBag;
+let openingCrewBag;
 const spotTypes = { CHARGER: '충전소', PARKING: '주차장', FUEL_STATION: '주유소', ATTRACTION: '명소' };
 const pickupTime = new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric' });
 
@@ -595,8 +619,7 @@ function showJourney(view) {
   $('journey-game').hidden = view === 'map';
   $('journey-game').dataset.view = view;
   $('journey-party').hidden = view !== 'map';
-  $('journey-bag-view').hidden = view !== 'bag';
-  if (view !== 'bag') $('journey-bag-view').replaceChildren();
+  crewBagView.hidden = view !== 'bag';
   routeGame.hidden = view !== 'supply';
   if (view !== 'drive') closeDriveGame();
   if (view === 'map') {
@@ -609,30 +632,28 @@ $('journey-back').onclick = () => {
   $('journey-map').scrollIntoView({ block: 'start' });
 };
 
-$('journey-bag').onclick = () => {
-  const frame = document.createElement('iframe');
-  frame.title = '아이템 가방';
-  frame.src = new URL('bag.html?journey=1', driveAssets).href;
-  frame.addEventListener('load', renderCrewBag);
-  $('journey-bag-view').replaceChildren(frame);
+$('journey-bag').onclick = async () => {
   showJourney('bag');
   $('journey-game').scrollIntoView({ block: 'start' });
+  if (!openingCrewBag) {
+    const cards = crewBagView.querySelector('.loot-cards');
+    openingCrewBag = import(new URL('shared/bag.js', driveAssets))
+      .then(({ createBag }) => createBag(crewBagView.querySelector('nav'), cards, true))
+      .then(update => { crewBag = update; })
+      .catch(() => {
+        cards.firstElementChild.textContent = '가방을 열지 못했어요. 지도로 돌아갔다가 다시 열어 주세요.';
+        openingCrewBag = null;
+      });
+  }
+  await openingCrewBag;
+  renderCrewBag();
 };
 
 function renderCrewBag() {
-  const frame = $('journey-bag-view').firstElementChild;
-  if (journeyView !== 'bag' || !ownMember()?.approved || waitingForApprovedTicket || !frame) return;
-  frame.contentWindow?.postMessage({
-    type: 'ply:crew-inventory',
-    inventory: room.collection?.inventory ?? {},
-  }, driveAssets.origin);
+  if (journeyView !== 'bag' || !ownMember()?.approved || waitingForApprovedTicket || !crewBag) return;
+  const { supplies, ...items } = room.collection?.inventory ?? {};
+  crewBag({ ...items, supply: supplies });
 }
-
-window.addEventListener('message', event => {
-  const frame = $('journey-bag-view').firstElementChild;
-  if (event.origin === driveAssets.origin && event.source === frame?.contentWindow &&
-      event.data?.type === 'ply:crew-bag-ready') renderCrewBag();
-});
 
 const driveTitles = {
   'license-quiz': '운전면허 퀴즈',
@@ -932,6 +953,7 @@ function render() {
   $('my-name').textContent = me?.nickname || $('nickname').value;
   $('my-seat').textContent = seats[me?.seat] || '자리 확인 중';
   const approved = me?.approved === true && !waitingForApprovedTicket;
+  if (online() && me) status(approved ? '크루 합류 완료' : '승인 대기', approved ? 'live' : 'pending');
   $('leave-button').textContent=approved?'파티 탈퇴':'참가 요청 취소';
   $('pending-panel').hidden = approved; $('approved-content').hidden = !approved;
   if (!approved) return;

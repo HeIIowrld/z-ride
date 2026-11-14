@@ -41,7 +41,7 @@ public final class MainActivity extends DemoActivity {
     private View arcadeViewport;
     private LinearLayout venueRound, venueCover, venueSeats;
     private TextView venuePhase, venueLabel, venueLobbyDetail;
-    private boolean venueLobbyArt;
+    private boolean venueResultArt;
     private TextView venueDetail;
     private TextView venueInstruction;
     private Button venueStart, venueNext, venueItem, venueReturn;
@@ -98,12 +98,13 @@ public final class MainActivity extends DemoActivity {
         if (!venueVisible) return;
         venueReturn.setVisibility(ended ? View.VISIBLE : View.GONE);
         boolean lobby = "LOBBY".equals(phase) || "BRIEFING".equals(phase);
-        venueSeats.setVisibility(lobby ? View.VISIBLE : View.GONE);
-        if (lobby) updateSeats(venueSeats, game, "BRIEFING".equals(phase));
+        boolean turns = java.util.Arrays.asList("PLAY", "CASE", "VOTE").contains(phase);
+        venueSeats.setVisibility(lobby || turns ? View.VISIBLE : View.GONE);
+        if (lobby || turns) updateSeats(venueSeats, game, phase);
         venueStart.setVisibility("LOBBY".equals(phase) ? View.VISIBLE : View.GONE);
         venueStart.setEnabled(approvedPassengers() >= 2 && !venuePending);
-        venuePhase.setText("BRIEFING".equals(phase) ? "역할 확인" : "대기실");
-        venuePhase.setVisibility(lobby ? View.VISIBLE : View.GONE);
+        venuePhase.setText(venuePhaseName(phase));
+        venuePhase.setVisibility(game == null ? View.GONE : View.VISIBLE);
         boolean next = java.util.Arrays.asList("RESULT","TALK","VERDICT","REVEAL","ROUND_END").contains(phase);
         venueNext.setVisibility(next ? android.view.View.VISIBLE : android.view.View.GONE);
         switch (phase) {
@@ -118,13 +119,16 @@ public final class MainActivity extends DemoActivity {
                 ? android.view.View.VISIBLE : android.view.View.GONE);
         boolean thief = "thief".equals(response.optString("kind"));
         Game selected = thief ? Game.THIEF : Game.RELAY;
-        if (game != null && (venueCoverGame != selected || venueLobbyArt != lobby)) {
-            venueCoverGame = selected;
-            venueLobbyArt = lobby;
-            venueCover.setBackground(lobby ? new GameCover(this, selected.art, selected.accent, dp(12), GameCover.Layout.GAME) : null);
-            if (!lobby) styleVehicleCard(venueCover, PLY_SURFACE);
+        Game artwork = game == null ? null : selected;
+        boolean result = ended || "ROUND_END".equals(phase);
+        if (venueCoverGame != artwork || venueResultArt != result) {
+            venueCoverGame = artwork;
+            venueResultArt = result;
+            if (artwork == null) styleVehicleCard(venueCover, PLY_SURFACE);
+            else venueCover.setBackground(new GameCover(this, artwork.art, artwork.accent, dp(12), GameCover.Layout.GAME));
             resizeVenueCover();
         }
+        venuePhase.setTextColor(game == null ? PLY_MINT : selected.accent);
         venueItem.setText(thief ? "비상 퓨즈 사용 · 파티 보급품 1개" : "15초 연장 · 파티 보급품 1개");
         String placeName = stop.optString("name", "충전소");
         if (placeName.startsWith("이름 미등록")) placeName = "충전소";
@@ -143,25 +147,25 @@ public final class MainActivity extends DemoActivity {
                 case "VERDICT": stage = "투표 결과"; break;
                 case "PLAY":
                     long remaining = Math.max(0, (game.optLong("deadline") - System.currentTimeMillis() + 999) / 1000);
-                    stage = "릴레이 " + game.optInt("round") + "라운드 · " + remaining + "초";
+                    stage = ("DRAW".equals(game.optString("stepKind")) ? "그림 그리기" : "정답 맞히기")
+                            + "  ·  " + remaining + "초";
                     break;
                 case "REVEAL":
                     JSONObject reveal = game.optJSONObject("reveal");
                     stage = reveal == null ? "스케치북 공개" : "스케치북 공개 · " + reveal.optString("word");
                     break;
-                case "ROUND_END": stage = "라운드 완료"; break;
+                case "ROUND_END": stage = relayScore(game); break;
                 case "END":
-                    JSONObject score = game.optJSONObject("family");
-                    stage = thief ? ("FAMILY".equals(game.optString("winner")) ? "가족 승리" : "도둑 승리")
-                            : score == null ? "경기 종료" : "전달 성공 " + score.optInt("success") + " / " + score.optInt("total");
+                    stage = thief ? winnerTitle(game.optString("winner")) : relayScore(game);
                     break;
                 default: stage = "진행 중";
             }
-            detail = stage + " · 보급품 " + response.optInt("supplies") + "개";
+            detail = stage;
         }
-        venueLobbyDetail.setText(detail);
+        String supplies = "파티 보급품 " + response.optInt("supplies") + "개";
+        venueLobbyDetail.setText(lobby ? detail + " · " + supplies : supplies);
         venueDetail.setText(detail);
-        venueLobbyDetail.setVisibility(lobby ? View.VISIBLE : View.GONE);
+        venueLobbyDetail.setVisibility(game == null ? View.GONE : View.VISIBLE);
         venueDetail.setVisibility(game == null || lobby ? View.GONE : View.VISIBLE);
         String instruction;
         switch (phase) {
@@ -172,8 +176,11 @@ public final class MainActivity extends DemoActivity {
             case "CASE": instruction = "폰에서 카드 선택"; break;
             case "TALK": instruction = "함께 이야기한 뒤 차량에서 투표를 열어 주세요."; break;
             case "VOTE": instruction = "동승자는 폰에서 투표해 주세요."; break;
-            case "PLAY": instruction = "폰에서 그림 또는 정답 제출"; break;
-            case "END": instruction = ""; break;
+            case "PLAY":
+                instruction = game.optInt("round") + " / " + game.optInt("rounds") + " 라운드"
+                        + "  ·  " + (game.optInt("step") + 1) + " / " + game.optInt("steps") + "번째 순서";
+                break;
+            case "END": instruction = thief ? "정전 " + game.optInt("blackouts") + "회" : ""; break;
             default: instruction = "";
         }
         venueInstruction.setText(instruction);
@@ -182,6 +189,38 @@ public final class MainActivity extends DemoActivity {
             venueLight.clear();
             venueFan.clear();
         }
+    }
+
+    private String venuePhaseName(String phase) {
+        switch (phase) {
+            case "LOBBY": return "대기실";
+            case "BRIEFING": return "역할 확인";
+            case "CHARGING": return "충전 중";
+            case "CASE": return "카드 선택";
+            case "RESULT": return "사건 결과";
+            case "TALK": return "토론";
+            case "VOTE": return "투표";
+            case "VERDICT": return "투표 결과";
+            case "PLAY": return "릴레이 진행";
+            case "REVEAL": return "스케치북 공개";
+            case "ROUND_END": return "라운드 종료";
+            case "END": return "경기 결과";
+            default: return "";
+        }
+    }
+
+    private String winnerTitle(String winner) {
+        switch (winner) {
+            case "FAMILY": return "가족 승리";
+            case "THIEF": return "도둑 승리";
+            case "CAR": return "차량 승리";
+            default: return "경기 종료";
+        }
+    }
+
+    private String relayScore(JSONObject game) {
+        JSONObject score = game.optJSONObject("family");
+        return score == null ? "경기 종료" : "크루 전달 성공 " + score.optInt("success") + " / " + score.optInt("total");
     }
 
     private Button venueControl(String text, String action, String kind) {
@@ -203,11 +242,12 @@ public final class MainActivity extends DemoActivity {
         arcadeViewport.addOnLayoutChangeListener((view, left, top, right, bottom,
                                                    oldLeft, oldTop, oldRight, oldBottom) -> resizeVenueCover());
         venueCover.setPadding(dp(28), dp(12), dp(24), dp(12));
+        styleVehicleCard(venueCover, PLY_SURFACE);
         venueRound.addView(venueCover);
         venuePhase = dashboardText(venueCover, 16, true);
         venueLabel = dashboardText(venueCover, 40, true);
-        venueLobbyDetail = dashboardText(venueCover, 20, false);
         venueDetail = dashboardText(venueCover, 32, true);
+        venueLobbyDetail = dashboardText(venueCover, 20, false);
         venueLight = new CabinEffectReadout(venueRound, "앰비언트 밝기", "%");
         venueFan = new CabinEffectReadout(venueRound, "송풍", "단");
         venueSeats = seatStrip(venueRound);
@@ -220,8 +260,8 @@ public final class MainActivity extends DemoActivity {
         venueRound.addView(venueNext);
         venueRound.addView(venueItem);
         venueReturn = new Button(this);
-        venueReturn.setText("‹  로비로 돌아가기");
-        styleVehicleButton(venueReturn, false);
+        venueReturn.setText("크루 로비로 돌아가기");
+        styleVehicleButton(venueReturn);
         venueReturn.setOnClickListener(view -> {
             if (room == null || !venueVisible) return;
             dismissedVenueResultRoom = room.optString("roomId");
@@ -235,7 +275,10 @@ public final class MainActivity extends DemoActivity {
     }
 
     private void resizeVenueCover() {
-        int height = venueLobbyArt ? Math.max(dp(204), Math.min(dp(340), arcadeViewport.getHeight() / 3)) : dp(112);
+        int viewportHeight = arcadeViewport.getHeight();
+        int artHeight = venueResultArt ? viewportHeight / 2 : viewportHeight * 2 / 5;
+        int height = venueCoverGame == null ? dp(112) : Math.max(dp(204),
+                Math.min(dp(venueResultArt ? 480 : 340), artHeight));
         if (venueCover.getMinimumHeight() != height) venueCover.setMinimumHeight(height);
     }
 
@@ -297,7 +340,7 @@ public final class MainActivity extends DemoActivity {
         if (showVenue || showDeadzone) hideVehicleRoundControls();
         if (!showVehicleDiagnostics() && connected) status.setVisibility(View.GONE);
         deadzoneStart.setEnabled(showDeadzone && !deadzonePending && approvedPassengers() > 0);
-        if (showDeadzone && !deadzonePolling) updateSeats(deadzoneSeats, null, false);
+        if (showDeadzone && !deadzonePolling) updateSeats(deadzoneSeats, null, "LOBBY");
         cabinSummary.setVisibility(showVenue || showDeadzone ? View.VISIBLE : View.INVISIBLE);
         updateJourneySummary();
     }
@@ -840,16 +883,7 @@ public final class MainActivity extends DemoActivity {
         cabinDialog.setOnDismissListener(dialog -> { cabinPanel = null; cabinDialog = null; });
         updateCabinPanel();
         cabinDialog.show();
-        if (cabinDialog.getWindow() != null) {
-            android.graphics.drawable.GradientDrawable surface = new android.graphics.drawable.GradientDrawable();
-            surface.setColor(PLY_SURFACE);
-            surface.setCornerRadius(dp(20));
-            cabinDialog.getWindow().setBackgroundDrawable(surface);
-            cabinDialog.getWindow().setDimAmount(.38f);
-            int width = Math.min(dp(880), arcadeViewport.getWidth() - dp(32));
-            cabinDialog.getWindow().setLayout(width, -2);
-        }
-        cabinDialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(0xffb5bcff);
+        styleLobbyDialog(cabinDialog, 880);
     }
 
     private void updateCabinPanel() {
@@ -870,6 +904,12 @@ public final class MainActivity extends DemoActivity {
         content.setPadding(dp(24), dp(12), dp(24), dp(16));
         android.widget.Switch lights = new android.widget.Switch(this);
         lights.setText("차량 조명·송풍 효과");
+        lights.setTextColor(0xfff5f7ff);
+        int[][] toggleStates = {{android.R.attr.state_checked}, {}};
+        lights.setThumbTintList(new android.content.res.ColorStateList(toggleStates,
+                new int[]{PLY_MINT, 0xffb7c4dc}));
+        lights.setTrackTintList(new android.content.res.ColorStateList(toggleStates,
+                new int[]{0xff326961, 0xff46526b}));
         lights.setTextSize(20);
         lights.setMinHeight(dp(56));
         lights.setChecked(ambientEnabled);
@@ -890,6 +930,16 @@ public final class MainActivity extends DemoActivity {
                 .create();
         settingsDialog.setOnDismissListener(dialog -> settingsDialog = null);
         settingsDialog.show();
+        styleLobbyDialog(settingsDialog, 700);
+    }
+
+    private void styleLobbyDialog(android.app.AlertDialog dialog, int maxWidth) {
+        android.view.Window window = dialog.getWindow();
+        if (window == null) return;
+        window.setBackgroundDrawable(seatSurface(PLY_SURFACE, PLY_BORDER, 16));
+        window.setDimAmount(.55f);
+        window.setLayout(Math.min(dp(maxWidth), Math.max(dp(240), arcadeViewport.getWidth() - dp(32))), -2);
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(PLY_MINT);
     }
 
     private void resetGameEffects() {
@@ -932,7 +982,7 @@ public final class MainActivity extends DemoActivity {
         for (int index = 0; index < SEATS.length; index++) {
             LinearLayout tile = column();
             tile.setPadding(dp(16), dp(10), dp(16), dp(10));
-            tile.setBackground(seatSurface(0xff191f27, 0xff465461, 6));
+            tile.setBackground(seatSurface(0xff1a233a, SEAT_ACCENTS[index], 8));
             LinearLayout.LayoutParams layout = wide ? new LinearLayout.LayoutParams(0, -2, 1)
                     : new LinearLayout.LayoutParams(-1, -2);
             layout.topMargin = dp(8);
@@ -941,7 +991,7 @@ public final class MainActivity extends DemoActivity {
             TextView seat = dashboardText(tile, 15, true);
             seat.setText(SEAT_NAMES[index]);
             seat.setTextColor(SEAT_ACCENTS[index]);
-            TextView label = dashboardText(tile, 19, true);
+            TextView label = dashboardText(tile, 23, true);
             label.setSingleLine(true);
             label.setEllipsize(android.text.TextUtils.TruncateAt.END);
             dashboardText(tile, 15, false);
@@ -960,7 +1010,7 @@ public final class MainActivity extends DemoActivity {
         return null;
     }
 
-    private void updateSeats(LinearLayout seats, JSONObject game, boolean briefing) {
+    private void updateSeats(LinearLayout seats, JSONObject game, String phase) {
         for (int index = 0; index < SEATS.length; index++) {
             TextView label = (TextView) ((LinearLayout) seats.getChildAt(index)).getChildAt(1);
             JSONObject member = seatMember(SEATS[index]);
@@ -974,8 +1024,11 @@ public final class MainActivity extends DemoActivity {
                 else if (!member.optBoolean("connected")) state = "연결 끊김";
                 else if (game != null && player == null) state = "미참가";
                 else {
-                    state = briefing ? (player != null && player.optBoolean("done") ? "준비 완료" : "준비 중") : "연결됨";
-                    color = SEAT_ACCENTS[index];
+                    boolean done = player != null && player.optBoolean("done");
+                    if ("BRIEFING".equals(phase)) state = done ? "✓ 준비 완료" : "준비 중";
+                    else if ("LOBBY".equals(phase)) state = "합류 완료";
+                    else state = done ? "✓ 제출 완료" : "플레이 중";
+                    color = done ? PLY_MINT : SEAT_ACCENTS[index];
                 }
                 message = member.optString("nickname");
             }

@@ -201,7 +201,8 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         roomLabel=text("ROOM —",18);
         if (!cleanVehicleUi()) root.addView(roomLabel);
         if(isCar()){
-            inviteButton=button(cleanVehicleUi()?"QR 갱신":"폰 초대 QR 발급",v->requestPhoneInvite());
+            inviteButton=button(cleanVehicleUi()?"새 QR 받기":"폰 초대 QR 발급",v->requestPhoneInvite());
+            if (cleanVehicleUi()) styleVehicleButton(inviteButton, false);
             inviteInfo=text(cleanVehicleUi()?"":"서버 연결 후 주차 상태에서 QR을 발급합니다 · 폰 로그인 후 차량 승인",14);
             inviteQr=new ImageView(this);inviteQr.setContentDescription("동승자 초대 QR");inviteQr.setBackgroundColor(Color.WHITE);inviteQr.setVisibility(View.GONE);
             if (cleanVehicleUi()) {
