@@ -1,11 +1,11 @@
 [
   {
-    "id": "electric-thief",
-    "title": "전기 도둑",
+    "id": "power-castle",
+    "title": "Power Castle",
     "scene": "CHARGING",
     "players": "2–4명",
-    "summary": "충전하는 동안 숨은 전기 도둑을 찾아요",
-    "url": "http://10.0.2.2:8210/"
+    "summary": "내 성에 전기를 모으고 남의 성 전기를 끌어와요",
+    "url": "http://10.0.2.2:8240/"
   },
   {
     "id": "charge-relay",
