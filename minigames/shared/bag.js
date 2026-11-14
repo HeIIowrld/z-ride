@@ -83,4 +83,3 @@ if (standalone) {
   const update = await createBag(document.querySelector('#tabs'), document.querySelector('#cards'));
   update(getInventory());
 }
-
