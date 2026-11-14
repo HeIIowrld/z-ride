@@ -79,6 +79,12 @@ test('native navigation broadcasts only to approved party members, revokes demo 
  assert.equal(collected.supplies,1);
  await until(()=>p.room.routeSupplyAvailable===false);
  assert.equal(p.room.routeSupplySpot,null);
+ assert.equal(p.room.collection.routeSupplyHistory.length,1);
+ assert.equal(p.room.collection.routeSupplyHistory[0].placeId,nextSpot.placeId);
+ assert.equal(p.room.collection.routeSupplyHistory[0].placeName,nextSpot.name);
+ assert.equal(saved.rooms.find(r=>r.roomId===room.roomId).collection.routeSupplyHistory.length,1);
+ const retry=await api('/api/world/route-supply',{passengerConfirmed:true,challengeId:next.challengeId,sequence:next.sequence},phone.token);
+ assert.deepEqual(retry,{supplies:1,replayed:true});
  await car.send({type:'navigation.report',reportSeq:7,navigation:{...sample,routeRevision:6,status:'ROUTE_DRIVE'}});
  await until(()=>p.room.navigation.nativeRouteRevision===6);
  assert.equal(p.room.routeSupplySpot,null);

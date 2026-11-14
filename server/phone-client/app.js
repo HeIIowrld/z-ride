@@ -167,6 +167,9 @@ function useTicket(joined) {
   selectedSpot = null;
   mapSignature = '';
   routeFeedback = '';
+  selectedPinGroup = [];
+  historySignature = '';
+  $('journey-history').open = false;
   activeRouteChallenge = null;
   routeRequestPending = false;
   routeButtons.replaceChildren();
@@ -564,7 +567,10 @@ let lastMapFetch = null;
 let mapSignature = '';
 let journeyMap;
 let routeFeedback = '';
+let selectedPinGroup = [];
+let historySignature;
 const spotTypes = { CHARGER: '충전소', PARKING: '주차장', FUEL_STATION: '주유소', ATTRACTION: '명소' };
+const pickupTime = new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric' });
 
 function journeySpotName(spot) {
   if (spot.name && !spot.name.startsWith('이름 미등록')) return spot.name;
@@ -696,6 +702,60 @@ function selectJourneySpot(spot) {
   renderJourneyMap();
 }
 
+function selectJourneyPins(spots) {
+  selectedPinGroup = spots.length > 1 ? spots.map(spot => spot.placeId) : [];
+  const selected = spots.length === 1 ? spots[0] : spots.find(spot => spot.placeId === selectedSpot?.placeId);
+  selectedSpot = selected ?? null;
+  renderJourneyMap();
+  const target = selectedPinGroup.length ? $('journey-pin-group')
+    : $('journey-place').hidden ? $('journey-next') : $('journey-place');
+  target.scrollIntoView({ block: 'nearest' });
+}
+
+$('journey-pin-group-close').onclick = () => {
+  selectedPinGroup = [];
+  renderJourneyMap();
+};
+
+function journeySpotButton(spot) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.classList.toggle('spot-active', Boolean(spot.activity));
+  if (spot.activity === 'supply') button.append(document.createElement('ply-supply-icon'));
+  const copy = document.createElement('span');
+  const name = document.createElement('strong');
+  name.textContent = spot.label;
+  const detail = document.createElement('small');
+  detail.textContent = spot.detail;
+  copy.append(name, detail);
+  button.append(copy);
+  button.setAttribute('aria-pressed', String(selectedSpot?.placeId === spot.placeId));
+  button.onclick = () => {
+    selectJourneySpot(spot);
+    ($('journey-place').hidden ? $('journey-next') : $('journey-place')).scrollIntoView({ block: 'nearest' });
+  };
+  return button;
+}
+
+function renderJourneyHistory(entries) {
+  const signature = JSON.stringify(entries);
+  if (signature === historySignature) return;
+  historySignature = signature;
+  $('journey-history').hidden = entries.length === 0;
+  $('journey-history-items').replaceChildren(...entries.map(entry => {
+    const row = document.createElement('li');
+    row.className = 'item-inline';
+    const copy = document.createElement('span');
+    const amount = document.createElement('strong');
+    amount.textContent = '보급품 +1';
+    const place = document.createElement('small');
+    place.textContent = journeySpotName({ name: entry.placeName }) + ' · ' + pickupTime.format(entry.at);
+    copy.append(amount, place);
+    row.append(document.createElement('ply-supply-icon'), copy);
+    return row;
+  }));
+}
+
 function enterJourneyActivity(spot) {
   if (spot.activity === 'deadzone') {
     if (room?.deadzoneJoinUrl) deadzoneLink.click();
@@ -708,7 +768,7 @@ function enterJourneyActivity(spot) {
 }
 
 function journeyActivityCopy(activity) {
-  if (activity === 'supply') return ['경로 보급품', '성공 보상 · 파티 보급품 +1', '도전 열기'];
+  if (activity === 'supply') return ['경로 보급품', '성공 보상 · 공통 아이템 · 보급품 ×1', '도전 열기'];
   if (activity === 'deadzone') return ['정차 게임', coopGames.deadzone.objective, 'DEADZONE 입장'];
   const gameName = coopGames[venueStatus.kind]?.title;
   if (venueStatus.game?.phase === 'END') return ['충전소', gameName + '이 끝났어요.', '결과 보기'];
@@ -724,6 +784,8 @@ function renderJourneyMap() {
   const supply = room.routeSupplySpot;
   const stop = room.vehicle?.playAllowed && venueStatus?.stop;
   const points = new Map((position ? nearbySpots : []).map(spot => [spot.placeId, spot]));
+  const history = room.collection?.routeSupplyHistory ?? [];
+  const collected = new Set(history.map(entry => entry.placeId));
   if (supply) points.set(supply.placeId, { ...points.get(supply.placeId), ...supply, activity: 'supply' });
   if (stop) points.set(stop.placeId, { ...points.get(stop.placeId), ...stop, activity: 'charge' });
   const spots = [...points.values()].sort((a, b) => Number(Boolean(b.activity)) - Number(Boolean(a.activity))).slice(0, 10);
@@ -751,30 +813,26 @@ function renderJourneyMap() {
   const mapMessage = routeFeedback || (!position ? '차량 위치 대기 중' : '');
   if (mapStatus.textContent !== mapMessage) mapStatus.textContent = mapMessage;
   mapStatus.hidden = !mapMessage;
-  const markers = spots.map((spot, index) => ({
+  const markers = spots.map(spot => ({
     ...spot,
-    label: (spot.activity === 'supply' ? '' : (index + 1) + ' · ') + journeySpotName(spot),
+    label: journeySpotName(spot),
+    detail: spot.activity === 'supply' ? '공통 아이템 · 보급품 +1'
+      : spot.activity === 'charge' ? (coopGames[venueStatus?.kind]?.title ?? '충전 게임')
+      : collected.has(spot.placeId) ? '보급품 획득 완료' : (spotTypes[spot.category] ?? '장소'),
   }));
-  const signature = JSON.stringify([markers, selectedSpot?.placeId]);
+  const signature = JSON.stringify([markers, selectedSpot?.placeId, selectedPinGroup]);
   if (signature !== mapSignature) {
     mapSignature = signature;
-    list.replaceChildren(...markers.map(spot => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = spot.label;
-      if (spot.activity === 'supply') {
-        button.classList.add('item-inline');
-        button.prepend(document.createElement('ply-supply-icon'));
-      }
-      button.classList.toggle('spot-active', Boolean(spot.activity));
-      button.setAttribute('aria-pressed', String(selectedSpot?.placeId === spot.placeId));
-      button.onclick = () => selectJourneySpot(spot);
-      return button;
-    }));
+    list.replaceChildren(...markers.map(journeySpotButton));
+    const group = markers.filter(spot => selectedPinGroup.includes(spot.placeId));
+    $('journey-pin-group').hidden = group.length === 0;
+    $('journey-pin-group-title').textContent = '이 지점 주변 · ' + group.length + '곳';
+    $('journey-pin-group-spots').replaceChildren(...group.map(journeySpotButton));
   }
+  renderJourneyHistory(history);
   if (!journeyMap && plot.clientWidth > 0) {
     journeyMap = createJourneyMap(plot, $('journey-recenter'), $('journey-map-tiles'),
-      $('journey-map-retry'), selectJourneySpot);
+      $('journey-map-retry'), selectJourneyPins);
   }
   journeyMap?.update(position, markers, selectedSpot?.placeId);
   const current = selectedSpot && (points.get(selectedSpot.placeId) ?? { ...selectedSpot, activity: null });
@@ -792,7 +850,8 @@ function renderJourneyMap() {
     enter.textContent = action;
     enter.onclick = () => enterJourneyActivity(current);
   } else {
-    status.textContent = [spotTypes[current.category], Number.isFinite(current.distanceM) ? current.distanceM + 'm' : '', '대기 중'].filter(Boolean).join(' · ');
+    status.textContent = [spotTypes[current.category], Number.isFinite(current.distanceM) ? current.distanceM + 'm' : '',
+      collected.has(current.placeId) ? '크루가 보급품 1개 획득' : '지금 획득 가능한 보급품 없음'].filter(Boolean).join(' · ');
   }
 }
 

@@ -10966,6 +10966,20 @@
               }
             ]
           },
+          "routeSupplyHistory": {
+            "description": "Newest first crew pickups. Each entry records a successful road spot challenge yielding one common supply.",
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": ["placeId", "placeName", "at"],
+              "properties": {
+                "placeId": { "type": "string" },
+                "placeName": { "type": "string" },
+                "at": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
           "eligibility": {
             "type": "string",
             "enum": [
