@@ -32,9 +32,32 @@
     INVALID_NICKNAME:'닉네임을 1~24자로 입력해 주세요.',
   };
   function error(e) { message(descriptions[e.message] || '요청을 완료하지 못함 · '+(/^[A-Z0-9_]+$/.test(e.message) ? e.message : '연결을 확인해 주세요')); }
+  const seatChoice = $('seat');
+  const positions = $('crew-positions');
+  const seatButtons = [...positions.querySelectorAll('[data-seat]')];
+  function renderSeats() {
+    const available = preview ? (preview.joinable ? preview.availableSeats : []) : null;
+    positions.hidden = !(preview && account) && !legacy;
+    if (available && !available.includes(seatChoice.value)) {
+      seatChoice.selectedIndex = -1;
+    }
+    for (const button of seatButtons) {
+      const open = !available || available.includes(button.dataset.seat);
+      const selected = open && seatChoice.value === button.dataset.seat;
+      button.disabled = !open;
+      button.setAttribute('aria-pressed', String(selected));
+      button.querySelector('span').textContent = selected ? '내 자리' : open ? '빈 자리' : '사용 중';
+    }
+  }
+  seatChoice.selectedIndex = -1;
+  seatChoice.addEventListener('change', () => { renderSeats(); $('form-error').textContent = ''; });
+  for (const button of seatButtons) button.addEventListener('click', () => {
+    seatChoice.value = button.dataset.seat;
+    seatChoice.dispatchEvent(new Event('change'));
+  });
   function render() {
     $('account-signin').hidden = !!account;
-    $('account-status').textContent = account ? `${account.displayName} · ${account.kind === 'GOOGLE' ? 'Google' : '게스트'}${account.activePartyId ? ' · '+(account.activePartyName || '참가 중인 차량') : ''}${account.pendingPartyId ? ' · 새 차량 승인 대기' : ''}` : 'Google 로그인 또는 게스트로 시작한 뒤 차량 QR을 찍어 주세요.';
+    $('account-status').textContent = account ? `${account.displayName} · ${account.kind === 'GOOGLE' ? 'Google' : '게스트'}${account.activePartyId ? ' · '+(account.activePartyName || '참가 중인 차량') : ''}${account.pendingPartyId ? ' · 새 차량 승인 대기' : ''}` : '게스트로 시작한 뒤 바로 합류할 수 있어요.';
     $('guest-button').disabled = busy || !config;
     $('google-start').hidden = account?.kind === 'GOOGLE' || googleReady;
     $('google-start').disabled = busy || !config?.auth?.google?.enabled;
@@ -44,8 +67,8 @@
     $('account-logout').hidden = !account;
     for (const id of ['account-resume','account-cancel','account-logout']) $(id).disabled = busy;
     $('switch-label').hidden = !preview?.requiresVehicleSwitch;
-    $('invite-status').textContent = preview ? `${preview.partyName || '차량 파티'} · 차량 승인 후 참가${preview.requiresVehicleSwitch ? ' · 차량 변경 동의 필요' : ''}` : invite ? 'QR을 확인하는 중…' : '차량 QR을 기다리는 중';
-    if (!config?.auth?.google?.enabled && config && !account) $('account-status').textContent += ' Google은 현재 서버 설정에서 꺼져 있음.';
+    $('invite-status').textContent = preview ? `${preview.partyName || '차량 파티'} · ${preview.joinable ? '차량 승인 후 참가' : '빈자리 없음'}` : invite ? '초대 확인 중…' : '';
+    renderSeats();
   }
   function setAccount(data) { token = data.accountToken; account = data.account; save(); render(); }
   async function refresh() { const data = await api('/api/me'); account = data.account; render(); return account; }
@@ -62,7 +85,8 @@
     legacy = false; $('legacy-fields').hidden = true; $('nickname').required = false; $('join-code').required = false;
     $('legacy-toggle').hidden = true;
     $('login-panel').hidden = false; $('game').hidden = true;
-    $('join-description').textContent = '차량 QR을 확인하고 좌석을 선택해 참가 요청을 보내 주세요.';
+    $('join-description').textContent = '앉은 자리를 선택하면 Pleos로 합류 요청을 보냅니다.';
+    seatChoice.selectedIndex = -1;
     if (config) void checkInvite();
   }
   function ticket(data) { window.dispatchEvent(new CustomEvent('phone:ticket', {detail:data})); }
@@ -127,6 +151,7 @@
     legacy = !legacy; $('legacy-fields').hidden = !legacy;
     $('nickname').required = legacy; $('join-code').required = legacy;
     $('legacy-toggle').textContent = legacy ? 'QR 참가로 돌아가기' : '참가 코드로 입장';
+    renderSeats();
   });
   window.PHONE_ACCOUNT = {
     isAccountMode: () => !legacy,

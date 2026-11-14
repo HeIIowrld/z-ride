@@ -143,7 +143,8 @@ function readInviteFragment() {
   history.replaceState(null,'',location.pathname);
   $('join-code').required = false; $('join-code').closest('label').hidden = true;
   $('access-key').closest('label').hidden = true;
-  $('invite-notice').hidden = false;
+  $('legacy-fields').hidden = false;
+  $('crew-positions').hidden = false;
   $('join-description').textContent = '차량 QR로 연결됩니다. 닉네임과 좌석을 선택해 참가 요청을 보내 주세요.';
   if (credentials) result('이미 참가한 자리로 다시 연결함. 다른 파티에 들어가려면 먼저 탈퇴해 주세요.');
 }
@@ -179,7 +180,14 @@ function useTicket(joined) {
 window.addEventListener('phone:ticket',event=>useTicket(event.detail));
 window.addEventListener('phone:reset',()=>{reset();showLogin();});
 $('join-form').addEventListener('submit', async event => {
-  event.preventDefault(); if (joining) return; joining = true;
+  event.preventDefault();
+  if (joining) return;
+  if (!$('seat').value) {
+    $('form-error').textContent = '앉은 자리를 먼저 골라 주세요.';
+    $('crew-positions').querySelector('[data-seat]:not(:disabled)')?.focus();
+    return;
+  }
+  joining = true;
   $('join-button').disabled = true; $('form-error').textContent = ''; status('참가 요청 중…');
   try {
     let session, joined;

@@ -9,7 +9,7 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(predicate){for(let i=0;i<300;i++){if(predicate())return;await delay(10);}throw new Error('Browser action did not settle');}
 function browser(base,storage=new Map(),hash=''){
   const elements=new Map(),window=new EventTarget(),intervals=new Set();
-  const element=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',checked:false,textContent:'',handlers:{},addEventListener(name,fn){this.handlers[name]=fn;},replaceChildren(){}});return elements.get(id);};
+  const element=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',checked:false,textContent:'',handlers:{},addEventListener(name,fn){this.handlers[name]=fn;},querySelectorAll(){return [];},replaceChildren(){}});return elements.get(id);};
   const location={origin:'https://hyundai.hjpark.net',pathname:'/play',search:'',hash};
   element('guest-button').disabled=true;element('google-start').disabled=true;
   let googleOptions,buttonRendered=false;
