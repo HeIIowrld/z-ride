@@ -173,6 +173,8 @@ SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 
 
 차량은 방 스냅샷의 `deadzoneAvailable`이 `true`일 때 DEADZONE 진입 카드를 표시한다. 서버에 DEADZONE 서비스 주소가 설정된 활성 파티의 차량에 이 값이 전달된다.
 
+동승자 지도는 경로 보급품 핀에 서버가 수집 거리를 계산한 진입 좌표를 사용하고, 충전 게임 핀에 승인된 플레이 구역의 좌표를 사용한다. 위치가 지정되지 않은 DEADZONE 초대는 지도 하단 게임 카드에 표시한다. 여정의 아이템 가방은 승인된 크루의 방 스냅샷에서 재고를 읽으며 `collection.inventory.supplies`를 공통 보급품으로 표시한다.
+
 ## 팀 테스트 접근키와 브라우저 연결
 
 - 서버 CLI: `ZRIDE_TEST_ACCESS_KEY`, 라이브러리: `createDemoServer({testAccessKey})`. 빈 값은 로컬 시험용 공개 게스트 발급이다. 실제 키는 환경 파일로 전달하고 명령행 인수에 넣지 않는다.

@@ -17,13 +17,13 @@
       "path": "/api/rooms/{roomId}/venue-game",
       "auth": "Approved member; host controls opening, start, progression and party supplies",
       "body": {"action": "status/open/start/next/item/ready/play/vote/submit", "kind": "thief or relay for open"},
-      "response": {"stop": "approved charging venue or null", "game": "public host or private passenger view", "supplies": "party count"}
+      "response": {"stop": "approved charging venue with placeId, name and play-zone coordinates, or null", "game": "public host or private passenger view", "supplies": "party count"}
     },
     {
       "method": "POST",
       "path": "/api/world/route-supply",
       "auth": "Approved passenger in Drive near an unclaimed spot, with fresh location and Pleos guidance or an explicit route",
-      "availability": "snapshot.room.routeSupplyAvailable and routeSupplySpot (placeId, name, latitude, longitude) are scoped to the approved passenger",
+      "availability": "snapshot.room.routeSupplyAvailable and routeSupplySpot (placeId, name, category, entrance latitude and longitude) are scoped to the approved passenger",
       "body": {"passengerConfirmed": true, "challengeId": "optional", "sequence": "required to complete"},
       "response": {"challenge": "challengeId, sequence, placeName", "completion": "supplies"}
     },

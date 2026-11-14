@@ -14,6 +14,17 @@ import { createStateStore } from '../state-store.mjs';
 const catalog={version:'fixture-v1',places:[{placeId:'p1',name:'Fixture parking',category:'PARKING',latitude:37.5665,longitude:126.978,sourceId:'node/1'},{placeId:'p2',name:'Unknown parking',category:'PARKING',latitude:37.5666,longitude:126.978}]};
 const point={latitude:37.5665,longitude:126.978};
 const review={commandId:'review',placeId:'p1',expectedRevision:0,accessStatus:'VERIFIED',enabled:true,entrance:point,playZone:{...point,radiusM:40},parkingAllowed:true,dwellAllowed:true,evidence:'Synthetic test review only'};
+test('charging game marker uses the verified play zone of the charging spot', () => {
+  const charger = { placeId: 'charger', name: 'Fixture charger', category: 'CHARGER', ...point };
+  const places = createPlacesService({ catalog: { version: 'charger-fixture', places: [charger] } });
+  const playZone = { latitude: point.latitude + .002, longitude: point.longitude, radiusM: 40 };
+  assert.equal(places.arrivedCharger(playZone), null);
+  places.review({ ...review, placeId: charger.placeId, playZone });
+  assert.equal(places.arrivedCharger(point), null);
+  assert.deepEqual(places.arrivedCharger(playZone), {
+    placeId: charger.placeId, name: charger.name, latitude: playZone.latitude, longitude: playZone.longitude,
+  });
+});
 test('two-party API demo commits shared progress to real SQLite without routes or QR capabilities',async()=>{
   const directory=await mkdtemp(join(tmpdir(),'zride-shared-')),dbPath=join(directory,'state.sqlite');
   const demoCatalog={version:'fixture-demo',places:[{placeId:'DEMO_PARKING_SPOT',name:'Synthetic',category:'PARKING',...point,isDemo:true}]};
