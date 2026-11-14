@@ -85,7 +85,7 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpot) {
     }
   }
 
-  map.on('dragstart zoomstart', () => { following = false; });
+  map.on('dragstart', () => { following = false; });
   map.on('moveend', renderPins);
   recenter.onclick = () => {
     if (!position) return;
