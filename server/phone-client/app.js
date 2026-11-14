@@ -45,6 +45,7 @@ function online() { return socket?.readyState === WebSocket.OPEN && !!credential
 function gateOpen() { return room?.vehicle?.playAllowed === true && room.vehicle.reportAgeMs != null && room.vehicle.reportAgeMs + Date.now() - receivedAt <= 6000; }
 function reset(clear = true) {
   closeDriveGame();
+  journeyMap?.update(null, [], null);
   generation++; clearTimeout(retryTimer); clearTimeout(pending?.timer); pending = null;
   if (socket) { socket.onclose = null; socket.close(); socket = null; }
   if (clear) { credentials = null; room = null; memberId = null; forgetSession(); }
@@ -120,6 +121,7 @@ function connect() {
   socket.onclose = event => {
     if (current !== generation) return;
     memberId = null;
+    journeyMap?.update(null, [], null);
     closeDriveGame();
     if (pending) { clearTimeout(pending.timer); pending = null; result('연결이 끊김. 처리 결과는 재연결 후 보급품·좀비 HP로 확인해 주세요.'); }
     if ([4401, 4403, 4409, 4410, 4412, 4413].includes(event.code)) {
@@ -164,7 +166,6 @@ function useTicket(joined) {
   venueSignature = '';
   selectedSpot = null;
   mapSignature = '';
-  mapAnchor = null;
   routeFeedback = '';
   activeRouteChallenge = null;
   routeRequestPending = false;
@@ -561,7 +562,7 @@ let selectedSpot = null;
 let nearbySpots = [];
 let lastMapFetch = null;
 let mapSignature = '';
-let mapAnchor = null;
+let journeyMap;
 let routeFeedback = '';
 const spotTypes = { CHARGER: '충전소', PARKING: '주차장', FUEL_STATION: '주유소', ATTRACTION: '명소' };
 
@@ -720,12 +721,6 @@ function renderJourneyMap() {
   if (journeyView !== 'map' || !ownMember()?.approved) return;
   renderJourneyGuidance(room.navigation);
   const position = room.navigation?.position;
-  const offset = (spot, origin) => [
-    (spot.longitude - origin.longitude) * 111000 * Math.cos(origin.latitude * Math.PI / 180),
-    (spot.latitude - origin.latitude) * 111000,
-  ];
-  if (!position) mapAnchor = null;
-  else if (!mapAnchor || Math.hypot(...offset(position, mapAnchor)) > 360) mapAnchor = position;
   const supply = room.routeSupplySpot;
   const stop = room.vehicle?.playAllowed && venueStatus?.stop;
   const points = new Map((position ? nearbySpots : []).map(spot => [spot.placeId, spot]));
@@ -756,35 +751,17 @@ function renderJourneyMap() {
   const mapMessage = routeFeedback || (!position ? '차량 위치 대기 중' : '');
   if (mapStatus.textContent !== mapMessage) mapStatus.textContent = mapMessage;
   mapStatus.hidden = !mapMessage;
-  let car = plot.querySelector('.journey-car');
-  if (position && !car) {
-    car = document.createElement('span');
-    car.className = 'journey-car';
-    car.textContent = '내 차량';
-    plot.append(car);
-  }
-  if (!position) car?.remove();
-  const plotted = spots.filter(spot => Number.isFinite(spot.latitude) && Number.isFinite(spot.longitude));
-  const scale = position ? Math.max(600, ...plotted.flatMap(spot => offset(spot, mapAnchor).map(Math.abs))) : 600;
-  const [carEast, carNorth] = position ? offset(position, mapAnchor) : [0, 0];
-  const carX = 50 + carEast / scale * 40, carY = 50 - carNorth / scale * 40;
-  if (position) {
-    car.style.left = carX + '%';
-    car.style.top = carY + '%';
-  }
-  const signature = JSON.stringify([mapAnchor, spots, selectedSpot?.placeId]);
+  const markers = spots.map((spot, index) => ({
+    ...spot,
+    label: (spot.activity === 'supply' ? '' : (index + 1) + ' · ') + journeySpotName(spot),
+  }));
+  const signature = JSON.stringify([markers, selectedSpot?.placeId]);
   if (signature !== mapSignature) {
     mapSignature = signature;
-    plot.querySelectorAll('.journey-pin').forEach(pin => pin.remove());
-    list.replaceChildren();
-    const plotWidth = Math.max(1, plot.clientWidth);
-    const plotHeight = Math.max(1, plot.clientHeight);
-    const clusters = [];
-    for (const [index, spot] of spots.entries()) {
+    list.replaceChildren(...markers.map(spot => {
       const button = document.createElement('button');
       button.type = 'button';
-      const label = spot.activity === 'supply' ? journeySpotName(spot) : (index + 1) + ' · ' + journeySpotName(spot);
-      button.textContent = label;
+      button.textContent = spot.label;
       if (spot.activity === 'supply') {
         button.classList.add('item-inline');
         button.prepend(document.createElement('ply-supply-icon'));
@@ -792,47 +769,14 @@ function renderJourneyMap() {
       button.classList.toggle('spot-active', Boolean(spot.activity));
       button.setAttribute('aria-pressed', String(selectedSpot?.placeId === spot.placeId));
       button.onclick = () => selectJourneySpot(spot);
-      list.append(button);
-      if (!position || !plotted.includes(spot)) continue;
-      const [east, north] = offset(spot, mapAnchor);
-      const x = 50 + east / scale * 40;
-      let y = 50 - north / scale * 40;
-      if (Math.abs(x - carX) * plotWidth / 100 < 38 && Math.abs(y - carY) * plotHeight / 100 < 46) {
-        y = carY - 46 * 100 / plotHeight;
-      }
-      const marker = { spot, index, button };
-      const cluster = clusters.find(group =>
-        Math.hypot((x - group.x) * plotWidth / 100, (y - group.y) * plotHeight / 100) < 40);
-      if (cluster) cluster.markers.push(marker);
-      else clusters.push({ x, y, markers: [marker] });
-    }
-    for (const { x, y, markers } of clusters) {
-      const selected = markers.findIndex(({spot}) => selectedSpot?.placeId === spot.placeId);
-      const marker = markers[selected < 0 ? 0 : (selected + 1) % markers.length];
-      const hasSupply = markers.some(({ spot }) => spot.activity === 'supply');
-      const pin = document.createElement('button');
-      pin.type = 'button';
-      pin.className = 'journey-pin' + (markers.some(({spot}) => spot.activity) ? ' spot-active' : '');
-      pin.style.left = x + '%';
-      pin.style.top = y + '%';
-      if (hasSupply) {
-        pin.classList.add('supply-pin');
-        pin.append(document.createElement('ply-supply-icon'));
-        if (markers.length > 1) {
-          const count = document.createElement('span');
-          count.className = 'cluster-count';
-          count.textContent = markers.length;
-          count.setAttribute('aria-hidden', 'true');
-          pin.append(count);
-        }
-      } else pin.textContent = markers.length > 1 ? '+' + markers.length : String(marker.index + 1);
-      pin.setAttribute('aria-label', markers.length > 1
-        ? markers.length + '개 장소 · 다음 장소 ' + marker.button.textContent : marker.button.textContent);
-      pin.setAttribute('aria-pressed', String(selected >= 0));
-      pin.onclick = marker.button.onclick;
-      plot.append(pin);
-    }
+      return button;
+    }));
   }
+  if (!journeyMap && plot.clientWidth > 0) {
+    journeyMap = createJourneyMap(plot, $('journey-recenter'), $('journey-map-tiles'),
+      $('journey-map-retry'), selectJourneySpot);
+  }
+  journeyMap?.update(position, markers, selectedSpot?.placeId);
   const current = selectedSpot && (points.get(selectedSpot.placeId) ?? { ...selectedSpot, activity: null });
   $('journey-place').hidden = !current || current.placeId === next?.placeId;
   deadzoneLink.hidden = current?.activity !== 'deadzone';
