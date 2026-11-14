@@ -1,0 +1,17 @@
+{
+  "name": "zride-volt-rush",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "충전소에서 각자 선을 깔며 가운데 충전기에 먼저 닿는 실시간 게임",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "ws": "8.22.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

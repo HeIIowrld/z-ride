@@ -1,0 +1,17 @@
+{
+  "name": "zride-power-castle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "충전소에서 각자 성에 전기를 모으고 서로 끌어오는 대결",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "ws": "8.22.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

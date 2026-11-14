@@ -1,0 +1,6 @@
+{
+  "charge-relay": "https://example-relay.trycloudflare.com",
+  "power-tug": "https://example-tug.trycloudflare.com",
+  "volt-rush": "https://example-volt.trycloudflare.com",
+  "power-castle": "https://example-castle.trycloudflare.com"
+}

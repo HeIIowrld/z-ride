@@ -1,0 +1,17 @@
+{
+  "name": "zride-power-tug",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "충전소에서 두 팀이 폰을 연타해 전기를 끌어오는 줄다리기",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "ws": "8.22.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
