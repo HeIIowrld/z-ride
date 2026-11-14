@@ -594,10 +594,26 @@ $('journey-bag').onclick = () => {
   const frame = document.createElement('iframe');
   frame.title = '아이템 가방';
   frame.src = new URL('bag.html?journey=1', driveAssets).href;
+  frame.addEventListener('load', renderCrewBag);
   $('journey-bag-view').replaceChildren(frame);
   showJourney('bag');
   $('journey-game').scrollIntoView({ block: 'start' });
 };
+
+function renderCrewBag() {
+  const frame = $('journey-bag-view').firstElementChild;
+  if (journeyView !== 'bag' || !ownMember()?.approved || waitingForApprovedTicket || !frame) return;
+  frame.contentWindow?.postMessage({
+    type: 'ply:crew-inventory',
+    inventory: room.collection?.inventory ?? {},
+  }, driveAssets.origin);
+}
+
+window.addEventListener('message', event => {
+  const frame = $('journey-bag-view').firstElementChild;
+  if (event.origin === driveAssets.origin && event.source === frame?.contentWindow &&
+      event.data?.type === 'ply:crew-bag-ready') renderCrewBag();
+});
 
 const driveTitles = {
   'license-quiz': '운전면허 퀴즈',
@@ -712,13 +728,12 @@ function renderJourneyMap() {
   else if (!mapAnchor || Math.hypot(...offset(position, mapAnchor)) > 360) mapAnchor = position;
   const supply = room.routeSupplySpot;
   const stop = room.vehicle?.playAllowed && venueStatus?.stop;
-  const deadzone = room.deadzoneJoinUrl;
   const points = new Map((position ? nearbySpots : []).map(spot => [spot.placeId, spot]));
   if (supply) points.set(supply.placeId, { ...points.get(supply.placeId), ...supply, activity: 'supply' });
-  if (stop) points.set(stop.placeId, { ...position, ...points.get(stop.placeId), ...stop, activity: 'charge' });
-  if (deadzone) points.set('deadzone', { ...(mapAnchor ?? position), placeId: 'deadzone', name: 'DEADZONE 집결지', activity: 'deadzone' });
+  if (stop) points.set(stop.placeId, { ...points.get(stop.placeId), ...stop, activity: 'charge' });
   const spots = [...points.values()].sort((a, b) => Number(Boolean(b.activity)) - Number(Boolean(a.activity))).slice(0, 10);
-  const next = spots.find(spot => spot.activity);
+  const next = spots.find(spot => spot.activity)
+    ?? (room.deadzoneJoinUrl ? { name: 'DEADZONE', activity: 'deadzone' } : null);
   $('journey-next').hidden = !next;
   if (next) {
     const [label, description, action] = journeyActivityCopy(next.activity);
@@ -905,6 +920,7 @@ function render() {
   $('leave-button').textContent=approved?'파티 탈퇴':'참가 요청 취소';
   $('pending-panel').hidden = approved; $('approved-content').hidden = !approved;
   if (!approved) return;
+  renderCrewBag();
   if ($('account-panel').parentElement !== $('journey-party')) {
     $('journey-party').append($('account-panel'));
     $('journey-map').scrollIntoView({ block: 'start' });

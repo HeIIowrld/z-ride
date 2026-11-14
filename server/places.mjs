@@ -104,7 +104,7 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
       const place = places.get(placeId);
       if (place?.category === 'CHARGER' && eligible(review) &&
           distanceMeters(position, review.playZone) <= review.playZone.radiusM)
-        return { placeId, name: place.name };
+        return { placeId, name: place.name, latitude: review.playZone.latitude, longitude: review.playZone.longitude };
     }
     return null;
   }
@@ -120,7 +120,8 @@ export function createPlacesService({ catalogPath, catalog, clock = Date.now, ro
       if (!point || (!review?.entrance && place.drivingAssessment?.networkRoundTrip !== true)) continue;
       const distance = distanceMeters(position, point);
       if (distance > closest || (!nativeGuidance && distanceToRoute(point, route.geometry) > 120)) continue;
-      nearest = place;
+      nearest = { placeId: place.placeId, name: place.name, category: place.category,
+        latitude: point.latitude, longitude: point.longitude };
       closest = distance;
     }
     return nearest;

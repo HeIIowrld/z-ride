@@ -260,7 +260,7 @@ export function createDemoServer(options = {}) {
       ? availableRouteSupply(room, routeSupplyContext(room), viewer) : null;
     return {
       routeSupplyAvailable: Boolean(spot),
-      routeSupplySpot: spot ? { placeId: spot.placeId, name: spot.name, latitude: spot.latitude, longitude: spot.longitude } : null,
+      routeSupplySpot: spot ?? null,
     };
   }
 

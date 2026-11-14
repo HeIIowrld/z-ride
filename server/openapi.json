@@ -2269,7 +2269,7 @@
           }
         }}}},
         "responses": {
-          "200": {"description": "Venue, game state projected for the current member, and available supplies"},
+          "200": {"description": "Venue with approved play-zone coordinates, game state projected for the current member, and available crew supplies"},
           "403": {"description": "Party or seat authorization required"},
           "409": {"description": "Vehicle state, venue, supplies or game phase prevents the action"},
           "503": {"description": "Durable storage unavailable", "x-error-codes": ["STORAGE_UNAVAILABLE"]}
@@ -11033,12 +11033,13 @@
         "properties": {
           "routeSupplyAvailable": { "type": "boolean" },
           "routeSupplySpot": {
-            "description": "Currently playable supply spot for the approved passenger.",
+            "description": "Currently playable supply spot for the approved passenger. Coordinates are the entrance used for pickup eligibility.",
             "type": ["object", "null"],
-            "required": ["placeId", "name", "latitude", "longitude"],
+            "required": ["placeId", "name", "category", "latitude", "longitude"],
             "properties": {
               "placeId": { "type": "string" },
               "name": { "type": "string" },
+              "category": { "enum": ["CHARGER", "FUEL_STATION", "PARKING"] },
               "latitude": { "type": "number" },
               "longitude": { "type": "number" }
             }

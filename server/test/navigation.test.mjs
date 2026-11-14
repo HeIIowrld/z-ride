@@ -13,7 +13,7 @@ test('SDK navigation projection drops stale coordinates and rejects invalid repo
 });
 test('native navigation broadcasts only to approved party members, revokes demo geometry and rejects phone/stale reports',async t=>{
  let saved;const stateStore={load:()=>null,save:value=>{saved=structuredClone(value);},close(){}};
- const spot={placeId:'native-spot',name:'Native route parking',category:'PARKING',latitude:37.5,longitude:126.9,
+ const spot={placeId:'native-spot',name:'Native route parking',category:'PARKING',latitude:37.502,longitude:126.902,
   navigationDestination:{latitude:37.5,longitude:126.9},drivingAssessment:{networkRoundTrip:true}};
  const nextSpot={...spot,placeId:'next-spot',name:'Next parking',latitude:37.504,
   navigationDestination:{latitude:37.504,longitude:126.9}};
@@ -52,7 +52,7 @@ test('native navigation broadcasts only to approved party members, revokes demo 
  await car.send({type:'navigation.report',reportSeq:3,navigation:{...sample,routeRevision:5,status:'ROUTE_DRIVE',speedLimitKmh:50,nextTurn:'right',nextTurnDistanceM:100}});
  assert.equal((await selectGame('pole-jump', host.token)).status, 409);
  await until(()=>p.room.routeSupplyAvailable);
- assert.equal(p.room.routeSupplySpot.placeId,spot.placeId);
+ assert.deepEqual(p.room.routeSupplySpot,{placeId:spot.placeId,name:spot.name,category:spot.category,...spot.navigationDestination});
  assert.equal(p.room.vehicle.speedMps,7);
  assert.equal(p.room.navigation.speedLimitKmh,50);
  assert.equal(p.room.navigation.nextTurn,'right');
