@@ -9,6 +9,7 @@ const FILES = new Map([
   ['/play/account.js', ['account.js', 'text/javascript; charset=utf-8']],
   ['/play/style.css', ['style.css', 'text/css; charset=utf-8']],
   ...['thief', 'relay', 'deadzone'].map(game => ['/play/' + game + '.webp', [game + '.webp', 'image/webp']]),
+  ...['ply-lockup.jpg', 'ply-symbol.jpg', 'ply-road-portrait.jpg'].map(file => ['/play/' + file, [file, 'image/jpeg']]),
   ['/play/vehicle', ['vehicle.html', 'text/html; charset=utf-8']],
   ['/play/vehicle/', ['vehicle.html', 'text/html; charset=utf-8']],
   ['/play/vehicle.js', ['vehicle.js', 'text/javascript; charset=utf-8']],

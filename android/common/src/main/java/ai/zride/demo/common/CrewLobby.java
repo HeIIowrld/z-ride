@@ -33,7 +33,7 @@ import java.util.function.BiConsumer;
 final class CrewLobby extends LinearLayout {
     private static final int INK = 0xfff8f6ff;
     private static final int MUTED = 0xffb5b4cc;
-    private static final int MINT = 0xff69f0ce;
+    private static final int MINT = DemoActivity.PLY_MINT;
     private static final int AMBER = 0xffffcf8a;
     private static final String[] SEATS = {"DRIVER", "FRONT_PASSENGER", "REAR_LEFT", "REAR_RIGHT"};
     private static final String[] NAMES = {"운전석", "조수석", "뒷좌석 왼쪽", "뒷좌석 오른쪽"};
@@ -58,16 +58,19 @@ final class CrewLobby extends LinearLayout {
 
         LinearLayout header = new LinearLayout(context);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout heading = new LinearLayout(context);
-        heading.setOrientation(VERTICAL);
-        TextView wordmark = label("PLY", 22, Typeface.BOLD_ITALIC, MINT);
-        heading.addView(wordmark);
-        TextView title = label("크루 로비", 40, Typeface.BOLD, INK);
-        heading.addView(title);
-        header.addView(heading, new LayoutParams(0, -2, 1));
+        ImageView symbol = new ImageView(context);
+        symbol.setImageResource(R.drawable.ic_ply_launcher);
+        symbol.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        symbol.setBackground(surface(0xff0a1723, 0xff0a1723, DemoActivity.PLY_BORDER, 6));
+        symbol.setClipToOutline(true);
+        header.addView(symbol, new LayoutParams(dp(48), dp(48)));
+        TextView title = label("크루 로비", 36, Typeface.BOLD, INK);
+        LayoutParams titleParams = new LayoutParams(0, -2, 1);
+        titleParams.setMarginStart(dp(10));
+        header.addView(title, titleParams);
         count = label("", 17, Typeface.BOLD, MINT);
         count.setPadding(dp(12), dp(8), dp(12), dp(8));
-        count.setBackground(surface(0xff22293a, 0xff141923, 0xff426962, 4));
+        count.setBackground(surface(0xff14353f, 0xff122432, 0xff426962, 6));
         header.addView(count);
         addView(header, new LayoutParams(-1, -2));
 
@@ -95,7 +98,7 @@ final class CrewLobby extends LinearLayout {
         LinearLayout invite = new LinearLayout(context);
         invite.setOrientation(VERTICAL);
         invite.setPadding(dp(24), dp(18), dp(24), dp(16));
-        invite.setBackground(surface(0xff141427, 0xff0b0c17, 0xff5d5e89, 12));
+        invite.setBackground(surface(DemoActivity.PLY_SURFACE, DemoActivity.PLY_NAVY, DemoActivity.PLY_BORDER, 12));
         LinearLayout top = new LinearLayout(context);
         top.setGravity(Gravity.CENTER_VERTICAL);
         inviteTitle = label("", 25, Typeface.BOLD_ITALIC, MINT);
@@ -104,7 +107,7 @@ final class CrewLobby extends LinearLayout {
         close.setText("닫기");
         close.setAllCaps(false);
         close.setTextColor(INK);
-        close.setBackground(ripple(surface(0xff282842, 0xff202035, 0xff505075, 6)));
+        close.setBackground(ripple(surface(0xff233851, 0xff172841, DemoActivity.PLY_BORDER, 6)));
         close.setOnClickListener(view -> dismissInvite());
         top.addView(close, new LayoutParams(dp(64), dp(48)));
         invite.addView(top);
@@ -116,7 +119,7 @@ final class CrewLobby extends LinearLayout {
         invite.addView(hint, new LayoutParams(-1, -2));
 
         qrFrame = new FrameLayout(context);
-        qrFrame.setBackground(surface(0xff232440, 0xff0b0d19, 0xff7476a4, 8));
+        qrFrame.setBackground(surface(0xff204454, DemoActivity.PLY_NAVY, MINT, 8));
         int qrSize = Math.min(224, Math.max(144, getResources().getConfiguration().screenHeightDp - 226));
         qrFrame.addView(qr, new FrameLayout.LayoutParams(dp(qrSize), dp(qrSize), Gravity.CENTER));
         LayoutParams frameParams = new LayoutParams(dp(qrSize + 24), dp(qrSize + 24));
@@ -261,7 +264,7 @@ final class CrewLobby extends LinearLayout {
 
             int accent = ACCENTS[index];
             int tint = pending ? AMBER : connected ? accent : 0xff696d91;
-            setBackground(surface(open ? 0xd21a1c31 : 0xf0242643, 0xfb111223, tint, 7));
+            setBackground(surface(open ? 0xc21a2945 : 0xde20314e, 0xe90e192d, tint, 7));
             name.setText(nickname);
             name.setTextColor(open ? MUTED : INK);
             portrait.update(!open, pending, nickname);

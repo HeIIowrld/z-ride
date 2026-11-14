@@ -22,6 +22,11 @@ import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 
 public abstract class DemoActivity extends Activity implements RoomClient.Listener {
+    protected static final int PLY_NAVY = 0xff090f27;
+    protected static final int PLY_SURFACE = 0xff111c33;
+    protected static final int PLY_BORDER = 0xff30465f;
+    protected static final int PLY_MINT = 0xff64e6d0;
+
     protected final Handler main = new Handler(Looper.getMainLooper());
     protected RoomClient client;
     protected boolean foreground=false, localAllowed=false, connected=false;
@@ -85,6 +90,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     protected boolean retainClientOnDestroy(){return false;}
     protected void addVehicleControls(LinearLayout container) {}
     protected android.graphics.drawable.Drawable vehicleCover() { return new RoadCover(); }
+    protected android.graphics.drawable.Drawable vehicleHomeCover() { return vehicleCover(); }
     protected void inspectExtraDiagnostics() {}
     protected void addPhoneCollectionContent(LinearLayout container) {}
     protected void onRoomData(JSONObject room) {}
@@ -126,29 +132,24 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         super.onCreate(state);
         gameAudio=new GameAudio(this,message->event("audio",newJSONObject("message",message)));
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(14),dp(20),dp(14));root.setBackgroundColor(cleanVehicleUi()?0xff0b0d16:Color.rgb(15,24,33));root.setFocusableInTouchMode(true);root.requestFocus();
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(14),dp(20),dp(14));root.setBackgroundColor(PLY_NAVY);root.setFocusableInTouchMode(true);root.requestFocus();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(cleanVehicleUi());scroll.addView(root);setContentView(scroll);
-        TextView title=text(cleanVehicleUi()?"PLY":isCar()?"PLY · 차량 파티":"PLY · 좌석별 사격",cleanVehicleUi()?36:23);
         if (cleanVehicleUi()) {
             LinearLayout masthead = new LinearLayout(this);
             masthead.setOrientation(LinearLayout.VERTICAL);
             masthead.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START);
             masthead.setMinimumHeight(dp(380));
             masthead.setPadding(dp(52), dp(24), dp(32), dp(24));
-            masthead.setBackground(vehicleCover());
+            masthead.setBackground(vehicleHomeCover());
             scroll.addOnLayoutChangeListener((view,left,top,right,bottom,oldLeft,oldTop,oldRight,oldBottom)->{
                 int height = Math.max(dp(380), bottom - top - root.getPaddingTop()
                         - root.getPaddingBottom() - dp(72));
                 if (masthead.getMinimumHeight() != height) masthead.setMinimumHeight(height);
             });
-            title.setTypeface(android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.ITALIC));
-            title.setTextSize(88);
-            title.setTextColor(0xfff5f7ff);
-            masthead.addView(title);
             vehicleMasthead = masthead;
             root.addView(masthead);
         } else {
-            root.addView(title);
+            root.addView(text(isCar() ? "PLY · 차량 파티" : "PLY · 좌석별 사격", 23));
         }
         if(!cleanVehicleUi())root.addView(text("주차 중 협동 플레이",13));
         serverInput=edit("서버 URL",getIntent().getStringExtra("serverUrl") == null?(cleanVehicleUi()?"https://hyundai.hjpark.net":"http://10.0.2.2:8000"):getIntent().getStringExtra("serverUrl"));if(!cleanVehicleUi())root.addView(serverInput);
@@ -162,12 +163,20 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         if (cleanVehicleUi()) {
             partyWelcome = new LinearLayout(this);
             partyWelcome.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams menu = new LinearLayout.LayoutParams(dp(384), -2);
-            menu.topMargin = dp(22);
+            LinearLayout.LayoutParams menu = new LinearLayout.LayoutParams(dp(472), -2);
             ((LinearLayout) vehicleMasthead).addView(partyWelcome, menu);
+            ImageView logo = new ImageView(this);
+            logo.setImageResource(R.drawable.ply_lockup);
+            logo.setContentDescription("PLY · Play Your Journey");
+            logo.setAdjustViewBounds(true);
+            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            logo.setOutlineProvider(android.view.ViewOutlineProvider.BACKGROUND);
+            styleVehicleCard(logo, PLY_NAVY);
+            logo.setClipToOutline(true);
+            partyWelcome.addView(logo, new LinearLayout.LayoutParams(-1, -2));
             vehicleMasthead.addOnLayoutChangeListener((view, left, top, right, bottom,
                                                        oldLeft, oldTop, oldRight, oldBottom) -> {
-                int width = Math.min(dp(384), right - left - view.getPaddingLeft() - view.getPaddingRight());
+                int width = Math.min(dp(472), right - left - view.getPaddingLeft() - view.getPaddingRight());
                 if (width > 0 && menu.width != width) {
                     menu.width = width;
                     partyWelcome.setLayoutParams(menu);
@@ -274,7 +283,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         android.graphics.drawable.GradientDrawable surface = new android.graphics.drawable.GradientDrawable();
         surface.setCornerRadius(dp(12));
         surface.setColor(new android.content.res.ColorStateList(states,
-                new int[]{0xff292d43, primary ? 0xff52f1d0 : 0xff101f2b}));
+                new int[]{0xff29334a, primary ? PLY_MINT : PLY_SURFACE}));
         button.setBackground(new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(primary ? 0x33082928 : 0x3374e1cc), surface, null));
         button.setPadding(dp(16), dp(8), dp(16), dp(8));

@@ -60,16 +60,17 @@ class TrustedMainTests(unittest.TestCase):
             self.assertEqual(set(archive.getnames()) - PULL.REQUIRED,
                              {'drive-assets/' + name for name in names})
 
-    def test_packages_only_named_phone_game_covers(self):
-        covers = ('thief.webp', 'relay.webp', 'deadzone.webp')
+    def test_packages_only_named_phone_images(self):
+        images = ('thief.webp', 'relay.webp', 'deadzone.webp',
+                  'ply-lockup.jpg', 'ply-symbol.jpg', 'ply-road-portrait.jpg')
         entries = []
-        for name in (*covers, 'private.webp'):
+        for name in (*images, 'private.webp', 'private.jpg'):
             item = tarfile.TarInfo('z-ride-SHA/server/phone-client/' + name)
             item.size = 1
             entries.append((item, b'x'))
         with tarfile.open(fileobj=io.BytesIO(PULL.runtime_bundle(self.source(entries)))) as archive:
             self.assertEqual(set(archive.getnames()) - PULL.REQUIRED,
-                             {'phone-client/' + name for name in covers})
+                             {'phone-client/' + name for name in images})
 
     def test_rejects_links_traversal_duplicates_and_missing_runtime(self):
         link = tarfile.TarInfo('z-ride-SHA/server/phone-client/link.js')

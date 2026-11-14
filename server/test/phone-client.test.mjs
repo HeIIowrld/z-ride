@@ -16,6 +16,7 @@ test('phone reference client serves only allow-listed static assets with same-or
   const request = (path, options = {}) => fetch(base + path, { ...options, headers: { connection: 'close', ...options.headers } });
   try {
     for (const path of ['/play', '/play/', '/play/app.js', '/play/account.js', '/play/style.css', '/play/demo', '/play/demo.js', '/play/vehicle', '/play/vehicle.js', '/play/qrcode.js', '/play/arena.js', '/play/arena.css', '/play/car', '/play/car.js', '/play/car.css', '/play/qr.js', '/play/thief.webp', '/play/relay.webp', '/play/deadzone.webp',
+      '/play/ply-lockup.jpg', '/play/ply-symbol.jpg', '/play/ply-road-portrait.jpg',
       '/play/drive/style.css', '/play/drive/bag.html', '/play/drive/shared/bag.js',
       '/play/drive/shared/item-icons.js', '/play/drive/shared/ply.css', '/play/drive/shared/journey.js', '/play/drive/games/license-quiz/index.html',
       '/play/drive/games/license-quiz/questions.json', '/play/drive/games/pole-jump/index.html',
@@ -27,11 +28,12 @@ test('phone reference client serves only allow-listed static assets with same-or
       assert.ok(response.headers.get('content-security-policy').includes('wss://127.0.0.1:' + server.address().port));
       assert.equal(response.headers.get('cache-control'), 'no-store');
       assert.ok(response.headers.get('content-security-policy').includes('https://accounts.google.com/gsi/client'));
-      assert.ok(response.headers.get('content-security-policy').includes("img-src 'self' data:;"));
+      assert.ok(response.headers.get('content-security-policy').includes("img-src 'self' data:;"), path);
       assert.ok(response.headers.get('content-security-policy').includes("frame-ancestors 'self'"));
       assert.equal(response.headers.get('cross-origin-opener-policy'),'same-origin-allow-popups');
       for (const restriction of ['camera=()', 'microphone=()', 'geolocation=()']) assert.ok(response.headers.get('permissions-policy').includes(restriction));
-      assert.ok((await response.text()).length > 50);
+      if (path.endsWith('.jpg')) assert.equal(response.headers.get('content-type'), 'image/jpeg');
+      assert.ok((await response.arrayBuffer()).byteLength > 50);
     }
     assert.equal((await request('/play/private.env')).status, 404);
     assert.equal((await request('/play/drive/server/index.mjs')).status, 404);

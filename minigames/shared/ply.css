@@ -1,13 +1,13 @@
 :root {
   --ply-ink: #eef6ff;
   --ply-muted: #a6b7c7;
-  --ply-bg: #09121b;
-  --ply-surface: #101f2b;
-  --ply-line: #365264;
-  --ply-primary: #52f1d0;
+  --ply-bg: #090f27;
+  --ply-surface: #111c33;
+  --ply-line: #30465f;
+  --ply-primary: #64e6d0;
   --ply-primary-ink: #062b29;
   --ply-radius: 12px;
-  --ply-common: #52f1d0;
+  --ply-common: var(--ply-primary);
   --ply-specialized: #ffd094;
 }
 

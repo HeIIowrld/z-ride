@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#09121b">
+  <meta name="theme-color" content="#090f27">
   <title>PLY · 동승자</title>
+  <link rel="icon" href="/play/ply-symbol.jpg" type="image/jpeg">
   <link rel="stylesheet" href="/play/drive/shared/ply.css">
   <link rel="stylesheet" href="/play/style.css">
   <script type="module" src="/play/drive/shared/item-icons.js"></script>
@@ -14,9 +15,15 @@
   <script src="/play/arena.js" defer></script>
   <script src="/play/config.js"></script>
 </head>
-<body>
+<body class="passenger-app">
   <main>
-    <header class="app-header"><a class="wordmark" href="/play">PLY</a><span id="connection" class="connection" role="status">파티 연결 전</span></header>
+    <header class="app-header">
+      <a class="wordmark" href="/play" aria-label="PLY">
+        <img class="ply-lockup" src="/play/ply-lockup.jpg" width="1280" height="427" alt="PLY · Play Your Journey">
+        <img class="ply-symbol" src="/play/ply-symbol.jpg" width="1280" height="1280" alt="">
+      </a>
+      <span id="connection" class="connection" role="status">파티 연결 전</span>
+    </header>
     <section id="account-panel" class="panel crew-entry">
       <h1>크루 프로필</h1>
       <p id="account-status" class="subtle" role="status">계정 설정 확인 중…</p>
