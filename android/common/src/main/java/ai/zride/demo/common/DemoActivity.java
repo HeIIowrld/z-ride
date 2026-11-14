@@ -53,6 +53,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     private Spinner seats;
     private LinearLayout approvals, gamePanel;
     private CrewLobby lobby;
+    private LinearLayout lobbyLayout;
     private SeatArenaView arena;
     private ImageView inviteQr;
     private TextView inviteInfo;
@@ -103,13 +104,22 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     protected final void showVehicleLobby(boolean visible) {
         if (lobby == null) return;
         int visibility = visible && connected && foreground && localAllowed ? View.VISIBLE : View.GONE;
-        lobby.setVisibility(visibility);
+        lobbyLayout.setVisibility(visibility);
         if (visibility != View.VISIBLE) lobby.dismissInvite();
     }
 
-    protected final int afterVehicleRoster(LinearLayout container) {
-        if (lobby != null) return container.indexOfChild(lobby) + 1;
-        return Math.max(0, container.indexOfChild(roomLabel));
+    protected final void addVehicleLobbyContent(LinearLayout root, View content) {
+        if (lobbyLayout == null) {
+            root.addView(content, Math.max(0, root.indexOfChild(roomLabel)));
+            return;
+        }
+        boolean wide = lobbyLayout.getOrientation() == LinearLayout.HORIZONTAL;
+        LinearLayout.LayoutParams layout = wide
+                ? new LinearLayout.LayoutParams(0, -2, 1.15f)
+                : new LinearLayout.LayoutParams(-1, -2);
+        if (wide) layout.setMarginStart(dp(12));
+        else layout.topMargin = dp(12);
+        lobbyLayout.addView(content, layout);
     }
 
     @Override public void onCreate(Bundle state) {
@@ -132,7 +142,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
                 if (masthead.getMinimumHeight() != height) masthead.setMinimumHeight(height);
             });
             title.setTypeface(android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.ITALIC));
-            title.setTextSize(78);
+            title.setTextSize(88);
             title.setTextColor(0xfff5f7ff);
             masthead.addView(title);
             vehicleMasthead = masthead;
@@ -172,6 +182,9 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         else {
             LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(-1, dp(62));
             action.topMargin = dp(12);
+            connectButton.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START);
+            connectButton.setPaddingRelative(dp(24), 0, dp(24), 0);
+            connectButton.setTextSize(22);
             partyWelcome.addView(connectButton, action);
         }
         status=text(cleanVehicleUi()?"":"연결 전",16);root.addView(status);
@@ -182,9 +195,14 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             inviteInfo=text(cleanVehicleUi()?"":"서버 연결 후 주차 상태에서 QR을 발급합니다 · 폰 로그인 후 차량 승인",14);
             inviteQr=new ImageView(this);inviteQr.setContentDescription("동승자 초대 QR");inviteQr.setBackgroundColor(Color.WHITE);inviteQr.setVisibility(View.GONE);
             if (cleanVehicleUi()) {
+                boolean wide = getResources().getConfiguration().screenWidthDp >= 1000;
+                lobbyLayout = new LinearLayout(this);
+                lobbyLayout.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
                 lobby = new CrewLobby(this, vehicleCover(), inviteQr, inviteInfo, inviteButton,
-                        this::requestPhoneInvite, (id, seat) -> client.approve(id, seat));
-                root.addView(lobby);
+                        wide, this::requestPhoneInvite, (id, seat) -> client.approve(id, seat));
+                lobbyLayout.addView(lobby, wide ? new LinearLayout.LayoutParams(0, -2, 1f)
+                        : new LinearLayout.LayoutParams(-1, -2));
+                root.addView(lobbyLayout);
             } else {
                 root.addView(inviteInfo);
                 LinearLayout.LayoutParams qrParams=new LinearLayout.LayoutParams(512,512);
@@ -273,7 +291,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     @Override protected void onDestroy(){DebugCommandReceiver.detach(this);if(accessKeyInput!=null)accessKeyInput.setText("");if(lobby!=null)lobby.dismissInvite();main.removeCallbacks(expireInvite);main.removeCallbacks(reporter);main.removeCallbacks(testRunner);if(gameAudio!=null)gameAudio.close();if(!retainClientOnDestroy())client.destroy();super.onDestroy();}
     private void requestPhoneInvite(){
         if(!isCar()||!connected||!foreground||!localAllowed||room==null)return;
-        if(lobby!=null&&(lobby.getVisibility()!=View.VISIBLE||!lobby.isInviteOpen()||inviteSeatCount()>=3))return;
+        if(lobby!=null&&(lobbyLayout.getVisibility()!=View.VISIBLE||!lobby.isInviteOpen()||inviteSeatCount()>=3))return;
         final String requested=room.optString("roomId");
         if(requested.equals(invitePendingRoomId))return;
         invitePendingRoomId=requested;
