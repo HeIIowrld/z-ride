@@ -108,6 +108,11 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
         if (visibility != View.VISIBLE) lobby.dismissInvite();
     }
 
+    protected final int afterVehicleRoster(LinearLayout container) {
+        if (lobby != null) return container.indexOfChild(lobby) + 1;
+        return Math.max(0, container.indexOfChild(roomLabel));
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         gameAudio=new GameAudio(this,message->event("audio",newJSONObject("message",message)));

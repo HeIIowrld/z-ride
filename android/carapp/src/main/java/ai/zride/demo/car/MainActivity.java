@@ -365,7 +365,7 @@ public final class MainActivity extends DemoActivity {
         }
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2);
         layout.topMargin = dp(12);
-        container.addView(drivePanel, Math.max(0, container.indexOfChild(roomLabel)), layout);
+        container.addView(drivePanel, afterVehicleRoster(container), layout);
     }
 
     private void renderDriveGames(boolean parked) {
@@ -802,7 +802,7 @@ public final class MainActivity extends DemoActivity {
             resetMatchBoard();
             focusMatch(true);
         });
-        container.addView(deadzoneCard, Math.max(0, container.indexOfChild(roomLabel)));
+        container.addView(deadzoneCard, afterVehicleRoster(container));
         deadzonePanel = column();
         deadzonePanel.setVisibility(View.GONE);
         LinearLayout.LayoutParams panelParams = new LinearLayout.LayoutParams(-1, -2);
