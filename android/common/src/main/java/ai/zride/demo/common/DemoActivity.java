@@ -184,18 +184,19 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
             });
             parkedHint = text("주차하면 파티를 시작할 수 있어요", 26);
             parkedHint.setTypeface(null, android.graphics.Typeface.BOLD);
-            root.addView(parkedHint);
+            LinearLayout.LayoutParams hint = new LinearLayout.LayoutParams(-1, -2);
+            hint.topMargin = dp(14);
+            partyWelcome.addView(parkedHint, hint);
         }
         connectButton=button(cleanVehicleUi()?"크루 로비 열기  ›":isCar()?"서버 연결 · 방 만들기":"서버 연결 · 참가 요청",v->connectRoom());
-        if (partyWelcome == null) root.addView(connectButton);
-        else {
+        if (partyWelcome != null) {
             LinearLayout.LayoutParams action = new LinearLayout.LayoutParams(-1, dp(62));
             action.topMargin = dp(12);
             connectButton.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START);
             connectButton.setPaddingRelative(dp(24), 0, dp(24), 0);
             connectButton.setTextSize(22);
             partyWelcome.addView(connectButton, action);
-        }
+        } else root.addView(connectButton);
         status=text(cleanVehicleUi()?"":"연결 전",16);root.addView(status);
         roomLabel=text("ROOM —",18);
         if (!cleanVehicleUi()) root.addView(roomLabel);
@@ -397,10 +398,10 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
     protected void applyVehicle(JSONObject value,boolean allowed){latestVehicle=value;localAllowed=allowed&&foreground;main.post(()->{diagnostics.setText(value.toString());updateGameVisibility();});if(foreground)sendVehicle();}
 
     private void updateVehicleWelcome() {
-        if (partyWelcome == null) return;
-        vehicleMasthead.setVisibility(foreground && localAllowed && !connected ? View.VISIBLE : View.GONE);
-        partyWelcome.setVisibility(foreground && localAllowed && !connected ? View.VISIBLE : View.GONE);
-        parkedHint.setVisibility(foreground && !localAllowed ? View.VISIBLE : View.GONE);
+        if (vehicleMasthead == null) return;
+        vehicleMasthead.setVisibility(foreground && !connected ? View.VISIBLE : View.GONE);
+        connectButton.setVisibility(localAllowed ? View.VISIBLE : View.GONE);
+        parkedHint.setVisibility(localAllowed ? View.GONE : View.VISIBLE);
         String gear = latestVehicle.optString("gear", "UNKNOWN");
         String restrictions = latestVehicle.optString("ux", "UNKNOWN");
         parkedHint.setText("UNKNOWN".equals(gear) || "UNKNOWN".equals(restrictions)

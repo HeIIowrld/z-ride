@@ -145,13 +145,18 @@ button, input, select { touch-action: manipulation; }
 
 /* Entry uses the portrait journey artwork. The connected crew has a compact header. */
 .passenger-app { background: var(--ply-bg); --line: var(--ply-line); }
-.passenger-app main:has(> #game[hidden]) {
-  min-height: 100dvh;
-  background:
-    url("/play/ply-road-portrait.jpg") center bottom / min(100%, 560px) auto no-repeat;
-}
-.passenger-app main:has(> #game[hidden]) > footer { margin-bottom: clamp(100px, 35vw, 230px); }
 .app-header { gap: 12px; padding: 0 0 12px; margin-bottom: 16px; border-bottom: 1px solid var(--ply-line); }
+.passenger-app main:has(> #game[hidden]) .app-header {
+  align-items: flex-start;
+  min-height: clamp(128px, 39vw, 195px);
+  padding: 10px 12px;
+  border: 1px solid var(--ply-line);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, #090f27 0%, #090f2755 46%, transparent 85%),
+    url("/play/ply-road-portrait.jpg") center 83% / cover no-repeat;
+}
+.passenger-app main:has(> #game[hidden]) .connection { margin-top: 14px; }
 .app-header .wordmark { display: block; width: clamp(154px, 53vw, 258px); border-radius: 6px; overflow: hidden; }
 .app-header .wordmark img { display: block; width: 100%; height: auto; }
 .app-header .wordmark .ply-symbol { display: none; }
