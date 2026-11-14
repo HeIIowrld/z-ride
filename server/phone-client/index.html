@@ -128,8 +128,10 @@
         <section id="journey-game" hidden>
           <button id="journey-back" type="button" class="quiet">‹ 지도</button>
           <div id="drive-play" hidden></div>
-          <section id="journey-bag-view" class="panel" aria-label="크루 아이템 가방" hidden>
-            <p id="journey-bag-loading" role="status" hidden>크루 가방을 여는 중…</p>
+          <section id="journey-bag-view" class="panel" aria-labelledby="journey-bag-title" hidden>
+            <h2 id="journey-bag-title">크루 가방</h2>
+            <nav aria-label="아이템 구분"></nav>
+            <div class="loot-cards"><p role="status">크루 가방을 여는 중…</p></div>
           </section>
         </section>
         <details id="journey-party"><summary>파티 정보와 연습 기능</summary>

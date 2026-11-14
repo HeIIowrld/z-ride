@@ -132,10 +132,15 @@ button, input, select { touch-action: manipulation; }
 .drive-game-list button.recommended { border-color: currentColor; }
 .drive-game-list span { font-size: 12px; opacity: .85; }
 #drive-play, #journey-bag-view { margin-top: 8px; }
-#drive-play iframe, #journey-bag-view iframe { display: block; width: 100%; height: min(760px, calc(100dvh - 54px)); min-height: 280px; border: 0; border-radius: 12px; }
-#journey-bag-view { padding: 0; overflow: hidden; }
-#journey-bag-loading { padding: 18px; margin: 0; color: var(--ply-muted); }
-#journey-bag-view iframe[aria-busy="true"] { display: none; }
+#drive-play iframe { display: block; width: 100%; height: min(760px, calc(100dvh - 54px)); min-height: 280px; border: 0; border-radius: 12px; }
+#journey-bag-view nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-block: 12px; }
+#journey-bag-view nav button { min-height: 44px; }
+#journey-bag-view [aria-pressed="true"] { background: var(--ply-primary); color: var(--ply-primary-ink); }
+#journey-bag-view .loot-card-grid { display: grid; gap: 8px; margin-bottom: 12px; }
+#journey-bag-view .loot-card { display: flex; gap: 12px; padding: 12px; background: var(--ply-bg); border: 1px solid var(--ply-line); border-radius: 8px; }
+#journey-bag-view .loot-card h4 { margin: 0 0 4px; }
+#journey-bag-view .loot-card :is(small, p) { color: var(--ply-muted); }
+#journey-bag-view .bag-empty { padding: 18px; color: var(--ply-muted); border: 1px dashed var(--ply-line); border-radius: 8px; }
 
 
 .journey-bag { min-height: 36px; }

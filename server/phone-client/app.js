@@ -603,7 +603,8 @@ let routeFeedback = '';
 let selectedPinGroup = [];
 let historySignature;
 const crewBagView = $('journey-bag-view');
-const crewBagLoading = $('journey-bag-loading');
+let crewBag;
+let openingCrewBag;
 const spotTypes = { CHARGER: '충전소', PARKING: '주차장', FUEL_STATION: '주유소', ATTRACTION: '명소' };
 const pickupTime = new Intl.DateTimeFormat('ko-KR', { hour: 'numeric', minute: 'numeric' });
 
@@ -619,7 +620,6 @@ function showJourney(view) {
   $('journey-game').dataset.view = view;
   $('journey-party').hidden = view !== 'map';
   crewBagView.hidden = view !== 'bag';
-  if (view !== 'bag') crewBagView.querySelector('iframe')?.remove();
   routeGame.hidden = view !== 'supply';
   if (view !== 'drive') closeDriveGame();
   if (view === 'map') {
@@ -632,40 +632,28 @@ $('journey-back').onclick = () => {
   $('journey-map').scrollIntoView({ block: 'start' });
 };
 
-$('journey-bag').onclick = () => {
-  const frame = document.createElement('iframe');
-  frame.title = '아이템 가방';
-  frame.src = new URL('bag.html?journey=1', driveAssets).href;
-  crewBagLoading.hidden = false;
-  frame.setAttribute('aria-busy', 'true');
-  frame.addEventListener('load', () => {
-    crewBagLoading.hidden = true;
-    frame.removeAttribute('aria-busy');
-    renderCrewBag();
-  });
-  crewBagView.append(frame);
+$('journey-bag').onclick = async () => {
   showJourney('bag');
   $('journey-game').scrollIntoView({ block: 'start' });
+  if (!openingCrewBag) {
+    const cards = crewBagView.querySelector('.loot-cards');
+    openingCrewBag = import(new URL('shared/bag.js', driveAssets))
+      .then(({ createBag }) => createBag(crewBagView.querySelector('nav'), cards, true))
+      .then(update => { crewBag = update; })
+      .catch(() => {
+        cards.firstElementChild.textContent = '가방을 열지 못했어요. 지도로 돌아갔다가 다시 열어 주세요.';
+        openingCrewBag = null;
+      });
+  }
+  await openingCrewBag;
+  renderCrewBag();
 };
 
 function renderCrewBag() {
-  const frame = crewBagView.querySelector('iframe');
-  if (journeyView !== 'bag' || !ownMember()?.approved || waitingForApprovedTicket || !frame) return;
-  frame.contentWindow?.postMessage({
-    type: 'ply:crew-inventory',
-    inventory: room.collection?.inventory ?? {},
-  }, driveAssets.origin);
+  if (journeyView !== 'bag' || !ownMember()?.approved || waitingForApprovedTicket || !crewBag) return;
+  const { supplies, ...items } = room.collection?.inventory ?? {};
+  crewBag({ ...items, supply: supplies });
 }
-
-window.addEventListener('message', event => {
-  const frame = crewBagView.querySelector('iframe');
-  if (event.origin === driveAssets.origin && event.source === frame?.contentWindow &&
-      event.data?.type === 'ply:crew-bag-ready') {
-    crewBagLoading.hidden = true;
-    frame.removeAttribute('aria-busy');
-    renderCrewBag();
-  }
-});
 
 const driveTitles = {
   'license-quiz': '운전면허 퀴즈',

@@ -60,7 +60,6 @@
 .ply-bag { background: var(--ply-bg); color: var(--ply-ink); }
 .ply-bag > header { border-bottom-color: var(--ply-line); }
 .ply-bag h1 { margin: 0; font-size: 21px; }
-.ply-bag #bag-note { padding-inline: 18px; color: var(--ply-muted); font-size: 13px; }
 .ply-bag .loot-tabs button {
   min-height: 44px; border-radius: 4px; color: var(--ply-ink);
   background: var(--ply-surface); border: 1px solid var(--ply-line);
@@ -68,14 +67,12 @@
 .ply-bag .loot-tabs button[aria-pressed="true"] {
   color: var(--ply-primary-ink); background: var(--ply-primary); border-color: var(--ply-primary);
 }
-.ply-bag .loot-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.ply-bag .loot-card-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
 .ply-bag .loot-card {
   border-color: var(--ply-line); border-radius: 4px; background: var(--ply-surface);
 }
-.ply-bag .loot-card h3 { font-size: 15px; }
+.ply-bag .loot-card h4 { margin: 3px 0; font-size: 15px; }
 .ply-bag .loot-card :is(p, small) { color: var(--ply-muted); font-size: 12px; }
-.ply-bag.crew-bag { background: var(--ply-surface); }
-.crew-bag .loot-tabs button { flex: 1; }
 .ply-bag .bag-empty {
   margin: 0;
   padding: 20px 12px;
