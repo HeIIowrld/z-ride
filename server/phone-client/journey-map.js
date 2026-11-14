@@ -1,6 +1,6 @@
 'use strict';
 
-function createJourneyMap(plot, recenter, tileStatus, retry, selectSpot) {
+function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots) {
   const defaultCenter = [37.5665, 126.978];
   const defaultZoom = 15;
   const map = L.map(plot, { minZoom: 6, maxZoom: 19, scrollWheelZoom: false,
@@ -44,42 +44,54 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpot) {
     const bounds = map.getPixelBounds();
     const carPoint = map.latLngToLayerPoint(coords(position));
     const clusters = [];
-    for (const [index, spot] of spots.entries()) {
+    for (const spot of spots) {
       if (!Number.isFinite(spot.latitude) || !Number.isFinite(spot.longitude) ||
           !bounds.contains(map.project(coords(spot)))) continue;
       const pixel = map.latLngToLayerPoint(coords(spot));
-      const cluster = clusters.find(group => group.pixel.distanceTo(pixel) < 36);
-      const entry = { spot, index };
-      if (cluster) cluster.entries.push(entry);
-      else clusters.push({ pixel, entries: [entry] });
+      const cluster = clusters.find(({ pixel: anchor }) => Math.abs(anchor.x - pixel.x) < 110 &&
+        Math.abs(anchor.y - pixel.y) < 46);
+      if (cluster) cluster.entries.push(spot);
+      else clusters.push({ pixel, entries: [spot] });
     }
     for (const { pixel, entries } of clusters) {
-      const selected = entries.findIndex(({ spot }) => spot.placeId === selectedId);
-      const { spot, index } = entries[selected < 0 ? 0 : (selected + 1) % entries.length];
-      const supply = entries.some(entry => entry.spot.activity === 'supply');
+      const primary = entries[0];
+      const selected = entries.some(spot => spot.placeId === selectedId);
+      const supply = primary.activity === 'supply';
+      const grouped = entries.length > 1;
       const pin = document.createElement('button');
       pin.type = 'button';
-      pin.className = 'journey-pin' + (entries.some(entry => entry.spot.activity) ? ' spot-active' : '');
+      pin.className = 'journey-pin';
+      pin.classList.toggle('spot-active', Boolean(primary.activity));
       if (supply) {
         pin.classList.add('supply-pin');
         pin.append(document.createElement('ply-supply-icon'));
-        if (entries.length > 1) {
-          const count = document.createElement('span');
-          count.className = 'cluster-count';
-          count.textContent = entries.length;
-          count.setAttribute('aria-hidden', 'true');
-          pin.append(count);
-        }
-      } else pin.textContent = entries.length > 1 ? '+' + entries.length : String(index + 1);
-      pin.setAttribute('aria-label', (entries.length > 1 ? entries.length + '개 장소 · 다음 장소 ' : '') + spot.label);
-      pin.setAttribute('aria-pressed', String(selected >= 0));
+      }
+      const label = document.createElement('span');
+      label.className = 'journey-pin-label';
+      label.textContent = supply ? '보급품 +1' : primary.activity === 'charge' ? primary.detail :
+        grouped ? '주변 장소' : primary.label;
+      pin.append(label);
+      if (grouped) {
+        const count = document.createElement('span');
+        count.className = 'cluster-count';
+        count.textContent = entries.length + '곳';
+        pin.append(count);
+      }
+      pin.setAttribute('aria-label', grouped ? label.textContent + ' · ' + entries.length + '곳 보기'
+        : primary.label + ' · ' + primary.detail);
+      pin.setAttribute('aria-pressed', String(selected));
       L.DomEvent.disableClickPropagation(pin);
-      pin.onclick = () => selectSpot(spot);
+      pin.onclick = () => selectSpots(entries);
       // Keep the actual marker anchored to the map point. If it overlaps the car,
       // move its button up and show a stem back to the point.
-      if (carPoint.distanceTo(pixel) < 28) pin.classList.add('journey-pin-offset');
-      L.marker(map.layerPointToLatLng(pixel), {
+      if (Math.abs(carPoint.x - pixel.x) < 65 && Math.abs(carPoint.y - pixel.y) < 38)
+        pin.classList.add('journey-pin-offset');
+      const anchor = map.getPixelOrigin().add(pixel);
+      pin.classList.toggle('journey-pin-left', anchor.x < bounds.min.x + 62);
+      pin.classList.toggle('journey-pin-right', anchor.x > bounds.max.x - 62);
+      L.marker(coords(primary), {
         keyboard: false,
+        zIndexOffset: primary.activity ? 1200 : 0,
         icon: L.divIcon({ className: 'journey-map-marker', html: pin, iconSize: [0, 0] }),
       }).addTo(pins);
     }

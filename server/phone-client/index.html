@@ -98,12 +98,23 @@
             </div>
           </div>
           <p id="journey-map-status" class="map-status" role="status"></p>
+          <section id="journey-pin-group" class="journey-place" hidden>
+            <div class="section-heading"><h2 id="journey-pin-group-title"></h2><button id="journey-pin-group-close" class="quiet" type="button">닫기</button></div>
+            <div id="journey-pin-group-spots" class="journey-spots"></div>
+          </section>
           <div id="journey-next" class="journey-next" hidden>
             <div class="item-inline"><ply-supply-icon id="journey-next-icon" hidden></ply-supply-icon><p id="journey-next-label" class="eyebrow"></p></div>
             <h2 id="journey-next-name"></h2>
             <p id="journey-next-status" class="subtle" role="status"></p>
             <button id="journey-next-enter" type="button" class="primary"></button>
           </div>
+          <div id="journey-place" class="journey-place" hidden>
+            <div class="item-inline"><ply-supply-icon id="journey-place-icon" hidden></ply-supply-icon><h2 id="journey-place-name"></h2></div>
+            <p id="journey-place-status" class="subtle"></p>
+            <button id="journey-enter" type="button" class="primary" hidden></button>
+          </div>
+          <details class="map-places"><summary>주변 장소</summary><div id="journey-spots" class="journey-spots"></div></details>
+          <details id="journey-history" class="map-places" hidden><summary>보급품 획득 내역</summary><ul id="journey-history-items" class="journey-history-items"></ul></details>
           <section id="drive-games" class="journey-next drive-games" hidden>
             <h2>동승자 게임</h2>
             <p id="drive-recommendation" class="subtle" hidden></p>
@@ -113,12 +124,6 @@
               <button type="button" data-drive-game="raindrop"><strong>빗방울 캐치</strong><span>차창 빗방울 받기</span></button>
             </div>
           </section>
-          <details class="map-places"><summary>주변 장소</summary><div id="journey-spots" class="journey-spots"></div></details>
-          <div id="journey-place" class="journey-place" hidden>
-            <div class="item-inline"><ply-supply-icon id="journey-place-icon" hidden></ply-supply-icon><h2 id="journey-place-name"></h2></div>
-            <p id="journey-place-status" class="subtle"></p>
-            <button id="journey-enter" type="button" class="primary" hidden></button>
-          </div>
         </section>
         <section id="journey-game" hidden>
           <button id="journey-back" type="button" class="quiet">‹ 지도</button>

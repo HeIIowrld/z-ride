@@ -449,6 +449,7 @@ export function createDemoServer(options = {}) {
         mode: 'DEMO_PICKUP', gpsVerified: false, label: '테스트 수집 지점 · GPS 미검증',
         fixtures: PICKUPS, inventory: { ...room.collection.inventory },
         collectedPickupIds: [...room.partyPickupClaims], lastCollect: room.collection.lastCollect,
+        ...(room.collection.routeSupplyHistory?.length ? { routeSupplyHistory: room.collection.routeSupplyHistory } : {}),
         revision:room.collectionRevision,claimScope:'PARTY',
         respawnCooldownMs:world.respawnMs,pickupRespawnAt:Object.fromEntries([...room.partyPickupRespawns].filter(([,v])=>v.respawnAt>world.now()).map(([id,v])=>[id,v.respawnAt])),
         eligibility: viewer.role === 'CAR_HOST' ? 'DRIVER_CANNOT_COLLECT' : 'APPROVED_ROLE_AND_PASSENGER_SELF_DECLARATION_ONLY',
@@ -801,6 +802,10 @@ export function createDemoServer(options = {}) {
             claimed[challenge.spotId] = challenge.id;
             claimed[challenge.id] = member.memberId;
             room.collection.inventory.supplies++;
+            room.collection.routeSupplyHistory = [
+              { placeId: challenge.spotId, placeName: challenge.placeName, at: Date.now() },
+              ...(room.collection.routeSupplyHistory ?? []).slice(0, 19),
+            ];
             collectionChanged(room);
             return result(res, 200, { supplies: room.collection.inventory.supplies });
           }
@@ -810,7 +815,7 @@ export function createDemoServer(options = {}) {
           const spot = availableRouteSupply(room, route, member);
           if (!spot || (body.placeId !== undefined && body.placeId !== spot.placeId))
             throw fail('ROUTE_SUPPLY_UNAVAILABLE', 'This spot is no longer available', 409);
-          const challenge = { id: randomUUID(), spotId: spot.placeId, routeKey: route.key,
+          const challenge = { id: randomUUID(), spotId: spot.placeId, placeName: spot.name, routeKey: route.key,
             sequence: Array.from({length: 4}, () => Math.floor(Math.random()*3)+1).join(''),
             expiresAt: Date.now()+30000 };
           supplyChallenges.set(member, challenge);

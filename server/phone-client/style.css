@@ -27,7 +27,15 @@
 .journey-car, .journey-pin { position: absolute; transform: translate(-50%, -50%); }
 .journey-car { margin-top: 20px; padding: 2px 5px; border-radius: 4px; white-space: nowrap; color: #e6ffff; background: #123746; font-size: 11px; font-weight: 700; }
 .journey-car::before { content: ''; position: absolute; left: 50%; bottom: calc(100% + 5px); width: 11px; height: 11px; transform: translateX(-50%); border: 2px solid white; border-radius: 50%; background: #147fae; box-shadow: 0 0 0 3px #147fae44; }
-.journey-pin { width: 36px; height: 36px; border-radius: 50%; }
+.journey-pin {
+  display: flex; align-items: center; gap: 4px; width: max-content; max-width: 122px;
+  min-height: 36px; padding: 4px 8px; border-radius: 7px;
+  font-size: 11px; font-weight: 750; white-space: nowrap;
+  box-shadow: 0 2px 6px #09121b55;
+}
+.journey-pin-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.journey-pin-left { transform: translate(-16px, -50%); }
+.journey-pin-right { transform: translate(calc(-100% + 16px), -50%); }
 .journey-pin-offset { margin-top: -28px; }
 .journey-pin-offset::after { content: ''; position: absolute; left: 50%; top: 100%; width: 2px; height: 12px; background: #38636c; pointer-events: none; }
 #journey-recenter, .map-tiles-status { position: absolute; z-index: 1001; color: #f1fbff; background: #12283c; }
@@ -38,8 +46,17 @@
 .journey-pin.spot-active, .journey-spots .spot-active { color: #052b27; background: var(--cyan); }
 .journey-pin.spot-active { z-index: 1; }
 .journey-map button[aria-pressed="true"] { outline: 2px solid #fff; outline-offset: 2px; }
-.journey-spots { display: flex; gap: 8px; overflow-x: auto; padding: 4px; }
-.journey-spots button { flex: 0 0 auto; max-width: 250px; border-radius: 8px; padding: 10px; }
+.journey-spots { display: grid; gap: 5px; padding: 6px 3px; }
+.journey-spots button {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 10px;
+  border-radius: 6px; text-align: start;
+}
+.journey-spots strong, .journey-spots small, .journey-history-items strong, .journey-history-items small {
+  display: block; overflow-wrap: anywhere;
+}
+.journey-spots small, .journey-history-items small { margin-top: 2px; opacity: .8; font-size: 11px; }
+.journey-history-items { display: grid; gap: 6px; padding: 0; margin: 6px 0; list-style: none; }
+.journey-history-items li { padding: 7px 10px; background: #152a39; border-radius: 6px; }
 .journey-place { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 #journey-back, #journey-party summary { margin: 0 0 12px; }
 #journey-game:not([data-view="charge"]) #journey-venue { display: none; }
@@ -120,14 +137,13 @@ button, input, select { touch-action: manipulation; }
 .journey-bag { min-height: 36px; }
 .journey-map .section-heading > .item-inline { color: var(--ply-muted); font-size: 12px; }
 .journey-map .section-heading b { color: var(--ply-ink); }
-.journey-pin.supply-pin { background: #173b39; border-color: var(--ply-common); }
-.supply-pin .item-badge { width: 24px; height: 24px; border-radius: 50%; }
+.journey-pin.supply-pin { max-width: 140px; color: var(--ply-common); background: #173b39; border-color: var(--ply-common); }
+.supply-pin .item-badge { width: 19px; height: 19px; border-radius: 50%; }
 .cluster-count {
-  position: absolute; top: -6px; right: -6px;
-  min-width: 16px; padding: 2px 3px; border-radius: 8px;
-  color: #061f1e; background: var(--ply-common); font-size: 10px; font-weight: 800;
+  flex: 0 0 auto; padding: 2px 4px; border-radius: 4px;
+  color: #eaf4ff; background: #304b5a; font-size: 10px; font-weight: 800;
 }
-.journey-spots button.item-inline { background: #173b39; color: var(--ply-common); }
+.journey-spots button.spot-active { color: var(--ply-common); background: #173b39; border-color: #50817a; }
 .pickup .item-inline { font-size: inherit; color: inherit; }
 .ply-game-panel { border-radius: var(--ply-radius); }
 .ply-game-panel h2 { font-size: 23px; }

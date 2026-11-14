@@ -24,6 +24,7 @@
       "path": "/api/world/route-supply",
       "auth": "Approved passenger in Drive near an unclaimed spot, with fresh location and Pleos guidance or an explicit route",
       "availability": "snapshot.room.routeSupplyAvailable and routeSupplySpot (placeId, name, category, entrance latitude and longitude) are scoped to the approved passenger",
+      "history": "snapshot.room.collection.routeSupplyHistory contains up to 20 recent successful crew pickups, each awarding one common supply",
       "body": {"passengerConfirmed": true, "challengeId": "optional", "sequence": "required to complete"},
       "response": {"challenge": "challengeId, sequence, placeName", "completion": "supplies"}
     },
