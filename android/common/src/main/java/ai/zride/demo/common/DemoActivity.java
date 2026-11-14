@@ -399,7 +399,7 @@ public abstract class DemoActivity extends Activity implements RoomClient.Listen
 
     private void updateVehicleWelcome() {
         if (vehicleMasthead == null) return;
-        vehicleMasthead.setVisibility(foreground && !connected ? View.VISIBLE : View.GONE);
+        vehicleMasthead.setVisibility(foreground && (!connected || !localAllowed) ? View.VISIBLE : View.GONE);
         connectButton.setVisibility(localAllowed ? View.VISIBLE : View.GONE);
         parkedHint.setVisibility(localAllowed ? View.GONE : View.VISIBLE);
         String gear = latestVehicle.optString("gear", "UNKNOWN");

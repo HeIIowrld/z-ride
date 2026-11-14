@@ -27,7 +27,7 @@
       </a>
       <span id="connection" class="connection" role="status">파티 연결 전</span>
     </header>
-    <section id="account-panel" class="panel crew-entry">
+    <section id="account-panel" class="panel crew-entry" hidden>
       <h1>크루 프로필</h1>
       <p id="account-status" class="subtle" role="status">계정 설정 확인 중…</p>
       <div id="account-signin">
@@ -50,7 +50,7 @@
       <form id="join-form">
         <p id="invite-status" class="subtle" role="status">차량 QR을 기다리는 중</p>
         <label id="switch-label" class="check" hidden><input id="switch-confirm" type="checkbox"><span>새 차량에서 승인하면 기존 파티에서 나옴. 기존 파티 재고는 이동하지 않음.</span></label>
-        <button id="legacy-toggle" type="button" class="quiet">참가 코드로 입장</button>
+        <button id="legacy-toggle" type="button" class="quiet">테스트 참가 코드</button>
         <div id="legacy-fields" hidden>
           <p class="footnote">코드 참가는 계정 이력과 연결되지 않는 기존 테스트 모드임.</p>
           <label>테스트 접근키<input id="access-key" type="password" maxlength="1024" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="별도로 받은 팀 테스트 키"></label>
@@ -77,7 +77,7 @@
 
     <section id="game" hidden>
       <div class="squad-head"><div><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">파티 탈퇴</button></div>
-      <section id="pending-panel" class="panel crew-entry crew-pending" hidden><h2>합류 요청 전송됨</h2><p class="subtle">Pleos의 크루 로비에서 내 자리를 승인하면 입장합니다.</p></section>
+      <section id="pending-panel" class="panel crew-entry crew-pending" hidden><h2>Pleos 승인 대기</h2><p class="subtle">차량 크루 로비에서 내 자리를 승인하면 여행 지도가 열려요.</p></section>
       <section id="approved-content" hidden>
         <section id="journey-map" class="panel journey-map">
           <div class="section-heading map-heading">
@@ -142,7 +142,7 @@
           <p id="aim-message" class="subtle aim-message"></p>
           <button id="fire-button" class="primary fire" type="button" disabled>사격 <span>⌖</span></button>
         </section>
-        <section class="panel collection-panel"><div class="section-heading"><h2>이동 중 보급 수집</h2><span class="pill amber">DEMO</span></div><p class="subtle">동승자는 공동 전투가 멈춰 있어도 수집할 수 있음. 아래 상자는 GPS를 사용하지 않는 테스트 지점임.</p><div id="pickups" class="pickups"></div><p class="footnote">실제 지도·주변 충전소·위치 인증은 이 브라우저 버전에 연결되지 않음.</p></section>
+        <section class="panel collection-panel"><div class="section-heading"><h2>연습 보급품</h2><span class="pill amber">DEMO</span></div><p class="subtle">아래 상자는 위치 확인 없이 수집할 수 있는 연습용 보급품이에요.</p><div id="pickups" class="pickups"></div></section>
         <section class="panel"><h2>차량 내비 · Pleos SDK</h2><p id="navigation-summary">차량 내비 연결 대기</p><p id="navigation-progress" class="subtle"></p></section>
         <section class="panel"><h2>차량 주변 장소 리스트</h2><p class="subtle">차량 도로망 근거로 선별한 후보임. 현장 접근·주차와 게임 운영은 검토 전임.</p><label>유형<select id="place-category"><option value="">전체</option><option value="PARKING">주차장</option><option value="CHARGER">충전소</option><option value="FUEL_STATION">주유소</option><option value="ATTRACTION">명소</option></select></label><button id="places-refresh" type="button">차량 위치 주변 10km 조회</button><p id="places-status" role="status"></p><ul id="place-list"></ul><p class="footnote">© OpenStreetMap contributors / Geofabrik · ODbL 1.0. 직선거리순이며 실제 도로 우회거리와 다름.</p></section>
         <section class="panel squad-panel"><div class="section-heading"><h2>같은 방 참가자</h2><span id="participant-count" class="pill"></span></div><ul id="members"></ul><p id="room-meta" class="footnote"></p></section>

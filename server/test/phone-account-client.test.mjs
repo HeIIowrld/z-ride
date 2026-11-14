@@ -12,6 +12,7 @@ function browser(base,storage=new Map(),hash=''){
   const element=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',checked:false,textContent:'',handlers:{},addEventListener(name,fn){this.handlers[name]=fn;},querySelectorAll(){return [];},replaceChildren(){}});return elements.get(id);};
   const location={origin:'https://hyundai.hjpark.net',pathname:'/play',search:'',hash};
   element('guest-button').disabled=true;element('google-start').disabled=true;
+  element('game').hidden=true;element('approved-content').hidden=true;
   let googleOptions,buttonRendered=false;
   window.GAME_CONFIG={apiOrigin:''};window.google={accounts:{id:{initialize(options){googleOptions=options;},renderButton(){buttonRendered=true;}}}};
   const timers=new Set();
@@ -36,6 +37,7 @@ test('phone page links guest Google identity, resumes on reload and joins a car 
   const credential=nonce=>JSON.stringify({iss:'https://accounts.google.com',aud:clientId,sub:'stable-subject',iat:Date.now()/1000,exp:Date.now()/1000+300,nonce,name:'Google passenger'});
   try{
     const b=browser(base);browsers.push(b);await until(()=>!b.element('guest-button').disabled);
+    assert.equal(b.element('account-panel').hidden,true);
     b.element('account-nickname').value='Guest';b.click('guest-button');await until(()=>!!accountToken(b));
     const initial=(await api('/api/me',undefined,accountToken(b))).account;
     b.click('google-start');await until(()=>b.rendered()&&!b.element('google-start').disabled);
@@ -52,7 +54,11 @@ test('phone page links guest Google identity, resumes on reload and joins a car 
     // The QR capability is removed from the visible URL before any Google script loads.
     reload.location.hash=new URL(invite.joinUrl).hash;reload.window.dispatchEvent(new Event('hashchange'));
     assert.equal(reload.location.hash,'');await until(()=>reload.element('invite-status').textContent.includes('승인 후'));
+    assert.equal(reload.element('account-panel').hidden,false);
     const joined=await reload.window.PHONE_ACCOUNT.join('REAR_LEFT',true);
+    reload.element('game').hidden=false;
+    reload.window.PHONE_ACCOUNT.render();
+    assert.equal(reload.element('account-panel').hidden,true);
     assert.equal(joined.pending,true);assert.equal((await api('/api/me',undefined,accountToken(reload))).account.activePartyId,null);
     let ticket;reload.window.addEventListener('phone:ticket',event=>{ticket=event.detail;});
     await reload.poll();assert.equal(ticket,undefined);

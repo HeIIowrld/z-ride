@@ -56,6 +56,8 @@
     seatChoice.dispatchEvent(new Event('change'));
   });
   function render() {
+    const game = $('game');
+    $('account-panel').hidden = game.hidden ? !invite && !token && !account : $('approved-content').hidden;
     $('account-signin').hidden = !!account;
     $('account-status').textContent = account ? `${account.displayName} · ${account.kind === 'GOOGLE' ? 'Google' : '게스트'}${account.activePartyId ? ' · '+(account.activePartyName || '참가 중인 차량') : ''}${account.pendingPartyId ? ' · 새 차량 승인 대기' : ''}` : '게스트로 시작한 뒤 바로 합류할 수 있어요.';
     $('guest-button').disabled = busy || !config;
@@ -150,7 +152,7 @@
   $('legacy-toggle').addEventListener('click', () => {
     legacy = !legacy; $('legacy-fields').hidden = !legacy;
     $('nickname').required = legacy; $('join-code').required = legacy;
-    $('legacy-toggle').textContent = legacy ? 'QR 참가로 돌아가기' : '참가 코드로 입장';
+    $('legacy-toggle').textContent = legacy ? 'QR 참가로 돌아가기' : '테스트 참가 코드';
     renderSeats();
   });
   window.PHONE_ACCOUNT = {
@@ -170,6 +172,7 @@
     },
     async leave(pending = false) { const data = await api(pending ? '/api/me/invitations/cancel' : '/api/me/party/leave', {}); account = data.account; render(); },
     sync: () => action(async () => { await refresh(); }),
+    render,
   };
   readInvite(); window.addEventListener('hashchange',readInvite);
   void (async () => {
