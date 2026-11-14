@@ -702,6 +702,7 @@ function journeyActivityCopy(activity) {
 
 function renderJourneyMap() {
   if (journeyView !== 'map' || !ownMember()?.approved) return;
+  renderJourneyGuidance(room.navigation);
   const position = room.navigation?.position;
   const offset = (spot, origin) => [
     (spot.longitude - origin.longitude) * 111000 * Math.cos(origin.latitude * Math.PI / 180),
@@ -834,6 +835,28 @@ function renderJourneyMap() {
   } else {
     status.textContent = [spotTypes[current.category], Number.isFinite(current.distanceM) ? current.distanceM + 'm' : '', '대기 중'].filter(Boolean).join(' · ');
   }
+}
+
+function renderJourneyGuidance(nav) {
+  const panel = $('journey-guidance');
+  const active = nav?.available && ['ROUTE_READY', 'ROUTE_DRIVE', 'ARRIVED'].includes(nav.status);
+  panel.hidden = !active;
+  if (!active) return;
+
+  const destination = $('journey-guidance-destination');
+  const title = nav.destination || 'Pleos 내비 안내';
+  if (destination.textContent !== title) destination.textContent = title;
+  const details = [nav.status === 'ARRIVED' ? '도착' : nav.status === 'ROUTE_READY' ? '경로 준비 완료' : 'Pleos 안내 중'];
+  if (nav.status !== 'ARRIVED' && Number.isFinite(nav.remainingDistanceM)) {
+    const distance = nav.remainingDistanceM;
+    details.push(distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`);
+  }
+  if (nav.status !== 'ARRIVED' && Number.isFinite(nav.remainingTimeSec)) {
+    details.push(`${Math.ceil(nav.remainingTimeSec / 60)}분`);
+  }
+  const progress = $('journey-guidance-progress');
+  const message = details.join(' · ');
+  if (progress.textContent !== message) progress.textContent = message;
 }
 
 async function refreshJourneyMap() {
