@@ -53,7 +53,7 @@ window.Relay = (() => {
       if (stopped) return;
       clearTimeout(timer); clearTimeout(watchdog);
       live = false; onLink?.(retry ? 'RETRYING' : 'CONNECTING');
-      const socket = ws = new WebSocket(location.origin.replace(/^http/, 'ws') + '/ws');
+      const socket = ws = new WebSocket(location.origin.replace(/^http/, 'ws') + '/ws?room=' + encodeURIComponent(code));
       socket.onopen = () => socket.send(JSON.stringify({ type: 'auth', code, token }));
       socket.onmessage = event => {
         if (socket !== ws) return;
