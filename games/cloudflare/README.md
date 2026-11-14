@@ -20,5 +20,5 @@ npm run deploy                     # 4종 배포(Cloudflare 로그인 필요)
 - [x] 공통 Durable Object 방, 게임별 어댑터, 빌드 스크립트
 - [x] 클라이언트 WebSocket 주소에 방 코드 추가(4종)
 - [x] `wrangler dev`로 로컬 시험: 4종 모두 방 만들기·참가·잘못된 토큰 차단·규칙→경기 시작 확인, Power Castle은 번개 도착까지 확인
-- [ ] 배포(개인 Cloudflare 계정, Workers·Durable Objects 무료 한도 확인 후)
+- [x] 배포: 4종 + 게임 모음 화면(zride-charge-hub)을 workers.dev에 올리고 공개 주소로 방 만들기·참가·경기 시작 확인
 - [ ] PLY 서버에 충전 게임 주소 설정 추가, carapp 충전 메뉴를 4종으로 교체(PR)
