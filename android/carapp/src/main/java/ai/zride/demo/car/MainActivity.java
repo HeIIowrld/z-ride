@@ -36,6 +36,7 @@ public final class MainActivity extends DemoActivity {
 
     private static final String[] SEATS = {"FRONT_PASSENGER", "REAR_LEFT", "REAR_RIGHT"};
     private static final String[] SEAT_NAMES = {"조수석", "뒷좌석 왼쪽", "뒷좌석 오른쪽"};
+    private static final int[] SEAT_ACCENTS = {0xffa8b5ff, 0xffffbb8b, 0xffd3aaff};
     private LinearLayout venuePanel;
     private View arcadeViewport;
     private LinearLayout venueRound, venueCover, venueSeats;
@@ -120,9 +121,9 @@ public final class MainActivity extends DemoActivity {
         if (game != null && (venueCoverGame != selected || venueLobbyArt != lobby)) {
             venueCoverGame = selected;
             venueLobbyArt = lobby;
-            venueCover.setBackground(lobby ? cover(selected) : null);
+            venueCover.setBackground(lobby ? new GameCover(this, selected.art, selected.accent, dp(12), true) : null);
             if (!lobby) styleVehicleCard(venueCover, 0xff101f2b);
-            venueCover.requestLayout();
+            resizeVenueCover();
         }
         venueItem.setText(thief ? "비상 퓨즈 사용 · 파티 보급품 1개" : "15초 연장 · 파티 보급품 1개");
         String placeName = stop.optString("name", "충전소");
@@ -198,12 +199,9 @@ public final class MainActivity extends DemoActivity {
         venueRound = column();
         venuePanel.addView(venueRound);
         venueCover = column();
-        venueCover.setGravity(Gravity.CENTER_VERTICAL);
-        venueCover.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-            int height = venueLobbyArt ? Math.max(dp(152), Math.min((right - left) * 5 / 12,
-                    arcadeViewport.getHeight() * 52 / 100)) : dp(112);
-            if (venueCover.getMinimumHeight() != height) venueCover.setMinimumHeight(height);
-        });
+        venueCover.setGravity(Gravity.BOTTOM | Gravity.START);
+        arcadeViewport.addOnLayoutChangeListener((view, left, top, right, bottom,
+                                                   oldLeft, oldTop, oldRight, oldBottom) -> resizeVenueCover());
         venueCover.setPadding(dp(28), dp(12), dp(24), dp(12));
         venueRound.addView(venueCover);
         venuePhase = dashboardText(venueCover, 16, true);
@@ -234,6 +232,11 @@ public final class MainActivity extends DemoActivity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = dp(12);
         container.addView(venuePanel, params);
+    }
+
+    private void resizeVenueCover() {
+        int height = venueLobbyArt ? Math.max(dp(204), Math.min(dp(340), arcadeViewport.getHeight() / 3)) : dp(112);
+        if (venueCover.getMinimumHeight() != height) venueCover.setMinimumHeight(height);
     }
 
     private TextView leaderboard;
@@ -931,7 +934,9 @@ public final class MainActivity extends DemoActivity {
             layout.topMargin = dp(8);
             if (wide && index > 0) layout.setMarginStart(dp(8));
             seats.addView(tile, layout);
-            dashboardText(tile, 15, false).setText(SEAT_NAMES[index]);
+            TextView seat = dashboardText(tile, 15, true);
+            seat.setText(SEAT_NAMES[index]);
+            seat.setTextColor(SEAT_ACCENTS[index]);
             TextView label = dashboardText(tile, 19, true);
             label.setSingleLine(true);
             label.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -966,7 +971,7 @@ public final class MainActivity extends DemoActivity {
                 else if (game != null && player == null) state = "미참가";
                 else {
                     state = briefing ? (player != null && player.optBoolean("done") ? "준비 완료" : "준비 중") : "연결됨";
-                    color = 0xffa8efce;
+                    color = SEAT_ACCENTS[index];
                 }
                 message = member.optString("nickname");
             }
