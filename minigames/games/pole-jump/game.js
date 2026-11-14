@@ -7,30 +7,43 @@ import { startLootTracking } from '../../shared/loot-tracker.js';
 startLootTracking();
 import { getBest, saveRecord } from '../../shared/records.js';
 import { ensurePassenger } from '../../shared/passenger.js';
-import { sketchLine, hatchRect, drawFinger } from '../../shared/sketch.js';
+import { sketchLine, hatchRect, drawRunner, drawPoleJumpHand, poleJumpHandGeometry } from '../../shared/sketch.js';
+import { HOP_MS, SCROLL_MULTIPLIER, STANDING_ZONE_RATIO, LANDING_TOLERANCE_RATIO, HAND_X_RATIO, FOOTHOLD_LENGTH, poleGeometry, wireCurves, landingOutcome, standingOutcome } from './logic.js';
+import { travelDir, frontEdgeX, rearEdgeX } from '../../shared/motion.js';
+import { createScenery } from '../../shared/scenery.js';
+import { drawWindowFrame, traceWindow } from '../../shared/window-frame.js';
+import { mountDoorHud, findLayoutOverlaps } from '../../shared/door-hud.js';
 
 const canvas = document.querySelector('#game'), ctx = canvas.getContext('2d');
 const $ = id => document.getElementById(id), dev = new URLSearchParams(location.search).get('dev') === '1';
 let w = 0, h = 0, dpr = 1, feed, running = false, ended = false, lastFrame = 0, endReason = null;
-let speed = inJourney ? 0 : 42, speedLimit = null, feedDistance = 0, worldM = 0, score = 0, cleared = 0;
+let speed = 40, speedLimit = null, feedDistance = 0, worldM = 0, score = 0, cleared = 0;
 let perfects = 0, combo = 0, maxCombo = 0, parts = 0, startAt = 0, jump = null, lane = 1;
 let stoppedAt = 0, speeding = 0, muted = false, audio, toastTimer = 0, seed = 7139, poles = [];
 let cameraX = 0, playerScreenX = 0, warningBeepAt = 0, landedAt = 0;
 let introRemaining = 0, tutorial = false, tutorialStep = 0, tutorialAttempts = 0;
 const devAutostart = new URLSearchParams(location.search).get('dev') === '1' && new URLSearchParams(location.search).get('autostart') === '1';
+const demoMode = devAutostart && new URLSearchParams(location.search).get('demo') === '1';
+const devPose = devAutostart ? new URLSearchParams(location.search).get('pose') : null;
+const character = new URLSearchParams(location.search).get('char') === 'runner' ? 'runner' : 'hand';
 // World scale is intentionally modest: the standing pole must drift to the
 // trailing danger edge in a few seconds, while adjacent poles remain reachable.
-const REACH = 40, IDEAL = 31, PERFECT = 4.5, GAME_SPEED = 1.9;
+const REACH = 40, IDEAL = 31, PERFECT = 4.5, GAME_SPEED = 1.9 * SCROLL_MULTIPLIER;
 const INTRO_SECONDS = 2.4, FIRST_JUMP_SPEED = 36;
 const names = ['위쪽', '중간', '아래'];
 const poleObstacles = ['표지판', '변압기', '까치집', '전단지'];
 const treeObstacles = ['새둥지', '벌집', '다람쥐'];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const scenery = createScenery({ seed: 7139 });
+const sceneOverride = new URLSearchParams(location.search).get('scene');
+if (['day', 'dusk', 'night'].includes(sceneOverride)) scenery.setTimeOfDay(sceneOverride);
 
+const doorHud = mountDoorHud(document.querySelector('.stage'), { game: 'pole-jump', controls: [{ id: 'up', icon: 'up', label: '위' }, { id: 'down', icon: 'down', label: '아래' }, { id: 'jump', icon: 'jump', label: '점프', primary: true }], items: [{ id: 'part', count: 0 }, { id: 'gear-tires-a', count: 0 }, { id: 'medkit', count: 0 }] });
 function resize() { const r = canvas.getBoundingClientRect(); dpr = Math.min(devicePixelRatio || 1, 2); w = r.width; h = r.height; canvas.width = w * dpr; canvas.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
 new ResizeObserver(resize).observe(canvas); resize();
 function rand() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
 function makePole(index, distance) {
+  if (!Number.isFinite(index) || !Number.isFinite(distance)) throw new Error('Invalid pole geometry');
   const tree = index > 10 && rand() < .25;
   const p = { index, distance, tree, height: .9 + rand() * .2, lean: (rand() - .5) * 4, obstacles: [], ground: rand() * 8 - 4, arms: 1 + Math.floor(rand() * 2) };
   if (index > 10 && rand() < .2) p.obstacles.push({ lane: Math.floor(rand() * 3), type: tree ? treeObstacles[Math.floor(rand() * treeObstacles.length)] : poleObstacles[Math.floor(rand() * poleObstacles.length)] });
@@ -42,25 +55,42 @@ function updateHud() {
   $('score').textContent = score.toLocaleString('ko-KR'); $('combo').textContent = combo; $('parts').textContent = parts;
   $('speed').textContent = Math.round(speed); $('limit').textContent = speedLimit == null ? '제한 속도 정보 없음' : `제한 ${Math.round(speedLimit)} km/h`;
   $('height-name').textContent = names[lane];
+  doorHud.update({ score, combo, status: poles[1]?.tree ? '나무' : poles[1]?.obstacles?.[0]?.type || '다음 전봇대', mode: '주행', speed, limit: speedLimit, items: [{ count: parts }, { count: 0 }, { count: 0 }] });
 }
 function beep(f = 660, d = .1) { if (muted) return; try { audio ||= new AudioContext(); const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = f; g.gain.setValueAtTime(.055, audio.currentTime); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + d); o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + d); } catch {} }
 function toast(text) { const el = $('toast'); el.textContent = text; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 850); }
 function reset() {
   running = true; ended = false; endReason = null; score = cleared = perfects = combo = maxCombo = parts = feedDistance = worldM = speeding = stoppedAt = 0;
-  startAt = performance.now(); lane = 1; jump = null; seed = 7139; cameraX = getSeat() === 'right' ? w * .55 : w * .45; playerScreenX = 0; landedAt = 0;
+  startAt = performance.now(); lane = 1; jump = null; seed = 7139; cameraX = playerX() - 12 - travelDir(getSeat()) * 26 * pxPerMeter(); playerScreenX = playerX(); landedAt = 0;
   let played = 0; try { played = Number(localStorage.getItem('zride.polejump.games') || 0); } catch {}
   tutorial = !devAutostart && played < 3; tutorialStep = 0; tutorialAttempts = 0;
   if (tutorial) { try { localStorage.setItem('zride.polejump.games', String(played + 1)); } catch {} }
   introRemaining = devAutostart ? 0 : INTRO_SECONDS;
   poles = [makePole(1, 26), makePole(2, 64), makePole(3, 102), makePole(4, 140)];
+  if (devPose) {
+    lane = ({ stand1: 0, stand2: 1, stand3: 2 })[devPose] ?? 1;
+    if (['stand1', 'stand2', 'stand3', 'hop', 'fall'].includes(devPose)) {
+      const direction = travelDir(getSeat());
+      const desiredPoleX = playerX() - 12;
+      cameraX = desiredPoleX - direction * 26 * pxPerMeter();
+      tutorial = false; introRemaining = 0;
+      if (devPose === 'hop') {
+        poles[0] = poles[1]; poles[1] = makePole(3, 102);
+        cameraX = playerX() - 12 - direction * 64 * pxPerMeter();
+        jump = { at: startAt - HOP_MS / 2, target: poles[0], obstacle: null, lane, d: IDEAL, gap: 38 };
+      }
+      if (devPose === 'fall') { jump = null; poles[0].distance = 26; cameraX = desiredPoleX - direction * 26 * pxPerMeter() + direction * 50; }
+    }
+  }
   $('jump').disabled = true;
   showJumpHint(tutorial ? '연습 1/3 · 화면의 점프 버튼을 눌러요' : '달리는 중 · 첫 전봇대가 다가와요');
-  $('start').classList.add('hidden'); $('result').classList.add('hidden'); $('pause').classList.add('hidden'); updateHud(); lastFrame = performance.now(); requestAnimationFrame(frame);
+  $('start').classList.add('hidden'); $('result').classList.add('hidden'); $('pause').classList.add('hidden'); updateHud(); lastFrame = performance.now();
+  if (devPose) { draw(performance.now()); setInterval(() => draw(performance.now()), 250); } else requestAnimationFrame(frame);
 }
 function pxPerMeter() { return w / 60; }
 function worldX(p) { return (p.distance - worldM) * pxPerMeter(); }
-function screenX(p) { const direction = getSeat() === 'right' ? -1 : 1; return cameraX + direction * worldX(p); }
-function playerX() { return playerScreenX || w * .32; }
+function screenX(p) { return cameraX + travelDir(getSeat()) * worldX(p); }
+function playerX() { return frontEdgeX(w,getSeat())===w ? w*(1-HAND_X_RATIO) : w*HAND_X_RATIO; }
 function targetVisible() {
   const x = screenX(poles[1]);
   return x >= w * .08 && x <= w * .92;
@@ -71,35 +101,34 @@ function showJumpHint(text) {
   if (text !== hint.textContent) hint.textContent = text;
 }
 function updateCamera() {
-  const direction = getSeat() === 'right' ? -1 : 1;
-  if (jump) {
-    const t = clamp((performance.now() - jump.at) / 250, 0, 1);
-    const fromX = cameraX + direction * worldX(poles[0]), landingX = cameraX + direction * worldX(jump.target);
-    playerScreenX = clamp(fromX + (landingX - fromX) * t, w * .04, w * .96);
-    if (t >= 1) playerScreenX = landingX;
-  } else {
-    // Keep the camera in world space while standing. Following pole[0] here
-    // cancels its world motion and makes the danger timer impossible to reach.
-    playerScreenX = cameraX + direction * worldX(poles[0]);
-  }
+  playerScreenX = playerX();
 }
 window.__polejump = { getState() {
-  const edge = getSeat() === 'right' ? w * .85 : w * .15;
+  const edge = rearEdgeX(w,getSeat())===0 ? w*.15 : w*.85;
   const nextPoleDistanceM = poles.length > 1 ? Math.abs(screenX(poles[1]) - screenX(poles[0])) / pxPerMeter() : null;
   const nextPoleScreenX = poles.length > 1 ? screenX(poles[1]) : null;
   const nextPoleInWindow = nextPoleScreenX != null && targetVisible();
   const canJump = running && !introRemaining && !stoppedAt && !jump && performance.now() - landedAt >= 150 && nextPoleInWindow;
-  return { running, intro: introRemaining > 0, tutorial, tutorialStep, score, cleared, ninjaScreenX: playerX(), dangerEdgeX: edge,
+  const handX = playerX(), standingZone = w * STANDING_ZONE_RATIO, landingTolerance = w * LANDING_TOLERANCE_RATIO;
+  const geo = poles[0] ? poleGeometry(poles[0], screenX(poles[0]), h*.11, h*.57) : null;
+  const peg = geo?.footholds[lane];
+  const standPose = devPose?.startsWith('stand');
+  const onFoothold = !!(peg && !jump && (standPose || Math.abs(peg.x - handX) <= standingZone));
+  const contactX = peg?.x ?? handX, contactY = peg?.y ?? null;
+  const contacts = peg ? [{ x: peg.x - travelDir(getSeat()) * 4.5, y: peg.y }, { x: peg.x + travelDir(getSeat()) * 4.5, y: peg.y }] : [];
+  const handGeometry = peg ? poleJumpHandGeometry(peg, { direction: travelDir(getSeat()) }) : null;
+  return { running, intro: introRemaining > 0, tutorial, tutorialStep, score, cleared, character, contacts, handX, standingZone, landingTolerance, onFoothold, contactX, contactY, pegX: peg?.x ?? null, pegY: peg?.y ?? null, wrist: handGeometry?.wrist ?? null, elbow: handGeometry?.elbow ?? null, forearm: handGeometry?.forearm ?? null, dangerEdgeX: edge,
     nextPoleDistanceM, nextPoleScreenX, nextPoleInWindow, canJump,
-    reachM: poles.length > 1 ? (poles[1].distance - poles[0].distance > 70 ? REACH * 2.1 : cleared < 10 ? REACH * 1.3 : REACH) : REACH, endReason };
+    reachM: poles.length > 1 ? (poles[1].distance - poles[0].distance > 70 ? REACH * 2.1 : cleared < 10 ? REACH * 1.3 : REACH) : REACH, endReason, sceneryOffsetM: scenery.distance };
 } };
+window.__layoutCheck=()=>findLayoutOverlaps(document.querySelector('.stage'),'.door-hud,#toast,#jump-hint');
 function doJump() {
   if (!running || introRemaining || stoppedAt || jump || poles.length < 2 || performance.now() - landedAt < 150) return;
   const gap = poles[1].distance - poles[0].distance;
   const nextX = screenX(poles[1]);
   if (!targetVisible()) {
     if (tutorial) { tutorialAttempts++; toast('괜찮아요. 같은 전봇대에서 다시!'); showJumpHint(`연습 ${tutorialStep + 1}/3 · 다시 점프해요`); return; }
-    if (cleared === 0) { toast('다음 전봇대가 보이면 점프'); return; }
+    if (cleared === 0) return;
     finish('fall'); return;
   }
   const d = Math.abs(nextX - playerX()) / pxPerMeter();
@@ -140,16 +169,25 @@ function completeJump() {
   if (cleared && cleared % 10 === 0) { parts++; addItem('part', 1, { from: 'pole-jump' }); toast('+1 부품'); }
   jump = null; landedAt = performance.now(); playerScreenX = screenX(poles[0]); updateHud();
 }
+let frameErrorLogged = false;
 function frame(now) {
   if (!running) return;
+  try { frameStep(now); } catch (error) {
+    if (!frameErrorLogged) { frameErrorLogged = true; console.error('pole-jump frame failed', error); }
+    finish('fall');
+  }
+}
+function frameStep(now) {
+  if (!running) return;
   const dt = Math.min((now - lastFrame) / 1000, .06); lastFrame = now;
+  scenery.update(dt, speed, getSeat());
   if (speed < 3) { if (!stoppedAt) stoppedAt = now; $('pause').classList.remove('hidden'); } else { stoppedAt = 0; $('pause').classList.add('hidden'); }
   if (!introRemaining && speedLimit != null && speed > speedLimit) { speeding += dt; document.body.classList.add('speeding'); if (Math.floor(speeding * 3) !== Math.floor((speeding - dt) * 3)) beep(850, .05); if (speeding >= 2) { draw(now); finish('speeding'); return; } } else { speeding = 0; document.body.classList.remove('speeding'); }
   if (!stoppedAt) {
     const speedFactor = tutorial ? .6 : cleared < 5 ? .8 + .2 * (cleared / 5) : cleared >= 30 ? 1.15 : 1;
     if (introRemaining > 0) {
       introRemaining = Math.max(0, introRemaining - dt);
-      worldM = poles[0].distance * (1 - introRemaining / INTRO_SECONDS);
+      worldM = 0;
       playerScreenX = cameraX;
       if (!introRemaining) {
         landedAt = now;
@@ -164,100 +202,66 @@ function frame(now) {
       showJumpHint(cleared === 0 && !jump
         ? targetVisible() ? '지금 점프' : '다음 전봇대가 보이면 점프' : '');
     }
-    const edge = getSeat() === 'right' ? w * .85 : w * .15;
-    const endangered = getSeat() === 'right' ? playerX() > edge : playerX() < edge;
-    const outEdge = getSeat() === 'right' ? w * .97 : w * .03;
-    const pushedOut = getSeat() === 'right' ? playerX() > outEdge : playerX() < outEdge;
+    const edge = rearEdgeX(w,getSeat())===0 ? w*.15 : w*.85;
+    const endangered = travelDir(getSeat())*(playerX()-edge)>0;
+    const outEdge = rearEdgeX(w,getSeat())===0 ? w*.03 : w*.97;
+    const pushedOut = travelDir(getSeat())*(playerX()-outEdge)>0;
     if (!introRemaining && endangered && now - warningBeepAt > 420) { warningBeepAt = now; beep(980, .07); }
     if (!tutorial && !introRemaining && pushedOut && !jump) { draw(now); finish('pushed_out'); return; }
-    if (jump && now - jump.at >= 250) completeJump();
+    if (jump && now - jump.at >= HOP_MS) completeJump();
+    if (demoMode && !jump && !introRemaining && !stoppedAt && poles.length > 1 && now - landedAt > 150) { const tx=screenX(poles[1]), ix=playerX()+travelDir(getSeat())*IDEAL*pxPerMeter(); if(Math.abs(tx-ix)<w*.19) doJump(); }
   }
   updateHud(); draw(now); requestAnimationFrame(frame);
 }
 function yLevel(ln, top, bottom) { return top + (ln + 1) * (bottom - top) / 4; }
+function rimPath(drawPath, night = scenery.timeOfDay === 'night') {
+  ctx.save(); ctx.shadowColor = night ? '#ffbd70' : '#d6f0ff'; ctx.shadowBlur = night ? 9 : 3;
+  ctx.fillStyle = night ? '#111725' : '#172432'; ctx.strokeStyle = night ? 'rgba(255,194,117,.82)' : 'rgba(221,240,255,.78)'; ctx.lineWidth = 1.4;
+  drawPath(); ctx.fill(); ctx.stroke(); ctx.restore();
+}
 function drawTree(x, base, top, p) {
-  const stemX = x + p.lean;
-  sketchLine(ctx, stemX - 5, base, stemX - 2, top + 20, { seed: p.index, width: 3 });
-  sketchLine(ctx, stemX + 5, base, stemX + 2, top + 20, { seed: p.index + 1, width: 3 });
-  ctx.save(); ctx.strokeStyle = '#eef6ff'; ctx.lineWidth = 2;
-  const blobs = [[stemX - 13, top + 17, 17], [stemX + 6, top + 11, 20], [stemX - 3, top - 3, 19], [stemX + 20, top + 18, 14]];
-  for (const [cx, cy, r] of blobs) { ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI * .12, Math.PI * 1.85); ctx.stroke(); }
-  for (let ln = 0; ln < 3; ln++) { const y = yLevel(ln, top, base); sketchLine(ctx, stemX, y, stemX + 20, y - 3, { seed: p.index + ln, width: 2.4 }); }
-  ctx.restore();
+  const sx = x + p.lean;
+  rimPath(() => { ctx.beginPath(); ctx.moveTo(sx-4,base); ctx.lineTo(sx-2,top+18); ctx.lineTo(sx+4,top+18); ctx.lineTo(sx+7,base); ctx.closePath(); });
+  for (const [dx,dy,r] of [[-13,17,17],[6,11,20],[-3,-3,19],[20,18,14]]) rimPath(() => { ctx.beginPath(); ctx.arc(sx+dx,top+dy,r,0,Math.PI*2); });
+  for (let ln=0;ln<3;ln++) { const y=yLevel(ln,top,base); ctx.fillStyle='#172432'; ctx.fillRect(sx+2,y-2,20,4); ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#e4f3ff'; ctx.strokeRect(sx+2,y-2,20,4); }
 }
 function drawPole(x, top, base, p) {
-  const widthBottom = 12, widthTop = 6, lean = p.lean;
-  sketchLine(ctx, x - widthBottom / 2, base, x - widthTop / 2 + lean, top, { seed: p.index, width: 2.5 });
-  sketchLine(ctx, x + widthBottom / 2, base, x + widthTop / 2 + lean, top, { seed: p.index + 4, width: 2.5 });
-  sketchLine(ctx, x - widthBottom / 2, base, x + widthBottom / 2, base, { seed: p.index + 7, width: 2 });
-  sketchLine(ctx, x - 10, base + 3, x + 10, base + 3, { seed: p.index + 8, width: 1.3 });
-  for (let a = 0; a < p.arms; a++) {
-    const ay = top + 17 + a * 17, ax = x + lean * .4;
-    sketchLine(ctx, ax - 23, ay, ax + 23, ay, { seed: p.index + a, width: 2.5 });
-    for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(ax - 15 + k * 15, ay - 4, 3, Math.PI, 0); ctx.strokeStyle = '#eef6ff'; ctx.lineWidth = 1.4; ctx.stroke(); }
-  }
-  for (let ln = 0; ln < 3; ln++) { const y = yLevel(ln, top, base); sketchLine(ctx, x + 3, y, x + 21, y, { seed: p.index + ln, width: 2.4 }); }
+  const lean=p.lean; rimPath(() => { ctx.beginPath(); ctx.moveTo(x-6,base); ctx.lineTo(x-3+lean,top); ctx.lineTo(x+3+lean,top); ctx.lineTo(x+6,base); ctx.closePath(); });
+  for(let a=0;a<p.arms;a++){const ay=top+17+a*17,ax=x+lean*.4;ctx.fillStyle='#172432';ctx.fillRect(ax-25,ay-2,50,5);ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#e4f3ff';ctx.strokeRect(ax-25,ay-2,50,5);for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(ax-15+k*15,ay-3,3,Math.PI,0);ctx.fillStyle='#172432';ctx.fill();ctx.stroke();}}
+  for(let ln=0;ln<3;ln++){const y=yLevel(ln,top,base);ctx.fillStyle='#172432';ctx.fillRect(x+1,y-2,FOOTHOLD_LENGTH,4);ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#e4f3ff';ctx.strokeRect(x+1,y-2,FOOTHOLD_LENGTH,4);}
 }
-function drawObstacle(x, y, type, index) {
-  ctx.save(); ctx.strokeStyle = '#eef6ff'; ctx.lineWidth = 1.7;
-  if (type === '변압기') { ctx.strokeRect(x - 17, y - 24, 24, 20); hatchRect(ctx, x - 16, y - 23, 22, 18, 5, '#667d96'); }
-  else if (type === '표지판') { ctx.strokeRect(x - 18, y - 25, 26, 18); ctx.beginPath(); ctx.moveTo(x - 13, y - 19); ctx.lineTo(x + 3, y - 19); ctx.moveTo(x - 13, y - 14); ctx.lineTo(x, y - 14); ctx.stroke(); }
-  else if (type === '까치집') { for (let k = 0; k < 5; k++) sketchLine(ctx, x - 16 + k * 5, y - 13 - Math.sin(k) * 4, x + 3 - k * 2, y - 22 + Math.cos(k) * 6, { seed: index + k, width: 1.5 }); }
-  else if (type === '전단지' || type === '다람쥐') { ctx.beginPath(); ctx.arc(x - 6, y - 16, 9, Math.PI * 1.2, Math.PI * .4); ctx.stroke(); sketchLine(ctx, x - 6, y - 8, x + 5, y - 8, { seed: index, width: 2 }); }
-  else if (type === '새둥지') { for (let k = 0; k < 4; k++) sketchLine(ctx, x - 12 + k * 3, y - 13, x + 7 - k * 3, y - 17 + k * 2, { seed: index + k, width: 1.4 }); }
-  else { ctx.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3, xx = x - 5 + Math.cos(a) * 8, yy = y - 16 + Math.sin(a) * 8; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.closePath(); ctx.stroke(); }
-  ctx.restore();
+function drawObstacle(x,y,type,index) {
+  ctx.save();ctx.shadowColor=scenery.timeOfDay==='night'?'#ffbd70':'#d6f0ff';ctx.shadowBlur=scenery.timeOfDay==='night'?8:2;ctx.fillStyle=scenery.timeOfDay==='night'?'#111725':'#172432';ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#e4f3ff';ctx.lineWidth=1.3;
+  if(type==='변압기'||type==='표지판'){ctx.fillRect(x-17,y-24,24,20);ctx.strokeRect(x-17,y-24,24,20);if(type==='변압기')hatchRect(ctx,x-16,y-23,22,18,5,'#667d96');else{ctx.beginPath();ctx.moveTo(x-13,y-18);ctx.lineTo(x+2,y-18);ctx.moveTo(x-13,y-13);ctx.lineTo(x,y-13);ctx.stroke();}}
+  else{ctx.beginPath();ctx.ellipse(x-5,y-16,12,7,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillRect(x-10,y-11,17,5);ctx.strokeRect(x-10,y-11,17,5);}ctx.restore();
 }
 function draw(now) {
-  ctx.fillStyle = '#09121b'; ctx.fillRect(0, 0, w, h);
-  const horizon = h * .57, top = h * .15, base = h * .78, direction = getSeat() === 'right' ? -1 : 1;
-  const drift = (worldM * pxPerMeter() * .08 * direction) % w;
-  ctx.fillStyle = '#111d30'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); ctx.lineTo(w, horizon * .38); ctx.quadraticCurveTo(w * .62, horizon * .07, 0, horizon * .14); ctx.closePath(); ctx.fill();
-  hatchRect(ctx, 0, 0, w, horizon * .16, 11, '#aaa');
-  sketchLine(ctx, 0, horizon * .14, w * .72, horizon * .23, { seed: 1, width: 3 }); sketchLine(ctx, w * .72, horizon * .23, w, horizon * .38, { seed: 2, width: 4 });
-  // Distant mountain ridges drift independently of the poles.
-  if (Math.sin(worldM / 115) > .55) { sketchLine(ctx, w * .05, horizon * .44, w * .2, horizon * .28, { seed: 91, width: 1.3, color: '#8195ad' }); sketchLine(ctx, w * .2, horizon * .28, w * .34, horizon * .44, { seed: 92, width: 1.3, color: '#8195ad' }); }
-  const terrain = Math.sin(worldM / 18) * 3 + Math.sin(worldM / 7) * 1.5;
-  sketchLine(ctx, 0, horizon + terrain, w, horizon + terrain + Math.sin(worldM / 29) * 2, { seed: 3, width: 1.5 });
-  for (let i = 0, x = ((drift % 53) + 53) % 53; x < w + 20; i++, x += 33 + ((i * 37) % 28)) { sketchLine(ctx, x, horizon + 3, x - 4, horizon - 5, { seed: i, width: 1 }); sketchLine(ctx, x, horizon + 3, x + 5, horizon - 3, { seed: i + 17, width: 1 }); }
-  sketchLine(ctx, 0, h * .79, w, h * .79, { seed: 4, width: 3 }); sketchLine(ctx, 0, h * .82, w, h * .82, { seed: 5, width: 1.5 }); sketchLine(ctx, 0, h * .87, w, h * .87, { seed: 6, width: 1.5 });
-  // Screen edge warning zone is on the trailing side of travel.
-  const dangerW = w * .15, dangerX = direction > 0 ? 0 : w - dangerW;
-  ctx.fillStyle = 'rgba(30,30,30,.08)'; ctx.fillRect(dangerX, top, dangerW, base - top); hatchRect(ctx, dangerX, top, dangerW, base - top, 9, '#8195ad');
-  sketchLine(ctx, direction > 0 ? dangerW : w - dangerW, top, direction > 0 ? dangerW : w - dangerW, base, { seed: 77, width: 2.2 });
-  // Wires connect only neighboring poles, and sag varies by span.
-  for (let i = 0; i < poles.length - 1; i++) { const a = poles[i], b = poles[i + 1]; if (a.tree || b.tree) continue; const x1 = screenX(a), x2 = screenX(b), y = top + 23;
-    ctx.beginPath(); ctx.moveTo(x1, y); ctx.quadraticCurveTo((x1 + x2) / 2, y + 8 + ((a.index * 13) % 13), x2, y); ctx.strokeStyle = '#91a7bd'; ctx.lineWidth = 1.2; ctx.stroke(); }
-  poles.forEach((p, i) => {
-    const x = screenX(p); if (x < -60 || x > w + 60) return;
-    const pTop = base - (base - top) * .8 * p.height, pBase = base + p.ground * .25;
-    if (p.tree) drawTree(x, pBase, pTop, p); else drawPole(x, pTop, pBase, p);
-    for (const obstacle of p.obstacles) drawObstacle(x, yLevel(obstacle.lane, pTop, pBase), obstacle.type, p.index);
-  });
-  let nx = playerX(), ny = yLevel(lane, top, base);
-  if (introRemaining) {
-    const progress = 1 - introRemaining / INTRO_SECONDS;
-    ny = progress < .68 ? base - 16 - Math.abs(Math.sin(now / 75)) * 7
-      : base - 16 + (ny - base + 16) * ((progress - .68) / .32);
-  }
-  if (jump) { const t = clamp((now - jump.at) / 250, 0, 1); ny -= Math.sin(t * Math.PI) * 48; }
-  drawFinger(ctx, nx, ny + Math.sin(now / 85), 1.1);
-  if (speeding) { ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, 32); ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.fillText('과속 — STOP', w / 2, 21); ctx.strokeStyle = '#111'; ctx.lineWidth = 5; ctx.strokeRect(3, 3, w - 6, h - 6); }
-  drawLowerHud();
+  const direction=travelDir(getSeat()), glassBottom=h*.60, top=h*.11, base=h*.57;
+  scenery.draw(ctx,0,h*.07,w,glassBottom-h*.07,{sharp:true});
+  const dangerW=w*.15,dangerX=rearEdgeX(w,getSeat())===0?0:w-dangerW;ctx.save();traceWindow(ctx,w,h,{glassBottom,seat:getSeat()});ctx.clip('evenodd');
+  ctx.fillStyle='rgba(30,30,30,.08)';ctx.fillRect(dangerX,top,dangerW,base-top);hatchRect(ctx,dangerX,top,dangerW,base-top,9,'#8195ad');sketchLine(ctx,dangerX===0?dangerW:w-dangerW,top,dangerX===0?dangerW:w-dangerW,base,{seed:77,width:2.2});
+  const geometries = poles.map(p => poleGeometry(p, screenX(p), top, base));
+  for(let i=0;i<poles.length-1;i++){const a=poles[i],b=poles[i+1];if(a.tree||b.tree)continue;for(const wire of wireCurves(geometries[i],geometries[i+1],10+((a.index*13)%10))){ctx.beginPath();ctx.moveTo(wire.from.x,wire.from.y);ctx.quadraticCurveTo(wire.control.x,wire.control.y,wire.to.x,wire.to.y);ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#d8e8f3';ctx.lineWidth=1.4;ctx.stroke();}}
+  poles.forEach(p=>{const x=screenX(p);if(x< -60||x>w+60)return;const pTop=base-(base-top)*.8*p.height,pBase=base+p.ground*.25;if(p.tree)drawTree(x,pBase,pTop,p);else drawPole(x,pTop,pBase,p);for(const obstacle of p.obstacles)drawObstacle(x,yLevel(obstacle.lane,pTop,pBase),obstacle.type,p.index);});
+  const geo=poles[0]?poleGeometry(poles[0],screenX(poles[0]),top,base):null, foot=geo?.footholds[lane];
+  const hopT=jump?clamp((now-jump.at)/HOP_MS,0,1):0, hopAmount=jump?Math.sin(hopT*Math.PI):0;
+  const nx=foot&&!jump&&!devPose?.startsWith('fall')?foot.x:playerX();
+  const feetY=foot?foot.y:yLevel(lane,top,base), pose=devPose==='fall'?'fall':jump?'hop':now-landedAt<180&&landedAt?'land':targetVisible()&&Math.abs(screenX(poles[1])-playerX())<w*.18?'crouch':'stand';
+  if(new URLSearchParams(location.search).get('hitbox')==='1'){ctx.strokeStyle='#ffb35c';ctx.strokeRect(playerX()-w*LANDING_TOLERANCE_RATIO,top,w*LANDING_TOLERANCE_RATIO*2,base-top);ctx.strokeStyle='#ff5757';ctx.strokeRect(playerX()-w*STANDING_ZONE_RATIO,top,w*STANDING_ZONE_RATIO*2,base-top);for(const p of poles){const g=poleGeometry(p,screenX(p),top,base);g.footholds.forEach(f=>{ctx.beginPath();ctx.moveTo(f.x-FOOTHOLD_LENGTH/2,f.y);ctx.lineTo(f.x+FOOTHOLD_LENGTH/2,f.y);ctx.stroke();});}}
+  const characterPose = devPose === 'hop' ? 'hop' : devPose === 'fall' ? 'fall' : pose;
+  if (character === 'runner') drawRunner(ctx,nx,feetY,{night:scenery.timeOfDay==='night',dusk:scenery.timeOfDay==='dusk',pose:characterPose,step:devPose?1:now/120,bob:pose==='stand'?Math.sin(now/150)*1.2:0,direction});
+  else if (foot) drawPoleJumpHand(ctx, foot, { night: scenery.timeOfDay==='night', dusk: scenery.timeOfDay==='dusk', pose: characterPose, step: devPose ? 1 : now / 400, bob: pose === 'stand' ? Math.sin(now / 150) : 0, direction, glassBottom });
+  else drawPoleJumpHand(ctx, { x: nx, y: feetY }, { night: scenery.timeOfDay==='night', dusk:scenery.timeOfDay==='dusk', pose: characterPose, direction, glassBottom });
+  ctx.restore();
+  drawWindowFrame(ctx,w,h,{glassBottom});if(speeding){ctx.fillStyle='#101725';ctx.fillRect(0,0,w,32);ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('과속 — 정지',w/2,21);ctx.strokeStyle='#ffc77e';ctx.lineWidth=5;ctx.strokeRect(3,3,w-6,h-6);}drawLowerHud();
 }
-function drawLowerHud() {
-  const top = h * .9, third = w / 3; ctx.strokeStyle = '#eef6ff'; ctx.lineWidth = 1.2; ctx.textAlign = 'left'; ctx.font = '10px system-ui'; ctx.fillStyle = '#eef6ff';
-  for (let i = 0; i < 3; i++) ctx.strokeRect(i * third + 4, top, third - 8, h * .085);
-  ctx.fillText('획득 아이템', 10, top + 12); for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(22 + i * 22, top + 29, 7, 0, Math.PI * 2); ctx.stroke(); if (i < Math.min(3, parts)) { ctx.beginPath(); ctx.arc(22 + i * 22, top + 29, 2.5, 0, Math.PI * 2); ctx.fill(); } }
-  ctx.fillText('이벤트', third + 10, top + 12); ctx.font = '9px system-ui'; const target = poles[1]; const event = target?.tree ? '나무' : target?.obstacles?.[0]?.type || '-'; ctx.fillText(event, third + 10, top + 31);
-  ctx.fillText('시속', third * 2 + 10, top + 12); ctx.font = 'bold 17px ui-monospace'; ctx.fillText(Math.round(speed) + '', third * 2 + 10, top + 35); ctx.font = '8px system-ui'; ctx.fillText(speedLimit == null ? '제한 —' : '제한 ' + Math.round(speedLimit), third * 2 + 10, top + 47);
-}
+function drawLowerHud() {}
 function onFeed(v) { speed = v.speedKmh; speedLimit = v.speedLimitKmh; feedDistance += Number(v.distanceDeltaM) || 0; updateHud(); }
 function ensureSeat() { if (inJourney || getSeat()) return; setSeat(confirm('오른쪽 좌석인가요?\n확인: 오른쪽 / 취소: 왼쪽') ? 'right' : 'left'); }
 document.querySelector('#start-button').addEventListener('click', async () => { if (!await ensurePassenger()) return; ensureSeat(); if (!feed) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); } if (inJourney) speed = feed.current.speedKmh; audio?.resume(); reset(); });
 $('again').addEventListener('click', reset); $('jump').addEventListener('click', doJump); $('up').addEventListener('click', () => laneMove(1)); $('down').addEventListener('click', () => laneMove(-1));
-$('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textContent = muted ? 'OFF' : 'ON'; });
-if (devAutostart) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); reset(); draw(performance.now()); }
+$('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textContent = muted ? '◖' : '◗'; });
+if (devAutostart) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); reset(); }
 window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); doJump(); } if (e.code === 'ArrowUp') { e.preventDefault(); laneMove(1); } if (e.code === 'ArrowDown') { e.preventDefault(); laneMove(-1); } });
 let touchY = null; canvas.addEventListener('touchstart', e => touchY = e.touches[0].clientY, { passive: true });
 canvas.addEventListener('touchend', e => { if (touchY == null) return; const d = e.changedTouches[0].clientY - touchY; if (Math.abs(d) > 24) laneMove(d < 0 ? 1 : -1); else doJump(); touchY = null; }, { passive: true });

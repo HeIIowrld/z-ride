@@ -1,10 +1,12 @@
 # PLY
 
+License quiz question and road sign source details are documented in [license-quiz/ATTRIBUTION.md](games/license-quiz/ATTRIBUTION.md).
+
 외부 패키지 없이 실행하는 한국어 미니게임 및 운전 전리품 웹앱입니다. 게임 화면은 흑백 손그림 스타일을 사용하며, 메뉴와 주요 버튼에는 PLY 공통 스타일을 적용합니다. 데스크톱과 세로형 모바일 화면을 지원합니다.
 
 ## 실행
 
-권장: 프로젝트 루트에서 Node 서버를 실행합니다. 정적 웹앱, 기존 운전면허 퀴즈 WebSocket, Loot API와 SQLite 저장소가 함께 시작됩니다.
+권장: 프로젝트 루트에서 Node 서버를 실행합니다. 정적 웹앱, 기존 실시간 운전면허시험 WebSocket, Loot API와 SQLite 저장소가 함께 시작됩니다.
 
 ```sh
 node server/index.mjs

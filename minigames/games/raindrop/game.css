@@ -1,7 +1,32 @@
 .rain-page .drop-button {
-  bottom: calc(38% + 24px);
+  bottom: 10px;
   min-height: 44px;
   background: var(--ply-surface);
   border-color: var(--ply-line);
   color: var(--ply-ink);
 }
+.rain-page .rain-stage{background:#080f13}
+.rain-page .rain-hud{top:auto;bottom:118px;left:12px;right:12px;z-index:4;color:#e5edf0;gap:5px;font-size:9px}
+.rain-page .rain-hud>*{background:#17242b;color:#e5edf0;border-color:#52616a}
+
+
+.rain-page .rain-dev-tools{position:absolute;top:auto;right:58px;bottom:12px;z-index:7}
+.rain-dev-tools{position:fixed;z-index:20;right:8px;top:58px}
+.rain-gear{width:auto;padding:6px 9px;background:var(--ply-surface);color:var(--ply-ink);font-size:10px}
+.rain-dev-panel{position:absolute;right:0;top:38px;width:148px;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:5px;border:1px solid var(--ply-line);border-radius:9px;background:var(--ply-surface);box-shadow:0 8px 24px #0004}
+.rain-dev-panel .primary-button{min-height:32px;width:auto;padding:5px 6px;font-size:10px;border-color:var(--ply-line);background:var(--ply-surface);color:var(--ply-ink)}
+.rain-page .rain-stage{background:#080f13}
+.rain-page .rain-hud{top:61%;left:3%;right:3%;bottom:auto;display:flex;flex-wrap:wrap;align-items:center;gap:clamp(3px,1vw,7px);font-size:clamp(9px,2.5vw,12px);}
+.rain-page .rain-hud>*{min-width:0;max-width:100%;padding:clamp(3px,1vw,6px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#17242b;color:#e5edf0;border-color:#52616a}
+.rain-page .rain-hud> b{flex:1 1 20%;}.rain-page .rain-hud #mode{margin-left:0}
+.rain-info-cards{position:absolute;z-index:4;top:72%;left:3%;right:3%;height:clamp(52px,10vh,70px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.rain-info-card{min-width:0;padding:6px;border:1px solid #52616a;border-radius:7px;background:#17242b;color:#e5edf0;display:flex;flex-direction:column;justify-content:center;gap:4px;overflow:hidden}
+.rain-info-card small,.rain-info-card b{font-size:clamp(9px,2.6vw,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rain-page .rain-dev-tools{position:absolute;z-index:6;top:auto;bottom:5px;width:29%;height:42px;min-height:42px;margin:0;display:grid;place-items:center;padding:3px;font-size:clamp(10px,2.7vw,12px);}
+.rain-page .rain-dev-tools{left:68%;right:auto;width:29%;}
+.rain-page .rain-dev-tools .rain-gear{width:100%;height:42px;padding:4px}
+.rain-page .rain-dev-panel{top:auto;bottom:46px;right:0;max-width:calc(100vw - 24px)}
+.rain-page #toast{top:51%;left:8%;right:8%;z-index:7;padding:4px 8px;font-size:clamp(11px,3vw,15px);pointer-events:none;text-shadow:0 1px 4px #000}
+@media(max-height:700px){.rain-info-cards{top:73%;height:50px}.rain-page .rain-hud{top:61%}}
+
+.rain-page .door-control{max-width:240px;white-space:nowrap}.rain-page .door-control b{font-size:13px}

@@ -1,3 +1,5 @@
+게임 장면 색은 SPEC_scenery_window.md가 우선입니다.
+
 # 주행 미니게임 3종 — 디자인 통일 + 팀 피드백 반영 + 아이템 정리 (작업 지시서)
 
 대상: `minigames/` (pole-jump, raindrop, license-quiz, hub, bag, codex). **`games/deadzone`, `server/`, `android/`는 수정 금지**(읽기만).
