@@ -24,6 +24,9 @@ npm run deploy                     # 4종 배포(Cloudflare 로그인 필요)
 - [ ] PLY 서버에 충전 게임 주소 설정 추가, carapp 충전 메뉴를 4종으로 교체(PR)
 
 ## 어디서 열리나
-- PLY 차량 앱(carapp) 충전 메뉴의 4종(Power Castle, Volt Rush, Power Tug, 충전 릴레이)은 **모두 여기 Cloudflare 배포판**을 `ChargeGameActivity`로 연다. 참가는 게임 화면의 QR로 한다.
-- PLY 서버의 충전소 게임(`server/venue-electric-thief.mjs`, `server/venue-charge-relay.mjs`, `/venue-game` API)은 차량 앱 메뉴에서 더 이상 쓰지 않는다. 서버 쪽 정리는 서버 담당이 따로 한다.
+- PLY 차량 앱(carapp) 충전 메뉴의 4종(Power Castle, Volt Rush, Power Tug, 충전 릴레이)은 **모두 여기 Cloudflare 배포판**을 `ChargeGameActivity`로 연다.
+- **PLY 파티 연동(DEADZONE과 같은 방식)**: 차량 앱이 PLY 서버에 `POST /api/rooms/{roomId}/charge-game {action:'open'}`을 보내면, 서버가 여기 Worker에 방을 만들고 승인된 크루를 미리 참가시킨다. 차 화면은 `#host=` 입장권 주소로, 크루 폰은 PLY 폰 화면의 "입장" 버튼(`#join=` 개인 입장권)으로 이름 입력·QR 없이 들어온다. 파티 보급품은 PLY 서버가 관리하고(`action:'item'`), 충전 릴레이는 그걸로 판마다 한 번 15초를 늘린다.
+- PLY 서버에 이 연결이 꺼져 있으면(`GAME_CHARGE_GAMES=off`) 차량 앱은 게임 주소를 바로 열고 QR로 참가한다.
+- 방 코드·입장권·참가자는 Durable Object 저장소에 남긴다. 아무도 접속하지 않아 메모리에서 내려갔다가 다시 불려도 같은 입장권으로 들어온다. 방은 6시간 뒤 지운다. 없는 방이면 WebSocket을 4404로 닫아 화면이 "방이 닫혔어요"를 띄운다.
+- PLY 서버의 옛 충전소 게임(`server/venue-electric-thief.mjs`, `server/venue-charge-relay.mjs`, `/venue-game` API)은 차량 앱에서 더 이상 열지 않는다. 서버 쪽 정리는 서버 담당이 따로 한다.
 - 전기도둑은 없앴다(`games/electric-thief` 삭제, 차량 앱 메뉴에서 제거).

@@ -5,7 +5,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { ADAPTERS } from './adapters.mjs';
 
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const NAME_MAX = 10, MAX_BODY = 2048, FRAME_MS = 60;
+const NAME_MAX = 10, MAX_BODY = 2048, FRAME_MS = 60, ROOM_TTL_MS = 6 * 3600_000;
 const HEADERS = {
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; base-uri 'none'; frame-ancestors 'self'",
   'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store',
@@ -70,6 +70,29 @@ export class Room extends DurableObject {
     this.game = null; this.code = null; this.hostToken = null;
     this.tokens = new Map(); this.sockets = new Set(); this.who = new Map(); // ws → { role, playerId }
     this.timer = null; this.frame = null;
+    // 아무도 접속하지 않으면 Durable Object가 메모리에서 내려간다. 방 코드·입장권·참가자는 저장소에 남겨 두고
+    // 다시 불리면 같은 입장권으로 들어올 수 있게 되살린다(진행 중인 판은 접속이 붙어 있어 내려가지 않는다).
+    ctx.blockConcurrencyWhile(async () => {
+      const saved = await ctx.storage.get('room');
+      if (!saved) return;
+      this.code = saved.code; this.hostToken = saved.hostToken;
+      this.game = this.adapter.create(Date.now);
+      for (const p of saved.players) {
+        try { this.game.addPlayer(p.playerId, p.name); this.tokens.set(p.token, p.playerId); } catch {}
+      }
+    });
+  }
+
+  async alarm() {
+    for (const ws of this.sockets) try { ws.close(4404, 'Room closed'); } catch {}
+    await this.ctx.storage.deleteAll();
+    this.game = null; this.tokens.clear(); this.sockets.clear(); this.who.clear();
+  }
+
+  save() {
+    const players = [...this.tokens].map(([token, playerId]) => ({ token, playerId, name: this.game.players.find(p => p.id === playerId)?.name }))
+      .filter(p => p.name);
+    return this.ctx.storage.put('room', { code: this.code, hostToken: this.hostToken, players });
   }
 
   async fetch(request) {
@@ -79,9 +102,18 @@ export class Room extends DurableObject {
       const { code } = await request.json();
       this.code = code; this.hostToken = randomToken();
       this.game = this.adapter.create(Date.now);
+      await this.save();
+      await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS); // 오래된 방은 저장소에서 지운다
       return json(200, { hostToken: this.hostToken });
     }
-    if (!this.game) return json(404, { error: 'NO_ROOM' });
+    if (!this.game) {
+      if (pathname === '/join') return json(404, { error: 'NO_ROOM' });
+      // 없는 방이면 연결을 받은 뒤 4404로 닫는다. 화면이 "방이 닫혔어요"를 띄울 수 있게
+      const pair = new WebSocketPair();
+      pair[1].accept();
+      pair[1].close(4404, 'No room');
+      return new Response(null, { status: 101, webSocket: pair[0] });
+    }
     if (pathname === '/join') {
       try {
         const { name } = await readJson(request);
@@ -90,6 +122,7 @@ export class Room extends DurableObject {
         const playerId = crypto.randomUUID(), token = randomToken();
         this.game.addPlayer(playerId, clean);
         this.tokens.set(token, playerId);
+        await this.save();
         this.publish();
         return json(200, { code: this.code, playerId, token });
       } catch (error) {
@@ -140,6 +173,7 @@ export class Room extends DurableObject {
   handle(ws, message) {
     const me = this.who.get(ws);
     const after = me.role === 'HOST' ? this.adapter.host(this.game, message) : this.adapter.player(this.game, me.playerId, message);
+    if (message.type === 'kick') this.save();
     if (after === 'SOON') return this.publishSoon();
     this.publish();
   }
