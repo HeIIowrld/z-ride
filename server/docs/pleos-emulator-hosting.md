@@ -69,3 +69,13 @@ PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicl
 Vulkan만 끈 재시험에서도 동시 종료가 재발했다. 이후 ANGLE/SwiftShader인 `swangle`에서 단일 AVD의60km/h·10배속1624m 이동 → 자동 ARRIVED/P → 안내 취소/NONE 서버 영수증은 통과했지만, 이어진 시험에서 기본 DrivingView의 libUnreal.so 반복 종료와 앱 화면 이탈이 확인됐다. 이를 안정화 완료로 간주하지 않는다. DrivingView 비활성 시험은 기본 화면 배치에 영향을 줘 원복했다. `host` 모드도 현재 Xvfb에서는 실제 AMD GPU 대신 llvmpipe/GLES3.0을 선택했다.
 
 따라서 마지막 운영 기본값은 **1대·RAM4GiB·SwiftShader**로 되돌리고 2·3번은 장시간 동시 실행이 검증될 때까지 중지한다. `PLEOS_GPU_MODE=swiftshader|swangle|host`, `PLEOS_RAM_MB=4096|3072`를 운영자가 선택할 수 있다. RAM4GiB는 공식 RAM 안내와 맞지만 GPU 환경은 여전히 다르다.1번의 운영 drop-in은 MemoryMax10000M/CPUQuota500%다. 실제 상태는 목록에서 확인한다. [Android 공식 렌더링 모드](https://developer.android.com/studio/run/emulator-acceleration).
+
+2026-11-14에 Android Emulator 37.2.13의 반복 종료를 디버거로 재현했다. 호스트의 gfxstream 렌더 스레드가 OpenGL 화면 자원을 정리하는 중 SIGSEGV가 발생했다. 37.1.11에서도 SwiftShader로 실행할 때 종료가 재현됐다. 1번 차량은 37.1.11과 Mesa 소프트웨어 OpenGL을 사용한다. Xvfb에서 `-gpu host`는 Mesa llvmpipe로 연결된다. 공유 Android 폰은 기존 SDK 경로로 실행한다. [Android Emulator 다운로드 보관소](https://developer.android.com/studio/emulator_archive) · [Chromium의 37.1.11 고정 기록](https://chromium.googlesource.com/chromium/src/tools/android/+/53a24f44b2957a8937bb63f3d150081c73df0532)
+
+```ini
+[Service]
+Environment=PLEOS_EMULATOR_BIN=/opt/pleos-emulator-37.1.11/emulator/emulator
+Environment=PLEOS_GPU_MODE=host
+Environment=ANDROID_EMULATOR_FEATURES=-HardwareDecoder,GLESDynamicVersion
+Environment=LP_NUM_THREADS=4
+```

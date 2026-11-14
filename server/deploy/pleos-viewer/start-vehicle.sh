@@ -9,6 +9,11 @@ gpu_mode="${PLEOS_GPU_MODE:-swiftshader}"
 case "$gpu_mode" in swangle|swiftshader|host);; *)exit 2;; esac
 ram_mb="${PLEOS_RAM_MB:-4096}"
 case "$ram_mb" in 3072|4096);; *)exit 2;; esac
+emulator_bin="${PLEOS_EMULATOR_BIN:-$ANDROID_SDK_ROOT/emulator/emulator}"
+if [ ! -x "$emulator_bin" ]; then
+    printf 'Pleos emulator executable unavailable: %s\n' "$emulator_bin" >&2
+    exit 1
+fi
 Xvfb "$DISPLAY" -screen 0 1920x1200x24 -nolisten tcp -noreset &
 xvfb=$!
 trap 'kill "$xvfb" 2>/dev/null || true' EXIT
@@ -18,7 +23,7 @@ x11vnc -display "$DISPLAY" -rfbport "$((5900+i))" -localhost -forever -shared -n
 websockify --heartbeat=30 "$((6080+i))" "127.0.0.1:$((5900+i))" >"/home/emulator/logs/websocket-$i.log" 2>&1 &
 # 4 GiB matches the RAM guide; software graphics still differs from the GPU guide.
 # 3 GiB is an explicit constrained operator override, not a vendor-supported profile.
-/opt/android-sdk/emulator/emulator -avd "Pleos_$i" -port "$((5552+i*2))" -memory "$ram_mb" -cores 2 -gpu "$gpu_mode" -feature -Vulkan -no-snapshot -no-boot-anim -noaudio -no-metrics -crash-report-mode never -camera-back none -camera-front none >"/home/emulator/logs/emulator-$i.log" 2>&1 &
+"$emulator_bin" -avd "Pleos_$i" -port "$((5552+i*2))" -memory "$ram_mb" -cores 2 -gpu "$gpu_mode" -feature -Vulkan -no-snapshot -no-boot-anim -noaudio -no-metrics -crash-report-mode never -camera-back none -camera-front none >"/home/emulator/logs/emulator-$i.log" 2>&1 &
 emu=$!
 # Official Virtual Console. ADB remains private; the fixed vehicle proxy uses this port.
 (for attempt in $(seq 1 180);do /opt/android-sdk/platform-tools/adb -s "emulator-$((5552+i*2))" forward "tcp:$((8080+i))" tcp:8088 >/dev/null 2>&1 && break;sleep 1;done) &
