@@ -51,6 +51,10 @@
     const how = h('ol', 'how');
     for (const [t, d] of [['그리기', '단어를 그림으로'], ['맞히기', '그림만 보고 단어로'], ['바통 넘기기', '옆 사람에게, 한 바퀴'], ['결승', '처음 단어가 살아남았나?']]) { const li = h('li'); li.append(h('b', '', t), h('span', '', d)); how.append(li); }
     side.append(how);
+    // 칸 수 = 인원수라 2명이면 그리기·맞히기 한 번씩으로 끝난다
+    side.append(h('p', 'hint', state.players.length === 2
+      ? '3~4명 추천 · 2명이면 그리기와 맞히기 한 번씩으로 끝나요'
+      : '3~4명 추천 · 사람이 많을수록 바통이 길게 이어져요'));
     const pick = h('div', 'pick');
     for (const [n, label] of [[2, '짧게 2판'], [3, '보통 3판'], [5, '길게 5판']]) {
       pick.append(button(label, n === rounds ? 'chip on' : 'chip', () => { rounds = n; viewKey = ''; render(); }));
