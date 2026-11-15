@@ -41,12 +41,12 @@
       "method": "POST",
       "path": "/api/world/route-sign",
       "auth": "Approved passenger (not CAR_HOST), seat not EMPTY",
-      "availability": "snapshot.room.journeyRoute: status PENDING/READY, key, source (registered route source, EXTERNAL_ROUTING_OSRM or STRAIGHT_LINE_FALLBACK), lengthM, progressM, offRouteM, rerouting (new route being fetched; current one still shown), geometry (<=400 simplified points), destination, readyRadiusM, signs[] {signId, latitude, longitude, alongM, aheadM, distanceM, state AHEAD/READY/CLAIMED/MISSED, crewClaims}",
+      "availability": "snapshot.room.journeyRoute: status PENDING/READY, key, source (registered route source, EXTERNAL_ROUTING_OSRM or STRAIGHT_LINE_FALLBACK), lengthM, progressM, offRouteM, rerouting (new route being fetched; current one still shown), geometry (<=400 simplified points), destination, readyRadiusM, signs[] {signId, gameId (license-quiz/pole-jump/raindrop/zombie; shuffled so every game appears once before any repeats and never twice in a row), playable (false for coming-soon games such as zombie), latitude, longitude, alongM, aheadM, distanceM, state AHEAD/READY/CLAIMED/MISSED, crewClaims}",
       "history": "snapshot.room.routeSignHistory contains up to 20 recent rewards {signId, gameId, itemId, itemName, nickname, at}",
       "body": {
         "start": {
           "signId": "s1",
-          "gameId": "license-quiz | pole-jump | raindrop"
+          "gameId": "must equal the sign's gameId; license-quiz | pole-jump | raindrop (zombie is shown but rejected with SIGN_GAME_NOT_READY)"
         },
         "complete": {
           "challengeId": "from start",

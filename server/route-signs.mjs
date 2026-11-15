@@ -10,7 +10,12 @@ export const SIGN_POLICY = Object.freeze({
   offRouteM: 150, offRouteMs: 8_000,
   maxGeometryPoints: 400,
 });
+// 표지판마다 게임 하나가 정해진다. SIGN_GAMES는 실제로 플레이할 수 있는 게임,
+// SIGN_COMING_SOON은 지도에 표지판만 나오고 아직 게임이 연결되지 않은 게임이다.
+// 좀비 게임을 연결할 때는 'zombie'를 SIGN_GAMES로 옮기고 폰 화면(app.js driveTitles)에 게임을 추가한다.
 export const SIGN_GAMES = Object.freeze(['license-quiz', 'pole-jump', 'raindrop']);
+export const SIGN_COMING_SOON = Object.freeze(['zombie']);
+export const SIGN_ROTATION = Object.freeze([...SIGN_GAMES, ...SIGN_COMING_SOON]);
 
 const EARTH_M = 6371008.8;
 const rad = value => value * Math.PI / 180;
@@ -102,15 +107,36 @@ function seededRandom(seed) {
   };
 }
 
-/** 같은 seed와 경로면 크루 모두에게 같은 위치가 나온다. */
-export function placeSigns(seed, geometry, cum = cumulative(geometry), policy = SIGN_POLICY) {
+/**
+ * 셔플 백: 모든 게임이 한 번씩 나온 뒤에 다음 순서를 다시 섞는다.
+ * 묶음이 바뀌는 경계에서도 같은 게임이 연속으로 나오지 않는다.
+ */
+export function gameSequence(random, games = SIGN_ROTATION) {
+  let bag = [], last = null;
+  return () => {
+    if (!bag.length) {
+      bag = [...games];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      if (bag.length > 1 && bag[0] === last) [bag[0], bag[1]] = [bag[1], bag[0]];
+    }
+    last = bag.shift();
+    return last;
+  };
+}
+
+/** 같은 seed와 경로면 크루 모두에게 같은 위치·같은 게임이 나온다. */
+export function placeSigns(seed, geometry, cum = cumulative(geometry), policy = SIGN_POLICY, games = SIGN_ROTATION) {
   const lengthM = cum.at(-1), random = seededRandom(seed), signs = [];
+  const nextGame = gameSequence(seededRandom(seed + ':games'), games);
   if (lengthM < 300) return signs;
   const end = lengthM - policy.edgeM;
   let along = Math.min(policy.edgeM + random() * policy.minGapM, lengthM / 2);
   while (along <= Math.max(end, lengthM / 2) && signs.length < policy.maxSigns) {
     const point = pointAt(geometry, cum, along);
-    signs.push({ signId: 's' + (signs.length + 1), alongM: Math.round(along), ...point });
+    signs.push({ signId: 's' + (signs.length + 1), alongM: Math.round(along), gameId: nextGame(), ...point });
     along += policy.minGapM + random() * (policy.maxGapM - policy.minGapM);
   }
   return signs;
@@ -236,7 +262,8 @@ export function createRoutePlanner({ router = null, clock = Date.now, onReady = 
       signs: plan.signs.map(sign => {
         const claimers = claims[plan.key + ':' + sign.signId] ?? [];
         return {
-          signId: sign.signId, latitude: sign.latitude, longitude: sign.longitude, alongM: sign.alongM,
+          signId: sign.signId, gameId: sign.gameId, playable: SIGN_GAMES.includes(sign.gameId),
+          latitude: sign.latitude, longitude: sign.longitude, alongM: sign.alongM,
           aheadM: Math.round(sign.alongM - plan.progressM),
           distanceM: position ? Math.round(distanceM(position, sign)) : null,
           state: signState(plan, sign, position, memberId != null && claimers.includes(memberId)),
