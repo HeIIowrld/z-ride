@@ -9,6 +9,7 @@ import { createWorldService } from './world.mjs';
 import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
 import { createObserverService } from './observer.mjs';
 import { createPhoneClientService } from './phone-client.mjs';
+import { CHARGE_GAME_IDS, createChargeGameHost, localChargeGame } from './charge-games.mjs';
 import { crewGameItems, routeBonusCatalog } from './crew-game-items.mjs';
 import { createEffectsService } from './effects.mjs';
 import { createGameStateService } from './game-state.mjs';
@@ -46,15 +47,17 @@ const fail = (code, message, status = 400) => Object.assign(new Error(message), 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const angularDistance = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 const asText = (value, max = 128) => typeof value === 'string' && value.length > 0 && value.length <= max;
-// 충전 게임 4종의 기본 주소(Cloudflare 배포, games/cloudflare). GAME_CHARGE_GAMES에 {"게임id":"주소"} JSON을 주면 바꾸고, off면 끈다.
-export const DEFAULT_CHARGE_GAMES = Object.fromEntries(['power-castle', 'volt-rush', 'power-tug', 'charge-relay']
-  .map(id => [id, `https://zride-${id}.zride-charge-games-cloudflare.workers.dev`]));
+// 충전 게임 4종은 기본으로 이 서버가 직접 띄운다('local', /charge/<게임>/). 게임 파일이 없는 배포(옛 배포
+// 스크립트)에서는 Cloudflare 배포판(games/cloudflare)을 쓴다. GAME_CHARGE_GAMES에 {"게임id":"주소"|"local"}
+// JSON을 주면 게임마다 바꾸고, off면 끈다.
+export const DEFAULT_CHARGE_GAMES = Object.fromEntries(CHARGE_GAME_IDS.map(id =>
+  [id, localChargeGame(id) ? 'local' : `https://zride-${id}.zride-charge-games-cloudflare.workers.dev`]));
 export function chargeGamesFromEnv(value) {
   if (value === undefined || value === '') return DEFAULT_CHARGE_GAMES;
   if (value === 'off') return {};
   const parsed = JSON.parse(value);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('GAME_CHARGE_GAMES must be a JSON object or off');
-  for (const origin of Object.values(parsed)) new URL(origin);
+  for (const origin of Object.values(parsed)) if (origin !== 'local') new URL(origin);
   return parsed;
 }
 const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
@@ -73,9 +76,21 @@ export function createDemoServer(options = {}) {
   const world = createWorldService({ clock: options.worldClock ?? Date.now, maxReceipts, respawnMs:options.pickupRespawnMs??300000 });
   const deadzoneOrigin = options.deadzoneOrigin ? new URL(options.deadzoneOrigin).origin : null;
   const deadzonePending = new Set();
-  // 충전 게임(Power Castle 등)은 DEADZONE처럼 밖에 따로 배포돼 있다. 게임 id → 그 게임 서버 주소
-  const chargeGames = new Map(Object.entries(options.chargeGames ?? {}).map(([id, origin]) => [id, new URL(origin.replace(/\/$/, '') + '/').href]));
+  // 충전 게임(Power Castle 등): 게임 id → 'local'(이 서버가 직접 띄움) 또는 밖에 배포된 게임 서버 주소
+  const chargeGames = new Map(Object.entries(options.chargeGames ?? {})
+    .filter(([id, origin]) => origin !== 'local' || localChargeGame(id))
+    .map(([id, origin]) => [id, origin === 'local' ? 'local' : new URL(origin.replace(/\/$/, '') + '/').href]));
   const chargePending = new Set();
+  const localChargeGames = [...chargeGames].filter(([, origin]) => origin === 'local').map(([id]) => id);
+  // Volt Rush 크루 가방: 같은 서버 안이라 /api/game-items를 HTTP로 거치지 않고 바로 부른다
+  const chargeHost = localChargeGames.length ? createChargeGameHost({ games: localChargeGames,
+    acceptedOrigin: (origin, req) => requestPolicy.acceptedOrigin(origin, req),
+    crewItems: async (crewKey, game, code, action, details = {}) => {
+      try { return handleCrewGameItems({ headers: { authorization: 'Bearer ' + crewKey } }, { game, code, action, ...details }); }
+      catch (error) { throw Object.assign(new Error(error.code ?? 'GAME_ITEMS_UNAVAILABLE'), { permanent: true }); }
+    } }) : null;
+  /** 이 서버가 띄우는 충전 게임 화면 주소. publicOrigin이 없으면(로컬 시연) 서버 기준 상대 주소다. */
+  const localChargeBase = game => publicOrigin + '/charge/' + game + '/';
   const demoCharger = options.demoCharger ? {
     placeId: 'DEMO_CHARGING_STOP', name: '가상 충전 거점 · Pleos 시연용', ...coordinate(options.demoCharger),
   } : null;
@@ -721,7 +736,9 @@ export function createDemoServer(options = {}) {
       const riders = [...room.members.values()].filter(item => item.approved && passengerSeat(item.seat) &&
         seatEvidence(room, item.seat) !== 'EMPTY').slice(0, 4);
       const crewKey = body.game === 'volt-rush' ? token() : null;
-      const created = await chargeRequest(origin, '/api/rooms', crewKey ? {
+      const local = origin === 'local';
+      const created = local ? chargeHost.createRoom(body.game, { crewKey: crewKey && roomId + '.' + crewKey })
+        : await chargeRequest(origin, '/api/rooms', crewKey ? {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ crewKey: roomId + '.' + crewKey }),
       } : { method: 'POST' });
@@ -729,9 +746,13 @@ export function createDemoServer(options = {}) {
         throw fail('CHARGE_GAME_BAD_ROOM', 'Invalid upstream room', 502);
       const seats = {};
       for (const rider of riders) {
-        const joined = await chargeRequest(origin, '/api/rooms/' + created.code + '/join', {
-          method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ name: [...rider.nickname].slice(0, 10).join(''), ...(crewKey && { hostToken: created.hostToken }) }),
+        const seat = { name: [...rider.nickname].slice(0, 10).join(''), ...(crewKey && { hostToken: created.hostToken }) };
+        let joined;
+        if (local) {
+          try { joined = chargeHost.join(body.game, created.code, seat); }
+          catch { throw fail('CHARGE_GAME_UNAVAILABLE', 'Charging game server did not respond', 502); }
+        } else joined = await chargeRequest(origin, '/api/rooms/' + created.code + '/join', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(seat),
         });
         if (!/^[0-9a-f-]{36}$/.test(joined.playerId) || !asText(joined.token, 128))
           throw fail('CHARGE_GAME_BAD_ROOM', 'Invalid upstream seat', 502);
@@ -742,11 +763,12 @@ export function createDemoServer(options = {}) {
           room.roomEpoch !== epoch || !chargeStop(room))
         throw fail('CHARGE_GAME_STALE', 'Vehicle state changed while opening the game', 409);
       atomic(() => {
-        room.chargeGameLink = { game: body.game, origin, code: created.code, seats, crewKey, players: riders.length, itemReceipts: {} };
+        room.chargeGameLink = { game: body.game, origin: local ? localChargeBase(body.game) : origin, code: created.code, seats, crewKey,
+          players: riders.length, itemReceipts: {} };
         change(room);
       });
       return result(res, 200, {
-        game: body.game, hostUrl: origin + '#host=' + created.code + '.' + created.hostToken,
+        game: body.game, hostUrl: room.chargeGameLink.origin + '#host=' + created.code + '.' + created.hostToken,
         crew: riders.length, supplies: room.collection.inventory.supplies,
       });
     } finally { chargePending.delete(roomId); }
@@ -943,13 +965,14 @@ export function createDemoServer(options = {}) {
       const path = new URL(req.url, 'http://localhost').pathname;
       const clientAddress = requestPolicy.clientAddress(req);
       // Loading several game frames must leave capacity for the reward and journey APIs.
-      if (phoneClient.servesAsset(req.method, path)) rateLimit('http-phone-assets:' + clientAddress, 480);
+      if (phoneClient.servesAsset(req.method, path) || path.startsWith('/charge/')) rateLimit('http-phone-assets:' + clientAddress, 480);
       else rateLimit('http:' + clientAddress);
       if(requestPolicy.apply(req,res,path))return;
       if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 10 });
       if (storageFailed) throw unavailable();
       if (observers.handleHttp(req, res, path)) return;
       if (phoneClient.handleHttp(req, res, path)) return;
+      if (chargeHost && await chargeHost.handleHttp(req, res, path)) return;
       const body = req.method === 'POST' ? await readJson(req) : null;
       if(req.method==='POST'&&path==='/api/auth/google/exchange'){
         accountApi.requireGoogleTransport(req);
@@ -1259,6 +1282,7 @@ export function createDemoServer(options = {}) {
   server.on('upgrade', (req, socket, head) => {
     if (storageFailed || closing) { socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n'); socket.destroy(); return; }
     if (observers.handleUpgrade(req, socket, head)) return;
+    if (chargeHost?.handleUpgrade(req, socket, head)) return;
     if (new URL(req.url, 'http://localhost').pathname !== '/ws') { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
     const origin = req.headers.origin;
     const allowedOrigin = requestPolicy.acceptedOrigin(origin,req);
@@ -1521,6 +1545,7 @@ export function createDemoServer(options = {}) {
       clearInterval(gateTimer);
       await observers.close();
       for (const ws of sockets) ws.terminate();
+      chargeHost?.close();
       await new Promise(resolve => wss.close(resolve));
       if (listening) await new Promise(resolve => server.close(resolve));
       storage?.close();

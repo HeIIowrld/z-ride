@@ -1008,7 +1008,7 @@ function renderJourneyHistory(entries) {
 function enterJourneyActivity(spot) {
   if (spot.activity === 'chargeGame') {
     if (!room?.chargeGame?.joinUrl) return;
-    chargeGameLink.href = room.chargeGame.joinUrl;
+    chargeGameLink.href = new URL(room.chargeGame.joinUrl, apiOrigin).href; // 서버가 직접 띄운 게임은 서버 기준 상대 주소다
     chargeGameLink.click();
     return;
   }
@@ -1063,7 +1063,7 @@ function renderJourneyMap() {
     const status = $('journey-next-status');
     if (status.textContent !== description) status.textContent = description;
     const enter = $('journey-next-enter'), link = $('journey-next-link');
-    const joinUrl = next.activity === 'chargeGame' ? room.chargeGame.joinUrl
+    const joinUrl = next.activity === 'chargeGame' ? new URL(room.chargeGame.joinUrl, apiOrigin).href
       : next.activity === 'deadzone' ? room.deadzoneJoinUrl : null;
     enter.hidden = Boolean(joinUrl);
     link.hidden = !joinUrl;

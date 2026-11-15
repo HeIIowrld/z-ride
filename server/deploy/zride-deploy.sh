@@ -84,6 +84,19 @@ with tarfile.open(archive, 'r:gz') as source:
                 or (len(relative) == 2 and relative[0] == 'data'
                     and relative[1] in {'items.json', 'loot_tables.json', 'points.json'})
             ))
+        if path.parts[0] == 'charge-assets':
+            relative = path.parts[1:]
+            charge = {'power-castle', 'volt-rush', 'power-tug', 'charge-relay'}
+            allowed = (member.isdir() and (
+                relative in {(), ('cloudflare',), ('sdk',)}
+                or (len(relative) == 1 and relative[0] in charge)
+                or (len(relative) == 2 and relative[0] in charge and relative[1] == 'public')
+            )) or (member.isfile() and (
+                relative in {('cloudflare', 'adapters.mjs'), ('sdk', 'zride-car.js'), ('charge-relay', 'words.mjs')}
+                or (len(relative) == 2 and relative[0] in charge and relative[1] == 'game.mjs')
+                or (len(relative) == 3 and relative[0] in charge and relative[1] == 'public'
+                    and re.fullmatch(r'[a-z0-9-]{1,40}\.(html|js|css)', path.name))
+            ))
         if not allowed:
             raise SystemExit('Unrelated file in runtime archive')
         expanded += member.size

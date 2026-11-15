@@ -28,6 +28,20 @@ REQUIRED = {
 }
 
 
+CHARGE_GAMES = {'power-castle', 'volt-rush', 'power-tug', 'charge-relay'}
+
+
+def charge_asset(parts):
+    """games/ 아래에서 충전 게임 실행에 필요한 파일만 고른다."""
+    parts = tuple(parts)
+    return (
+        parts in {('cloudflare', 'adapters.mjs'), ('sdk', 'zride-car.js'), ('charge-relay', 'words.mjs')}
+        or (len(parts) == 2 and parts[0] in CHARGE_GAMES and parts[1] == 'game.mjs')
+        or (len(parts) == 3 and parts[0] in CHARGE_GAMES and parts[1] == 'public'
+            and re.fullmatch(r'[a-z0-9-]{1,40}\.(html|js|css)', parts[2]) is not None)
+    )
+
+
 def fetch(url):
     request = urllib.request.Request(url, headers={
         'User-Agent': 'zride-trusted-main-puller',
@@ -90,6 +104,14 @@ def runtime_bundle(payload):
                 )
                 if allowed:
                     key = 'drive-assets/' + name
+                    if key in files:
+                        raise ValueError('Duplicate runtime file')
+                    files[key] = source.extractfile(member).read()
+                continue
+            if path.parts[1] == 'games':
+                # 충전 게임 4종: 서버가 /charge/<게임>/으로 직접 띄운다(server/charge-games.mjs)
+                if charge_asset(relative.parts):
+                    key = 'charge-assets/' + name
                     if key in files:
                         raise ValueError('Duplicate runtime file')
                     files[key] = source.extractfile(member).read()

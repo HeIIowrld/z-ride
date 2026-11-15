@@ -519,8 +519,8 @@ public final class MainActivity extends DemoActivity {
             public void onResponse(JSONObject value) { main.post(() -> {
                 chargePending = false;
                 updateArcadeVisibility();
-                String hostUrl = value.optString("hostUrl", "");
-                if (!foreground || room == null || !roomId.equals(room.optString("roomId")) || hostUrl.isEmpty()) return;
+                String hostUrl = client.resolve(value.optString("hostUrl", ""));
+                if (!foreground || room == null || !roomId.equals(room.optString("roomId")) || hostUrl == null) return;
                 ChargeGameActivity.party = new ChargeGameActivity.PartyLink(client, roomId, game.webId);
                 startActivity(new android.content.Intent(MainActivity.this, ChargeGameActivity.class)
                         .putExtra(ChargeGameActivity.EXTRA_ID, game.webId)
