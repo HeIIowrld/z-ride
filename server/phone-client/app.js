@@ -605,6 +605,9 @@ setInterval(() => {
 }, 1500);
 
 let journeyView = 'map';
+let selectedSign = null;
+let activeSignChallenge = null;
+let signRequestPending = false;
 let selectedSpot = null;
 let nearbySpots = [];
 let lastMapFetch = null;
@@ -705,7 +708,7 @@ function sendDriveState() {
 
 function renderDriveGames() {
   const available = driveAvailable();
-  drivePanel.hidden = !available;
+  drivePanel.hidden = !available || Boolean(currentSign());
   if (!available) {
     closeDriveGame();
     return;
@@ -724,6 +727,10 @@ function renderDriveGames() {
 drivePanel.addEventListener('click', event => {
   const game = event.target.closest('[data-drive-game]')?.dataset.driveGame;
   if (!Object.hasOwn(driveTitles, game) || !driveAvailable()) return;
+  activeSignChallenge = null;
+  openDriveGame(game);
+});
+function openDriveGame(game) {
   closeDriveGame();
   driveFrame = document.createElement('iframe');
   driveFrame.title = driveTitles[game];
@@ -733,16 +740,119 @@ drivePanel.addEventListener('click', event => {
   drivePlay.hidden = false;
   showJourney('drive');
   $('journey-game').scrollIntoView({ block: 'start' });
-});
+}
 window.addEventListener('message', event => {
   if (event.origin !== location.origin || event.source !== driveFrame?.contentWindow) return;
   if (event.data?.type === 'zride:drive-ready') sendDriveState();
   if (event.data?.type === 'zride:drive-back') closeDriveGame();
+  if (event.data?.type === 'zride:drive-result') void finishSignGame(event.data);
 });
+
+// ── 경로 표지판: 지도 위 표지판 → 게임 선택 → 서버 판정 → 크루 가방 보상 ──
+const signIcon = window.PLY_ROUTE_SIGN?.icon ?? 'route-sign/sign-battery.png';
+$('journey-sign-icon').src = new URL(signIcon, assets).href;
+
+function formatMeters(value) {
+  return value < 1000 ? Math.round(value / 10) * 10 + 'm' : (value / 1000).toFixed(1) + 'km';
+}
+function currentSign() {
+  return selectedSign && (room?.journeyRoute?.signs ?? []).find(sign => sign.signId === selectedSign.signId);
+}
+function selectRouteSign(sign) {
+  selectedSign = sign;
+  selectedSpot = null;
+  routeFeedback = '';
+  renderJourneyMap();
+  $('journey-sign').scrollIntoView({ block: 'nearest' });
+}
+$('journey-sign-close').onclick = () => {
+  selectedSign = null;
+  renderJourneyMap();
+};
+function renderRouteSignPanel() {
+  const panel = $('journey-sign');
+  const sign = currentSign();
+  panel.hidden = !sign;
+  drivePanel.hidden = !driveAvailable() || Boolean(sign);
+  if (!sign) return;
+  const index = room.journeyRoute.signs.indexOf(sign) + 1;
+  const ready = driveAvailable();
+  $('journey-sign-title').textContent = sign.state === 'READY' ? (ready ? '게임을 골라 주세요' : '주행 중에 열려요')
+    : sign.state === 'CLAIMED' ? '아이템 획득 완료'
+    : sign.state === 'MISSED' ? '지나친 표지판'
+    : formatMeters(Math.max(0, sign.aheadM)) + ' 앞 표지판';
+  $('journey-sign-count').textContent = '경로 표지판 ' + index + ' / ' + room.journeyRoute.signs.length;
+  const canPlay = sign.state === 'READY' && driveAvailable() && !signRequestPending;
+  const status = sign.state === 'READY'
+    ? (ready ? '게임을 끝내면 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
+    : sign.state === 'CLAIMED' ? '크루 가방에서 확인할 수 있어요.'
+    : sign.state === 'MISSED' ? '다음 표지판을 노려 보세요.'
+    : (room.journeyRoute.readyRadiusM ?? 200) + 'm 안으로 가까워지면 게임이 열려요.';
+  const text = status + (sign.crewClaims ? ' · 크루 ' + sign.crewClaims + '명 획득' : '');
+  if ($('journey-sign-status').textContent !== text) $('journey-sign-status').textContent = text;
+  for (const button of $('journey-sign-games').querySelectorAll('[data-sign-game]')) button.disabled = !canPlay;
+}
+$('journey-sign-games').addEventListener('click', async event => {
+  const game = event.target.closest('[data-sign-game]')?.dataset.signGame;
+  const sign = currentSign();
+  const active = credentials;
+  if (!Object.hasOwn(driveTitles, game) || !sign || !active || signRequestPending) return;
+  signRequestPending = true;
+  renderRouteSignPanel();
+  try {
+    const challenge = await post('/api/world/route-sign', { signId: sign.signId, gameId: game }, active.token);
+    if (active !== credentials) return;
+    activeSignChallenge = challenge;
+    openDriveGame(game);
+  } catch (error) {
+    if (active !== credentials) return;
+    const code = error?.message;
+    routeFeedback = code === 'SIGN_NOT_NEAR' ? '표지판에서 멀어졌어요. 다음 표지판을 노려 보세요.'
+      : code === 'ALREADY_CLAIMED' ? '이 표지판의 아이템은 이미 받았어요.'
+      : '지금은 게임을 시작할 수 없어요.';
+    renderJourneyMap();
+  } finally {
+    signRequestPending = false;
+    renderRouteSignPanel();
+  }
+});
+// 게임(iframe)이 끝나면 결과를 보낸다. 표지판 도전 중이면 서버가 판정해 보상을 지급한다.
+async function finishSignGame(message) {
+  const reply = value => driveFrame?.contentWindow?.postMessage({ type: 'zride:drive-reward', requestId: message.requestId, ...value }, location.origin);
+  const challenge = activeSignChallenge;
+  const active = credentials;
+  if (!challenge || challenge.gameId !== message.gameId || !active) { reply({ handled: false }); return; }
+  activeSignChallenge = null;
+  try {
+    const receipt = await post('/api/world/route-sign', { challengeId: challenge.challengeId, result: { score: Number(message.score) || 0 } }, active.token);
+    const names = (receipt.items ?? []).map(item => item.name).join(', ') || '보급품';
+    reply({ handled: true, items: receipt.items ?? [] });
+    showItemToast('표지판 보상 · ' + names, '크루 가방에 들어갔어요.');
+    routeFeedback = '';
+  } catch (error) {
+    const code = error?.message;
+    reply({ handled: true, items: [], error: code });
+    showItemToast('보상을 받지 못했어요', code === 'SIGN_CHALLENGE_TOO_FAST' ? '게임을 조금 더 플레이해 주세요.'
+      : code === 'SIGN_CHALLENGE_EXPIRED' ? '도전 시간(5분)이 지났어요.' : '다음 표지판에서 다시 도전해 주세요.');
+  }
+}
+function showItemToast(title, text) {
+  const toast = $('item-toast');
+  if (!toast) return;
+  $('item-toast-title').textContent = title;
+  $('item-toast-text').textContent = text;
+  toast.hidden = false;
+  toast.classList.remove('show');
+  void toast.offsetWidth;
+  toast.classList.add('show');
+  clearTimeout(showItemToast.timer);
+  showItemToast.timer = setTimeout(() => { toast.hidden = true; }, 3600);
+}
 setInterval(renderDriveGames, 1000);
 
 function selectJourneySpot(spot) {
   selectedSpot = spot;
+  selectedSign = null;
   renderJourneyMap();
 }
 
@@ -867,7 +977,10 @@ function renderJourneyMap() {
   $('journey-bag').hidden = room.driveGamesAvailable !== true;
   $('journey-supplies').textContent = room.collection?.inventory?.supplies ?? 0;
   const mapStatus = $('journey-map-status');
-  const mapMessage = routeFeedback || (!position ? '차량 위치 대기 중' : '');
+  const mapMessage = routeFeedback || (!position ? '차량 위치 대기 중'
+    : room.journeyRoute?.status === 'PENDING' ? '경로를 불러오는 중…'
+    : room.journeyRoute?.rerouting ? '경로 재탐색 중…'
+    : room.journeyRoute?.source === 'STRAIGHT_LINE_FALLBACK' ? '길찾기 서버 연결 실패 · 직선 경로로 표시 중' : '');
   if (mapStatus.textContent !== mapMessage) mapStatus.textContent = mapMessage;
   mapStatus.hidden = !mapMessage;
   const markers = spots.map(spot => ({
@@ -889,9 +1002,12 @@ function renderJourneyMap() {
   renderJourneyHistory(history);
   if (!journeyMap && plot.clientWidth > 0) {
     journeyMap = createJourneyMap(plot, $('journey-recenter'), $('journey-map-tiles'),
-      $('journey-map-retry'), selectJourneyPins);
+      $('journey-map-retry'), selectJourneyPins, { selectSign: selectRouteSign, zoomIn: $('journey-zoom-in'), zoomOut: $('journey-zoom-out') });
   }
-  journeyMap?.update(position, markers, selectedSpot?.placeId);
+  journeyMap?.update(position, markers, selectedSpot?.placeId, {
+    route: room.journeyRoute, heading: room.navigation?.heading, selectedSignId: selectedSign?.signId,
+  });
+  renderRouteSignPanel();
   const current = selectedSpot && (points.get(selectedSpot.placeId) ?? { ...selectedSpot, activity: null });
   $('journey-place').hidden = !current || current.placeId === next?.placeId;
   deadzoneLink.hidden = current?.activity !== 'deadzone';
@@ -918,10 +1034,8 @@ function renderJourneyGuidance(nav) {
   panel.hidden = !active;
   if (!active) return;
 
-  const destination = $('journey-guidance-destination');
-  const title = nav.destination || 'Pleos 내비 안내';
-  if (destination.textContent !== title) destination.textContent = title;
-  const details = [nav.status === 'ARRIVED' ? '도착' : nav.status === 'ROUTE_READY' ? '경로 준비 완료' : 'Pleos 안내 중'];
+  $('journey-guidance-destination').hidden = true;
+  const details = nav.status === 'ARRIVED' ? ['도착'] : [];
   if (nav.status !== 'ARRIVED' && Number.isFinite(nav.remainingDistanceM)) {
     const distance = nav.remainingDistanceM;
     details.push(distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`);
@@ -930,8 +1044,21 @@ function renderJourneyGuidance(nav) {
     details.push(`${Math.ceil(nav.remainingTimeSec / 60)}분`);
   }
   const progress = $('journey-guidance-progress');
+  const to = nav.destination && nav.status !== 'ARRIVED' ? nav.destination + '까지' : '';
   const message = details.join(' · ');
-  if (progress.textContent !== message) progress.textContent = message;
+  if (progress.textContent !== (to ? to + ' ' : '') + message) {
+    const label = document.createElement('span');
+    label.className = 'journey-guidance-to';
+    label.textContent = to;
+    progress.replaceChildren(...(to ? [label, ' ' + message] : [message]));
+  }
+  const signLine = $('journey-guidance-sign');
+  const nextSign = (room.journeyRoute?.signs ?? []).find(sign => sign.state === 'READY')
+    ?? (room.journeyRoute?.signs ?? []).filter(sign => sign.state === 'AHEAD').sort((a, b) => a.aheadM - b.aheadM)[0];
+  const signText = !nextSign ? '' : nextSign.state === 'READY' ? '표지판 도착 · 눌러서 게임 시작'
+    : '다음 표지판 · ' + formatMeters(Math.max(0, nextSign.aheadM)) + ' 앞';
+  signLine.hidden = !signText;
+  if (signLine.textContent !== signText) signLine.textContent = signText;
 }
 
 async function refreshJourneyMap() {

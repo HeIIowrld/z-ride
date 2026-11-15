@@ -1472,6 +1472,83 @@
         }
       }
     },
+    "/api/world/route-sign": {
+      "post": {
+        "operationId": "playRouteSign",
+        "summary": "Start or complete a route-sign minigame challenge",
+        "description": "Signs are placed at random (seeded per route) along the journey route: an explicit route geometry, or a route fetched from an OSRM-compatible router between the vehicle position and the Pleos destination coordinates (Pleos NaviHelper does not supply road polylines). A sign is READY within readyRadiusM of the vehicle (and within 2x readyRadiusM along the route); after passing it stays READY only while within readyRadiusM along the route and for at most 30s. Start with signId and gameId, play the game in the passenger phone, then complete with challengeId. The server rolls one common item into the crew inventory; each passenger can be rewarded once per sign.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "signId": {
+                    "type": "string",
+                    "maxLength": 16
+                  },
+                  "gameId": {
+                    "enum": [
+                      "license-quiz",
+                      "pole-jump",
+                      "raindrop"
+                    ]
+                  },
+                  "challengeId": {
+                    "type": "string"
+                  },
+                  "result": {
+                    "type": "object",
+                    "properties": {
+                      "score": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Start: challengeId, signId, gameId, expiresAt, minPlayMs. Completion: signId, gameId, items, supplies, inventory."
+          },
+          "400": {
+            "description": "Unknown game or sign id",
+            "x-error-codes": [
+              "INVALID_GAME",
+              "INVALID_SIGN"
+            ]
+          },
+          "403": {
+            "description": "Approved, non-empty passenger seat required",
+            "x-error-codes": [
+              "ROLE_FORBIDDEN",
+              "PASSENGER_CONFIRMATION_REQUIRED"
+            ]
+          },
+          "409": {
+            "description": "Sign or challenge unavailable",
+            "x-error-codes": [
+              "SIGN_UNAVAILABLE",
+              "SIGN_NOT_NEAR",
+              "ALREADY_CLAIMED",
+              "SIGN_CHALLENGE_INVALID",
+              "SIGN_CHALLENGE_EXPIRED",
+              "SIGN_CHALLENGE_TOO_FAST"
+            ]
+          },
+          "503": {
+            "description": "Durable storage unavailable",
+            "x-error-codes": [
+              "STORAGE_UNAVAILABLE"
+            ]
+          }
+        }
+      }
+    },
     "/api/world/nearby": {
       "post": {
         "operationId": "getNearbySpawns",

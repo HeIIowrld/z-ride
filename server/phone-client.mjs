@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { checkedOrigin } from './request-policy.mjs';
 
@@ -46,6 +46,13 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
   const assets = new Map([...FILES].map(([path, [file, type]]) => [path, {
     bytes: file.endsWith('.html')?Buffer.from(readFileSync(new URL('./phone-client/' + file, import.meta.url),'utf8').replaceAll('PLY',displayName.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll("'",'&#39;'))):readFileSync(new URL('./phone-client/' + file, import.meta.url)), type,
   }]));
+  // 경로 표지판 설정·아이콘: route-sign/ 폴더의 파일을 그대로 제공한다(아이콘 교체 시 코드 수정 불필요).
+  const SIGN_TYPES = { js: 'text/javascript; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif' };
+  const signDir = new URL('./phone-client/route-sign/', import.meta.url);
+  for (const file of existsSync(signDir) ? readdirSync(signDir) : []) {
+    const type = SIGN_TYPES[file.split('.').at(-1).toLowerCase()];
+    if (type && /^[A-Za-z0-9._-]{1,80}$/.test(file)) assets.set('/play/route-sign/' + file, { bytes: readFileSync(new URL(file, signDir)), type });
+  }
   const bundledDrive = new URL('./drive-assets/', import.meta.url);
   const driveRoot = existsSync(bundledDrive) ? bundledDrive : new URL('../minigames/', import.meta.url);
   const driveGamesAvailable = existsSync(driveRoot);
@@ -60,7 +67,7 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
   assets.set('/play/leaflet-license', { bytes: readFileSync(require.resolve('leaflet/LICENSE')), type: 'text/plain; charset=utf-8' });
   assets.set('/play/config.js',{bytes:Buffer.from('window.GAME_CONFIG=window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin,displayName})+');\n'),type:'text/javascript; charset=utf-8'});
   return {
-    driveGamesAvailable,
+    driveGamesAvailable, driveRoot,
     handleHttp(req, res, path) {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
       const file = assets.get(path);

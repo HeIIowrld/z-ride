@@ -8,7 +8,19 @@ export async function getLootEngine(){if(!enginePromise)enginePromise=Promise.al
 function collectTickOutput(out,at){for(const event of out.events||[])for(const item of event.items||[]){try{const inv=JSON.parse(localStorage.getItem('zride.inventory')||'{}');inv[item.id]=(Number(inv[item.id])||0)+1;localStorage.setItem('zride.inventory',JSON.stringify(inv));}catch{}saveLootEvent({...event,item,at:new Date(at).toISOString(),region:out.region});notifyLoot(item);}}
 export async function reportTick(input){const body={...input,partyId:input.partyId||partyId()},at=body.at||Date.now();if(SERVER_URL){const r=await fetch(`${SERVER_URL}/loot/tick`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(r.ok){const out=await r.json();collectTickOutput(out,at);return out;}}const engine=await getLootEngine(),out=engine.tick(body);try{localStorage.setItem(KEY,JSON.stringify(out));localStorage.setItem('zride.loot.engine',JSON.stringify(engine.snapshot()));}catch{}collectTickOutput(out,at);return out;}
 export async function requestMinigame(gameId,result={}){const party=partyId();if(SERVER_URL){const r=await fetch(`${SERVER_URL}/loot/minigame`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({partyId:party,gameId,result})});if(r.ok)return r.json();}const engine=await getLootEngine(),out=engine.minigame({partyId:party,gameId,result});return out;}
-export async function awardMinigame(gameId,result={}){const out=await requestMinigame(gameId,result);for(const item of out.items||[]){try{const inv=JSON.parse(localStorage.getItem('zride.inventory')||'{}');inv[item.id]=(Number(inv[item.id])||0)+1;localStorage.setItem('zride.inventory',JSON.stringify(inv));}catch{}notifyLoot(item);saveLootEvent({type:'minigame',source:gameId,item,at:new Date().toISOString()});}return out;}
+// 여정(폰 앱) 안에서 실행 중이면 결과를 부모 화면에 보낸다. 경로 표지판 도전 중이면 서버가 보상을 지급한다.
+function journeyReward(gameId,result){
+  if(typeof window==='undefined'||window.parent===window||!location.pathname.includes('/drive/games/'))return Promise.resolve(null);
+  const requestId=globalThis.crypto?.randomUUID?.()||String(Date.now()+Math.random());
+  return new Promise(resolve=>{
+    const done=value=>{clearTimeout(timer);window.removeEventListener('message',listen);resolve(value);};
+    const listen=event=>{if(event.source===window.parent&&event.origin===location.origin&&event.data?.type==='zride:drive-reward'&&event.data.requestId===requestId)done(event.data);};
+    const timer=setTimeout(()=>done(null),12000);
+    window.addEventListener('message',listen);
+    window.parent.postMessage({type:'zride:drive-result',requestId,gameId,score:Number(result?.score)||0},location.origin);
+  });
+}
+export async function awardMinigame(gameId,result={}){const journey=await journeyReward(gameId,result);if(journey?.handled){for(const item of journey.items||[]){notifyLoot(item);saveLootEvent({type:'route-sign',source:gameId,item,at:new Date().toISOString()});}return {type:'route-sign',items:journey.items||[],error:journey.error};}const out=await requestMinigame(gameId,result);for(const item of out.items||[]){try{const inv=JSON.parse(localStorage.getItem('zride.inventory')||'{}');inv[item.id]=(Number(inv[item.id])||0)+1;localStorage.setItem('zride.inventory',JSON.stringify(inv));}catch{}notifyLoot(item);saveLootEvent({type:'minigame',source:gameId,item,at:new Date().toISOString()});}return out;}
 export function readLootEvents(){try{return JSON.parse(localStorage.getItem('zride.loot.events')||'[]');}catch{return[];}}
 export function saveLootEvent(event){try{const events=readLootEvents();events.push(event);localStorage.setItem('zride.loot.events',JSON.stringify(events.slice(-500)));}catch{}}
 let lootToastTimer;
