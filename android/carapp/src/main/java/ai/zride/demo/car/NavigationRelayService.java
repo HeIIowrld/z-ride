@@ -13,7 +13,7 @@ public final class NavigationRelayService extends Service implements RoomClient.
     private NavigationProbe probe;private RoomClient client;private JSONObject state,room;
     private long sequence;private String lastCommand;private boolean sdkMode;
     private VehicleProbe vehicleProbe;private volatile JSONObject vehicle,cabin;private volatile boolean vehicleAllowed;
-    private static boolean uiForeground;
+    private static boolean uiForeground, chargeGameForeground;
     private static Runnable cabinObserver;
     private android.location.LocationManager locations;private Notification notification;
     private final android.location.LocationListener gps=new android.location.LocationListener(){public void onLocationChanged(android.location.Location value){if(probe!=null)probe.gnss(value);}public void onStatusChanged(String provider,int status,Bundle extras){}public void onProviderEnabled(String provider){}public void onProviderDisabled(String provider){}};
@@ -27,7 +27,20 @@ public final class NavigationRelayService extends Service implements RoomClient.
     public static VehicleProbe probe(){return instance==null?null:instance.vehicleProbe;}
     public static boolean vehicleAllowed(){return instance!=null&&instance.vehicleAllowed;}
     public static void reportVehicle(){if(instance!=null)instance.sendVehicleSnapshot();}
-    public static void setUiForeground(boolean value){uiForeground=value;if(instance!=null&&instance.vehicleProbe!=null)instance.vehicleProbe.setForeground(value);}
+    public static void setUiForeground(boolean value) {
+        uiForeground = value;
+        updateVehicleForeground();
+    }
+    static void setChargeGameForeground(boolean value) {
+        chargeGameForeground = value;
+        updateVehicleForeground();
+    }
+    private static void updateVehicleForeground() {
+        if (instance != null && instance.vehicleProbe != null) {
+            instance.vehicleProbe.setForeground(uiForeground || chargeGameForeground);
+            instance.sendVehicleSnapshot();
+        }
+    }
     public static RoomClient sharedClient(){return instance==null?null:instance.client;}
     public static JSONObject currentState(){return instance==null?null:instance.state;}
     public static JSONObject currentRoom(){return instance==null||instance.client==null||!instance.client.isAuthenticated()?null:instance.room;}
@@ -62,7 +75,7 @@ public final class NavigationRelayService extends Service implements RoomClient.
                 if(debuggable)write("cabin-state.json",value);
                 handler.post(()->{if(cabinObserver!=null)cabinObserver.run();});
             }
-        });vehicleProbe.setForeground(uiForeground);vehicleProbe.start();startGnss();handler.post(tick);
+        });vehicleProbe.setForeground(uiForeground || chargeGameForeground);vehicleProbe.start();startGnss();handler.post(tick);
     }
     private void sendVehicleSnapshot(){
         JSONObject observed=vehicle;
