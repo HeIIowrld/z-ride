@@ -10,17 +10,17 @@ Pleos NaviHelper 3.0.5는 도로 폴리라인을 주지 않는다([native-naviga
 | --- | --- | --- |
 | 1 | `/api/rooms/{roomId}/route`로 등록한 경로(DEMO_ROUTE·EXTERNAL_ROUTING·PLEOS_ROUTE)가 유효함 | 등록 source |
 | 2 | 내비 보고에 현재 위치 + 목적지 좌표가 있고 상태가 ROUTE_READY·ROUTE_DRIVE·ARRIVED | `EXTERNAL_ROUTING_OSRM` |
-| 3 | 2에서 길찾기 실패 | `STRAIGHT_LINE_FALLBACK`(출발→도착 직선, 폰에 안내 문구 표시) |
+| 3 | 2에서 길찾기 실패 | `STRAIGHT_LINE_FALLBACK`(출발·경유지·도착을 직선 구간으로 연결, 폰에 안내 문구 표시) |
 
-- 차량 앱은 `onDestinationInfo`의 목적지 좌표를 `destinationLatitude`·`destinationLongitude`로 보고한다. (0,0)은 목적지 없음으로 무시한다.
-- 길찾기는 경로 key(`nativeRouteRevision` + 목적지 + 이탈 재탐색 횟수)가 바뀔 때만 1회 호출한다. 같은 경로를 주행하는 동안 다시 호출하지 않는다.
-- **재탐색**: 주행 중 목적지를 바꾸거나 Pleos가 경로를 다시 계산하면(revision 증가), 또는 외부 길찾기 경로에서 150m 넘게 8초 이상 벗어나면 현재 위치에서 새 경로를 받아 표지판을 새로 배치한다. 새 경로를 받는 동안에는 기존 경로·표지판을 그대로 보여주고 `journeyRoute.rerouting=true`로 알린다.
+- 차량 앱은 `onDestinationInfo`의 목적지 좌표를 `destinationLatitude`·`destinationLongitude`로 보고한다. `onWayPointInfo`의 좌표는 SDK가 보낸 순서대로 `waypoints`에 담는다. 일반 좌표가 유효하지 않으면 SDK가 제공한 표시 좌표를 쓴다. 둘 다 유효하지 않은 경유지는 `missingWaypointCount`로 보고하고 폰 지도에 안내를 표시한다. Pleos 2.1.0 에뮬레이터의 순정 내비는 시험 경유지의 일반 좌표로 (0,0)을, 표시 좌표로 null을 반환했다.
+- 서버는 OSRM에 현재 위치, 경유지 목록, 목적지 순으로 요청한다. 경유지 필드를 생략한 기존 클라이언트도 그대로 연결된다.
+- 경로 key는 `nativeRouteRevision`, 목적지, 경유지 순서, 경로 이탈 재탐색 횟수로 결정한다. 이 값이 바뀌면 현재 위치에서 새 경로를 받아 표지판을 새로 배치한다. 경로 이탈의 경우 150m 초과 상태가 8초 이상 이어질 때 재탐색한다. 새 경로를 받는 동안에는 기존 경로·표지판을 보여주고 `journeyRoute.rerouting=true`로 알린다.
 - 길찾기 주소는 `ZRIDE_ROUTING_URL`(OSRM 호환)이다. 기본값은 OSRM 공개 데모 서버(`https://router.project-osrm.org`)이며 데모·개발 용도로만 쓴다. 운영 시 자체 OSRM을 띄우거나 `off`로 끈다. 테스트용 `createDemoServer()`는 기본으로 길찾기를 하지 않는다.
 - 경로선은 폰 지도·표지판 배치용 추정치이며, 공인 Pleos 도로 형상이 아니다.
 
 ## 표지판 배치와 상태
 
-- 경로를 따라 1.2~2km 간격으로 랜덤 배치한다(10km에 약 5~8개, 출발·도착 400m 이내 제외, 최대 12개). 시드는 `roomId + 경로 key`라서 같은 크루는 같은 위치를 보고, 새 경로면 새 배치가 된다.
+- 서버는 경로선 위에 표지판을 최대 12개 배치한다. 첫 위치는 출발 후 400m~1.6km에서 고르되 경로 중간점을 넘지 않는다. 이후 1.2~2km 간격으로 두고 도착 400m 전까지만 배치한다. 경로가 300m 미만이면 표지판을 만들지 않는다. 같은 방과 경로 key에서는 크루 모두 같은 위치를 본다. 기존 명소 핀은 장소 카탈로그의 좌표를 쓴다.
 - **표지판 게임**: 표지판마다 `gameId`가 하나 정해진다. 셔플 백 방식이라 모든 게임이 한 번씩 나온 뒤에 다음 순서를 다시 섞고, 같은 게임이 연속으로 나오지 않는다(묶음 경계 포함). 순서도 `roomId + 경로 key` 시드라 크루 모두 같다.
   - 플레이 가능: `license-quiz`·`pole-jump`·`raindrop` (`SIGN_GAMES`)
   - 준비 중: `zombie` (`SIGN_COMING_SOON`). 지도에 표지판이 나오고 패널도 열리지만 `playable=false`라 시작 버튼이 비활성이다. 게임을 연결할 때는 [route-signs.mjs](../route-signs.mjs)에서 `zombie`를 `SIGN_GAMES`로 옮기고 폰 앱 `driveTitles`에 게임을 추가한다.
@@ -58,8 +58,8 @@ Pleos NaviHelper 3.0.5는 도로 폴리라인을 주지 않는다([native-naviga
 ## 실제 Pleos 사용 흐름
 
 1. 서버 실행 시 크루 초대 QR을 쓰려면 `ZRIDE_PUBLIC_ORIGIN`(폰이 접속할 주소)을 설정한다. 길찾기 주소는 `ZRIDE_ROUTING_URL`로 바꿀 수 있다.
-2. Pleos 차량 앱(목적지 좌표를 보고하는 버전으로 다시 빌드한 APK)에서 크루 로비를 열고 동승자 폰을 승인한다.
-3. Pleos 내비에서 목적지를 정하고 안내를 시작한다. 차량 앱이 현재 위치·목적지 좌표를 보고하면 서버가 경로를 받아오고, 폰 지도에 경로선과 표지판이 표시된다.
+2. 경유지 보고를 지원하는 Pleos 차량 앱에서 크루 로비를 열고 동승자를 승인한다.
+3. Pleos 내비에서 경유지와 목적지를 정하고 안내를 시작한다. 폰의 여행 지도에서 경로선과 표지판을 확인한다.
 4. 차량이 표지판 500m 안에 들어오면 폰에서 표지판을 눌러 해당 게임을 시작한다. 점수를 얻은 뒤 퀴즈의 성적표 또는 나머지 게임의 결과를 열면 크루 가방에 전용 아이템이 들어간다.
 5. 주행 중 목적지를 바꾸거나 Pleos가 재탐색하면 새 경로와 표지판으로 바뀐다.
 

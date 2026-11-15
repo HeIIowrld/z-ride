@@ -145,9 +145,10 @@ export function placeSigns(seed, geometry, cum = cumulative(geometry), policy = 
 /** OSRM 호환 길찾기. baseUrl 예: https://router.project-osrm.org */
 export function osrmRouter(baseUrl, { timeoutMs = 8000, fetchImpl = globalThis.fetch } = {}) {
   const base = new URL(baseUrl);
-  return async (origin, destination) => {
+  return async (origin, destination, waypoints = []) => {
     const pair = p => p.longitude.toFixed(6) + ',' + p.latitude.toFixed(6);
-    const url = new URL(base.pathname.replace(/\/$/, '') + '/route/v1/driving/' + pair(origin) + ';' + pair(destination), base);
+    const coordinatesPath = [origin, ...waypoints, destination].map(pair).join(';');
+    const url = new URL(base.pathname.replace(/\/$/, '') + '/route/v1/driving/' + coordinatesPath, base);
     url.searchParams.set('overview', 'full');
     url.searchParams.set('geometries', 'geojson');
     const response = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs), headers: { accept: 'application/json' } });
@@ -167,7 +168,7 @@ function validGeometry(geometry) {
 /**
  * 방별 경로 계획. context는 server.mjs가 만든다.
  *  - { key, source, geometry }                         등록된 경로
- *  - { key, source, origin, destination, native }      외부 길찾기 필요(Pleos 목적지)
+ *  - { key, source, origin, waypoints?, destination, native }  외부 길찾기 필요(Pleos 경유지·목적지)
  * 새 경로를 받아오는 동안(재탐색)에는 기존 경로·표지판을 그대로 보여준다.
  */
 export function createRoutePlanner({ router = null, clock = Date.now, onReady = () => {}, policy = SIGN_POLICY } = {}) {
@@ -198,11 +199,12 @@ export function createRoutePlanner({ router = null, clock = Date.now, onReady = 
     if (!context.origin || !context.destination) return false;
     const pending = { key: context.key };
     state.pending = pending;
-    const request = router ? router(context.origin, context.destination) : Promise.reject(new Error('ROUTER_DISABLED'));
+    const { origin, waypoints = [], destination } = context;
+    const request = router ? router(origin, destination, waypoints) : Promise.reject(new Error('ROUTER_DISABLED'));
     Promise.resolve(request).then(geometry => {
       if (!validGeometry(geometry)) throw new Error('ROUTER_INVALID');
       return { geometry, source: context.source };
-    }).catch(error => ({ geometry: [context.origin, context.destination], source: 'STRAIGHT_LINE_FALLBACK',
+    }).catch(error => ({ geometry: [origin, ...waypoints, destination], source: 'STRAIGHT_LINE_FALLBACK',
       error: String(error?.message ?? error) }))
       .then(({ geometry, source, error }) => {
         const current = rooms.get(roomId);

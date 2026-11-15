@@ -175,7 +175,9 @@ SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 
 
 충전 게임(Power Castle, Volt Rush, Power Tug, 충전 릴레이)도 DEADZONE처럼 밖에 따로 배포돼 있다(`games/cloudflare`, 기본값은 Cloudflare 주소, `GAME_CHARGE_GAMES`로 바꾸거나 `off`로 끈다). 차량은 스냅샷의 `chargeGamesAvailable`에 있는 게임만 메뉴에 연다. 승인된 충전소 구역에 주차하면(충전 중이 아니어도, 충전기를 기다리는 중이어도) `POST /api/rooms/{roomId}/charge-game` `{action:'open', game}`으로 서버가 게임 서버에 방을 만들고 승인된 동승자를 미리 참가시킨다. 응답의 `hostUrl`(`#host=` 입장권)을 차량 화면 WebView로 연다. 크루 폰은 스냅샷 `chargeGame.joinUrl`(`#join=` 개인 입장권)로 이름 입력이나 QR 없이 들어간다. 게임 화면이 파티 보급품을 쓰면 차량이 `{action:'item', game}`으로 서버 재고에서 하나를 차감한 뒤 게임에 효과를 적용한다(충전 릴레이는 판마다 한 번 15초 연장). 게임 화면을 닫으면 `{action:'close'}`로 크루 링크를 내린다. 주차가 풀리면 링크는 스냅샷에서 빠진다.
 
-동승자 여행 지도는 OpenStreetMap 도로 타일에 방 스냅샷의 Pleos 내비 위치를 표시한다. 폰 GPS 권한은 필요하지 않다. 위치 수신 전에는 서울 시내를 표시하고 차량 마커는 숨긴다. Pleos 안내의 목적지·잔여 거리·시간은 지도 위에 표시한다. 현재 NaviHelper가 전달하는 데이터에는 전체 도로 경로선이 없다.
+동승자 여행 지도는 OpenStreetMap 타일 위에 방 스냅샷의 차량 위치와 `journeyRoute.geometry`를 그린다. 폰 GPS 권한은 필요하지 않다. 차량 위치를 받기 전에는 서울 시내를 표시하고 마커는 숨긴다. 지도 위에는 Pleos 목적지와 남은 거리·시간을 표시한다.
+
+차량은 `navigation.report`에 목적지 좌표와 SDK 순서대로 정렬된 `waypoints: [{ latitude, longitude }]`를 보낸다. 서버는 등록 경로가 없을 때 차량 위치에서 경유지를 순서대로 지나 목적지까지 OSRM으로 계산한다. 좌표가 없는 경유지는 `missingWaypointCount`로 보고한다. 폰은 OSRM 경로와 함께 이 값을 받으면 해당 경유지가 생략됐다는 안내를 표시한다.
 
 경로 보급품 핀에는 서버가 수집 거리를 계산한 진입 좌표를 쓰고, 충전 게임 핀에는 승인된 플레이 구역 좌표를 쓴다. 위치가 지정되지 않은 DEADZONE 초대는 지도 하단 게임 카드에 표시한다. 여정의 아이템 가방은 승인된 크루의 방 스냅샷에서 재고를 읽으며 `collection.inventory.supplies`를 공통 보급품으로 표시한다.
 

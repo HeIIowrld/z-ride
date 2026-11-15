@@ -280,12 +280,15 @@ export function createDemoServer(options = {}) {
     if (!nav.available) return undefined;
     if (!['ROUTE_READY', 'ROUTE_DRIVE', 'ARRIVED'].includes(nav.status) || !nav.destinationPosition) return null;
     const destination = nav.destinationPosition;
-    // 목적지·Pleos 경로 revision(재탐색)·서버 이탈 재탐색 횟수 중 하나라도 바뀌면 새 경로를 받아온다.
+    const waypoints = nav.waypoints ?? [];
+    const waypointKey = waypoints.length
+      ? ':' + createHash('sha256').update(JSON.stringify(waypoints)).digest('hex').slice(0, 16) : '';
+    // 경유지 순서·목적지·Pleos 경로 revision·이탈 재탐색 횟수가 바뀌면 새 경로를 받아온다.
     const key = 'native:' + nav.nativeRouteRevision + ':' + destination.latitude.toFixed(5) + ',' + destination.longitude.toFixed(5) +
-      ':' + (rerouteCounts.get(room.roomId) ?? 0);
+      ':' + (rerouteCounts.get(room.roomId) ?? 0) + waypointKey;
     if (routePlanner.key(room.roomId) === key) return { key };
     if (!nav.position) return undefined;
-    return { key, source: 'EXTERNAL_ROUTING_OSRM', origin: nav.position, destination, native: true };
+    return { key, source: 'EXTERNAL_ROUTING_OSRM', origin: nav.position, waypoints, destination, native: true };
   }
   function syncJourneyRoute(room) {
     const context = journeyRouteContext(room);
