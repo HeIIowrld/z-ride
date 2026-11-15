@@ -13,9 +13,9 @@ import { crewGameItems, routeBonusCatalog } from './crew-game-items.mjs';
 import { createEffectsService } from './effects.mjs';
 import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
-import { createPlacesService } from './places.mjs';
+import { coordinate, createPlacesService } from './places.mjs';
 import {navigationReport,navigationSnapshot} from './navigation.mjs';
-import { createRoutePlanner, osrmRouter, SIGN_GAMES, SIGN_POLICY, SIGN_ROTATION } from './route-signs.mjs';
+import { createRoutePlanner, distanceM, osrmRouter, SIGN_GAMES, SIGN_POLICY, SIGN_ROTATION } from './route-signs.mjs';
 import { createPartyApi } from './party-api.mjs';
 import { createAccounts } from './accounts.mjs';
 import { createAccountApi } from './account-api.mjs';
@@ -76,6 +76,9 @@ export function createDemoServer(options = {}) {
   // 충전 게임(Power Castle 등)은 DEADZONE처럼 밖에 따로 배포돼 있다. 게임 id → 그 게임 서버 주소
   const chargeGames = new Map(Object.entries(options.chargeGames ?? {}).map(([id, origin]) => [id, new URL(origin.replace(/\/$/, '') + '/').href]));
   const chargePending = new Set();
+  const demoCharger = options.demoCharger ? {
+    placeId: 'DEMO_CHARGING_STOP', name: '가상 충전 거점 · Pleos 시연용', ...coordinate(options.demoCharger),
+  } : null;
   const supplyChallenges = new WeakMap();
   const venueGames = new WeakMap();
   function deadzoneScope(room) {
@@ -653,7 +656,15 @@ export function createDemoServer(options = {}) {
 
   /** 주차해서 검증된 충전소 구역에 있으면 그 충전소. 충전 중이 아니어도(충전기 대기 중) 된다. */
   function chargeStop(room) {
-    return gate(room).allowed ? places.arrivedCharger(navigationSnapshot(room).position) : null;
+    if (!gate(room).allowed) return null;
+    const navigation = navigationSnapshot(room);
+    const verified = places.arrivedCharger(navigation.position);
+    if (verified) return verified;
+    const route = places.routeInfo(room.roomId);
+    if (demoCharger && route.active && route.source === 'DEMO_ROUTE' && navigation.position &&
+        ['SIMULATED', 'ANDROID_GNSS'].includes(navigation.positionSource) && distanceM(demoCharger, navigation.position) <= 60)
+      return demoCharger;
+    return null;
   }
   function chargeGameView(room, viewer) {
     const link = room.chargeGameLink;
@@ -1524,7 +1535,7 @@ function isDirectEntrypoint() {
 }
 
 if (isDirectEntrypoint()) {
-  const app = createDemoServer({ ...deploymentOptions(), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, chargeGames: chargeGamesFromEnv(process.env.GAME_CHARGE_GAMES ?? process.env.ZRIDE_CHARGE_GAMES), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN, routingUrl: routingUrlFromEnv() });
+  const app = createDemoServer({ ...deploymentOptions(), demoCharger: JSON.parse(process.env.GAME_DEMO_CHARGER || 'null'), deadzoneOrigin: process.env.ZRIDE_DEADZONE_ORIGIN, chargeGames: chargeGamesFromEnv(process.env.GAME_CHARGE_GAMES ?? process.env.ZRIDE_CHARGE_GAMES), dbPath: (process.env.GAME_DB_PATH??process.env.ZRIDE_DB_PATH) || resolve('data/zride.sqlite'), observerToken: process.env.GAME_OBSERVER_TOKEN??process.env.ZRIDE_OBSERVER_TOKEN ?? '', testAccessKey: process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY ?? '', placesPath: process.env.GAME_PLACES_PATH??process.env.ZRIDE_PLACES_PATH, placeReviewToken: process.env.GAME_PLACE_REVIEW_TOKEN??process.env.ZRIDE_PLACE_REVIEW_TOKEN, publicOrigin: process.env.GAME_PUBLIC_ORIGIN??process.env.ZRIDE_PUBLIC_ORIGIN, routingUrl: routingUrlFromEnv() });
   const address = await app.listen(Number(process.env.PORT ?? 8000), process.env.HOST ?? '127.0.0.1');
   console.log(JSON.stringify({ event: 'server.ready', address, protocol: 'zride-demo-v1', contractRevision: 10, persistence: app.persistence, exposure: (process.env.GAME_TEST_ACCESS_KEY??process.env.ZRIDE_TEST_ACCESS_KEY) ? 'team-test-key-protected' : 'local-debug' }));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await app.close(); process.exit(0); });
