@@ -19,11 +19,11 @@ import android.widget.TextView;
 
 public final class MainActivity extends DemoActivity {
     private enum Game {
-        // 충전 게임 4종은 Cloudflare에 따로 배포한 웹 게임이다(DEADZONE처럼 주소로만 연결, games/cloudflare).
+        // 충전 게임 4종은 웹 게임이다. 기본은 PLY 서버가 /charge/<game>/으로 띄우고, 설정하면 games/cloudflare 배포판을 쓴다.
         CASTLE("Power Castle", "내 성에 전기를 모으고 남의 성 전기를 끌어와라.", R.drawable.arcade_thief, 0xff3ef2ff, "power-castle"),
         VOLT("Volt Rush", "선을 깔며 가운데 충전기에 먼저 닿아라.", R.drawable.arcade_thief, 0xffffd23f, "volt-rush"),
         TUG("Power Tug", "폰을 연타해 전기를 우리 팀 배터리로 끌어와라.", R.drawable.arcade_relay, 0xff2bffc6, "power-tug"),
-        RELAY("충전 릴레이", "그림과 답을 넘겨 처음 단어를 맞혀라.", R.drawable.arcade_relay, 0xffffc097, "charge-relay"),
+        RELAY("충전 릴레이", "그림과 답을 넘겨 처음 단어를 맞혀라. 3~4명 추천", R.drawable.arcade_relay, 0xffffc097, "charge-relay"),
         DEADZONE("DEADZONE", "각자 맡은 방향에서 차량을 지켜라.", R.drawable.arcade_deadzone, 0xffff796c, null);
 
         final String title, description, webId;
