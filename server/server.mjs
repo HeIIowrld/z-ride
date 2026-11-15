@@ -14,7 +14,7 @@ import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
 import { createPlacesService } from './places.mjs';
 import {navigationReport,navigationSnapshot} from './navigation.mjs';
-import { createRoutePlanner, osrmRouter, pickReward, SIGN_GAMES, SIGN_POLICY, SIGN_ROTATION } from './route-signs.mjs';
+import { createRoutePlanner, osrmRouter, SIGN_GAMES, SIGN_POLICY, SIGN_ROTATION } from './route-signs.mjs';
 import { createPartyApi } from './party-api.mjs';
 import { createAccounts } from './accounts.mjs';
 import { createAccountApi } from './account-api.mjs';
@@ -60,7 +60,7 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 
 export function createDemoServer(options = {}) {
-  const driveGames = new Set(['license-quiz', 'pole-jump', 'raindrop']);
+  const driveGames = new Set(SIGN_GAMES);
   const phoneClient = createPhoneClientService({apiOrigin:options.browserApiOrigin??'',displayName:options.displayName??'PLY'});
   const requestPolicy=createRequestPolicy(options);
   const testAccessKey = options.testAccessKey ?? '';
@@ -96,13 +96,14 @@ export function createDemoServer(options = {}) {
     onReady: roomId => { const room = rooms.get(roomId); if (room && !room.closedAt) change(room); } });
   const signChallenges = new WeakMap();
   const rerouteCounts = new Map(); // 경로 이탈로 다시 길찾기한 횟수(방별)
-  let rewardCatalog = options.rewardCatalog ?? null;
-  if (!rewardCatalog && phoneClient.driveGamesAvailable) {
-    try {
-      const read = file => JSON.parse(readFileSync(new URL(file, phoneClient.driveRoot), 'utf8'));
-      rewardCatalog = { items: read('data/items.json'), tables: read('data/loot_tables.json') };
-    } catch { rewardCatalog = null; }
+  const driveRewards = new Map();
+  if (phoneClient.driveGamesAvailable) {
+    const items = JSON.parse(readFileSync(new URL('data/items.json', phoneClient.driveRoot), 'utf8'));
+    for (const item of items) {
+      if (item.scope === 'specialized' && SIGN_GAMES.includes(item.driveGame)) driveRewards.set(item.driveGame, item);
+    }
   }
+  const signMinPlayMs = options.signMinPlayMs ?? SIGN_POLICY.minPlayMs;
   let publicOrigin = options.publicOrigin ?? '';
   if (publicOrigin) { const url = new URL(publicOrigin); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('publicOrigin must be a plain HTTP(S) origin'); publicOrigin = url.origin; }
   const accounts=createAccounts({clock:options.accountClock??Date.now,googleClientId:options.googleClientId??'',publicOrigin,verifyGoogleIdToken:options.verifyGoogleIdToken});
@@ -295,8 +296,13 @@ export function createDemoServer(options = {}) {
     }
   }
   function journeyRouteView(room, viewer) {
-    return routePlanner.view(room.roomId, navigationSnapshot(room).position,
+    const route = routePlanner.view(room.roomId, navigationSnapshot(room).position,
       room.collection.routeSignClaims ?? {}, viewer.memberId);
+    if (!route) return null;
+    return { ...route, signs: route.signs.flatMap(sign => {
+      const reward = driveRewards.get(sign.gameId);
+      return reward ? [{ ...sign, reward: { id: reward.id, name: reward.name, description: reward.description } }] : [];
+    }) };
   }
 
   function routeSupplyContext(room) {
@@ -981,47 +987,77 @@ export function createDemoServer(options = {}) {
         if (path === '/api/world/route-sign') {
           if (seatEvidence(room, member.seat) === 'EMPTY')
             throw fail('PASSENGER_CONFIRMATION_REQUIRED', 'Occupied or unverified passenger seat required', 403);
-          const claims = room.collection.routeSignClaims ??= {};
+          const claims = room.collection.routeSignClaims ?? {};
+          const activeChallenge = signChallenges.get(member);
+          const now = Date.now();
           if (body.challengeId !== undefined) {
-            const challenge = signChallenges.get(member);
-            if (typeof body.challengeId !== 'string' || !challenge || challenge.id !== body.challengeId)
-              throw fail('SIGN_CHALLENGE_INVALID', 'This attempt is closed', 409);
-            const now = Date.now();
-            if (challenge.expiresAt < now) { signChallenges.delete(member); throw fail('SIGN_CHALLENGE_EXPIRED', 'Attempt expired', 409); }
-            if (now - challenge.startedAt < (options.signMinPlayMs ?? SIGN_POLICY.minPlayMs)) throw fail('SIGN_CHALLENGE_TOO_FAST', 'Play the game first', 409);
-            const claimKey = challenge.planKey + ':' + challenge.signId;
-            const claimers = claims[claimKey] ??= [];
-            signChallenges.delete(member);
-            if (claimers.includes(member.memberId)) throw fail('ALREADY_CLAIMED', 'Already rewarded at this sign', 409);
-            claimers.push(member.memberId);
-            const item = pickReward(rewardCatalog, challenge.gameId);
+            if (typeof body.challengeId !== 'string' || !/^[0-9a-f-]{36}$/.test(body.challengeId))
+              throw fail('SIGN_CHALLENGE_INVALID', 'Invalid challenge ID', 409);
+            const receipts = room.collection.routeSignReceipts ?? {};
+            const previous = receipts[body.challengeId];
             const inventory = room.collection.inventory;
-            // 'supply' 아이템은 파티 보급품 카운터와 같은 것으로 본다(가방 화면도 supplies를 supply로 표시).
-            if (item && item.id !== 'supply') inventory[item.id] = (Number(inventory[item.id]) || 0) + 1;
-            else inventory.supplies++;
+            if (previous?.memberId === member.memberId && previous.expiresAt >= now) {
+              const { signId, gameId } = previous;
+              return result(res, 200, { signId, gameId, items: [driveRewards.get(gameId)], supplies: inventory.supplies,
+                inventory: { ...inventory }, replayed: true });
+            }
+            if (activeChallenge?.id !== body.challengeId)
+              throw fail('SIGN_CHALLENGE_INVALID', 'This attempt is closed', 409);
+            if (activeChallenge.expiresAt < now) {
+              signChallenges.delete(member);
+              throw fail('SIGN_CHALLENGE_EXPIRED', 'Attempt expired', 409);
+            }
+            const score = body.result?.score;
+            if (!Number.isFinite(score) || score <= 0)
+              throw fail('SIGN_GOAL_NOT_MET', 'Score at least one point before completing the challenge', 409);
+            if (now - activeChallenge.startedAt < signMinPlayMs)
+              throw fail('SIGN_CHALLENGE_TOO_FAST', 'Play the game first', 409);
+            const { signId, planKey, gameId, expiresAt } = activeChallenge;
+            const claimKey = planKey + ':' + signId;
+            if (claims[claimKey]?.includes(member.memberId))
+              throw fail('ALREADY_CLAIMED', 'Already rewarded at this sign', 409);
+            const item = driveRewards.get(gameId);
+            if (!item) throw fail('SIGN_UNAVAILABLE', 'Reward is unavailable', 409);
+            signChallenges.delete(member);
+            (claims[claimKey] ??= []).push(member.memberId);
+            room.collection.routeSignClaims = claims;
+            inventory[item.id] = (Number(inventory[item.id]) || 0) + 1;
+            for (const [id, receipt] of Object.entries(receipts)) {
+              if (receipt.expiresAt < now) delete receipts[id];
+            }
+            receipts[body.challengeId] = { signId, gameId, memberId: member.memberId, expiresAt };
+            room.collection.routeSignReceipts = receipts;
             room.collection.routeSignHistory = [
-              { signId: challenge.signId, gameId: challenge.gameId, itemId: item?.id ?? 'supply', itemName: item?.name ?? '보급품',
-                nickname: member.nickname, at: now },
+              { signId, gameId, itemId: item.id, itemName: item.name, nickname: member.nickname, at: now },
               ...(room.collection.routeSignHistory ?? []).slice(0, 19),
             ];
             collectionChanged(room);
-            return result(res, 200, { signId: challenge.signId, gameId: challenge.gameId,
-              items: item ? [item] : [], supplies: inventory.supplies, inventory: { ...inventory } });
+            return result(res, 200, { signId, gameId, items: [item], supplies: inventory.supplies, inventory: { ...inventory } });
           }
-          if (!SIGN_ROTATION.includes(body.gameId)) throw fail('INVALID_GAME', 'Unknown sign game', 400);
+          if (body.gameId !== undefined && !SIGN_ROTATION.includes(body.gameId)) throw fail('INVALID_GAME', 'Unknown sign game', 400);
           if (typeof body.signId !== 'string' || body.signId.length > 16) throw fail('INVALID_SIGN', 'signId required', 400);
           const found = routePlanner.sign(room.roomId, body.signId, navigationSnapshot(room).position);
-          if (!found) throw fail('SIGN_UNAVAILABLE', 'No active route sign', 409);
-          if (found.sign.gameId !== body.gameId) throw fail('SIGN_GAME_MISMATCH', 'This sign opens a different game', 409);
-          if (!SIGN_GAMES.includes(body.gameId)) throw fail('SIGN_GAME_NOT_READY', 'This game is not available yet', 409);
+          if (!found || (body.routeKey !== undefined && body.routeKey !== found.plan.key))
+            throw fail('SIGN_UNAVAILABLE', 'No active route sign', 409);
+          const { gameId } = found.sign;
+          if (body.gameId !== undefined && body.gameId !== gameId)
+            throw fail('SIGN_GAME_MISMATCH', 'This sign opens a different game', 409);
+          if (!SIGN_GAMES.includes(gameId) || !driveRewards.has(gameId))
+            throw fail('SIGN_GAME_NOT_READY', 'This game is not available yet', 409);
           if ((claims[found.plan.key + ':' + body.signId] ?? []).includes(member.memberId))
             throw fail('ALREADY_CLAIMED', 'Already rewarded at this sign', 409);
+          if (room.vehicle.gear !== 'D' || !room.vehicle.receivedAt ||
+              now - room.vehicle.receivedAt > leaseMs || !Number.isFinite(room.vehicle.speedMps))
+            throw fail('SIGN_UNAVAILABLE', 'A fresh vehicle report in Drive is required', 409);
           if (found.state !== 'READY') throw fail('SIGN_NOT_NEAR', 'Move closer to the sign', 409);
-          const challenge = { id: randomUUID(), signId: body.signId, planKey: found.plan.key, gameId: body.gameId,
-            startedAt: Date.now(), expiresAt: Date.now() + SIGN_POLICY.challengeMs };
+          const challenge = activeChallenge?.signId === body.signId && activeChallenge.planKey === found.plan.key &&
+            activeChallenge.expiresAt >= now ? activeChallenge : {
+              id: randomUUID(), signId: body.signId, planKey: found.plan.key, gameId,
+              startedAt: now, expiresAt: now + SIGN_POLICY.challengeMs,
+            };
           signChallenges.set(member, challenge);
-          return result(res, 200, { challengeId: challenge.id, signId: challenge.signId, gameId: challenge.gameId,
-            expiresAt: challenge.expiresAt, minPlayMs: SIGN_POLICY.minPlayMs });
+          return result(res, 200, { challengeId: challenge.id, signId: challenge.signId, gameId,
+            expiresAt: challenge.expiresAt, minPlayMs: signMinPlayMs });
         }
         if (path === '/api/world/nearby') return result(res, 200, world.nearby(room,member, body));
         if (path === '/api/world/location') return result(res, 200, world.observe(member, body));

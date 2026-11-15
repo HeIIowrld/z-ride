@@ -6,6 +6,11 @@ const inv=Object.fromEntries(items.map(x=>[x.id,100]));
 const gear=['gear-bumper-a','gear-bumper-b','gear-armor-a','gear-armor-b','gear-tires-a','gear-tires-b','gear-lights-a','gear-lights-b'];
 const dz=buildDeadzoneLoadout({partyId:'unit-party',players:4,inventory:inv,equipment:gear},{night:true,rain:true});
 for(const [k,v] of Object.entries(dz.mods)){assert.ok(v<=DEADZONE_MOD_CAPS[k],k+' cap');assert.ok(!/dmg|rate|crit/i.test(k),k+' forbidden');}
+const neon = { inventory: { 'neon-shield': 1 }, equipment: ['gear-bumper-a'] };
+assert.deepEqual(buildDeadzoneLoadout(neon).mods, { shieldBonus: 25 });
+assert.deepEqual(buildDeadzoneLoadout(neon, { night: true }).mods, { shieldBonus: 35 });
+assert.deepEqual(buildDeadzoneLoadout({ inventory: { 'gear-armor-a': 1 }, equipment: ['gear-armor-a'] }).mods,
+  { shieldBonus: 10 });
 assert.ok(dz.startWeapons.length<=2);assert.ok(dz.startWeapons.every(x=>['smg','shotgun','rail','arc','beam','launcher'].includes(x)));
 const low=buildDeadzoneLoadout({players:1,inventory:inv,equipment:[]},{}),high=buildDeadzoneLoadout({players:4,inventory:inv,equipment:[]},{});assert.equal(low.consumables.medkit,2);assert.equal(high.consumables.medkit,6);assert.ok(Object.values(dz.consumables).every(n=>n<=6));
 assert.equal(buildDeadzoneLoadout({inventory:Object.fromEntries(items.filter(x=>x.category==='part').map(x=>[x.id,100]))},{}).startCredits,40);

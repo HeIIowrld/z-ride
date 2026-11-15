@@ -181,6 +181,8 @@ SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 
 
 한 지도 핀에 여러 장소가 겹치면 각 장소의 이름과 현재 보상을 목록으로 표시한다. 새로 완료한 경로 보급 도전은 크루 스냅샷의 `collection.routeSupplyHistory`에 장소명과 획득 시각을 최근 20건까지 기록한다. 같은 도전 완료를 다시 처리해도 재고와 내역에는 한 건만 반영한다.
 
+주행 중 랜덤 표지판은 `journeyRoute.signs`의 `gameId`와 `reward`로 그린다. 폰은 `signId`와 경로 `key`로 표지판 도전을 시작하고, 할당된 게임의 점수를 제출한다. 지급된 전용 아이템은 `collection.inventory`에 들어가며 해당 게임에서 자동 적용한다. 공통 보급품은 고정 스팟 도전에서 획득한다. [표지판 계약](route-signs.md)
+
 ## 팀 테스트 접근키와 브라우저 연결
 
 - 서버 CLI: `ZRIDE_TEST_ACCESS_KEY`, 라이브러리: `createDemoServer({testAccessKey})`. 빈 값은 로컬 시험용 공개 게스트 발급이다. 실제 키는 환경 파일로 전달하고 명령행 인수에 넣지 않는다.

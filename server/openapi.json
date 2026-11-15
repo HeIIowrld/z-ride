@@ -1476,7 +1476,8 @@
       "post": {
         "operationId": "playRouteSign",
         "summary": "Start or complete a route-sign minigame challenge",
-        "description": "Signs are placed at random (seeded per route) along the journey route: an explicit route geometry, or a route fetched from an OSRM-compatible router between the vehicle position and the Pleos destination coordinates (Pleos NaviHelper does not supply road polylines). A sign is READY within readyRadiusM of the vehicle (and within 2x readyRadiusM along the route); after passing it stays READY only while within readyRadiusM along the route and for at most 30s. Each sign carries one gameId, shuffled per route so every game appears once before any repeats and the same game never appears twice in a row; signs with playable=false (zombie) are shown on the map but cannot be started yet. Start with signId and the sign's gameId, play the game in the passenger phone, then complete with challengeId. The server rolls one common item into the crew inventory; each passenger can be rewarded once per sign.",
+        "x-websocket-snapshot": "room.journeyRoute.signs[] includes gameId and reward {id, name, description}.",
+        "description": "Signs are placed at random (seeded per route) along the journey route: an explicit route geometry, or a route fetched from an OSRM-compatible router between the vehicle position and the Pleos destination coordinates (Pleos NaviHelper does not supply road polylines). A sign is READY within readyRadiusM of the vehicle (and within 2x readyRadiusM along the route); after passing it stays READY only while within readyRadiusM along the route and for at most 30s. Each playable sign grants the assigned specialized reward. Zombie signs have playable=false and cannot start a game. Start with signId and the current routeKey while the vehicle is in Drive with fresh telemetry. If gameId is supplied it must equal the assigned game. Complete with challengeId and a finite positive result.score after minPlayMs and before expiresAt. Score is reported by the passenger client. Each passenger can earn the assigned item once per route sign. The same completion can be retried until the challenge expires; it returns replayed=true without granting another item.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1487,6 +1488,10 @@
                   "signId": {
                     "type": "string",
                     "maxLength": 16
+                  },
+                  "routeKey": {
+                    "type": "string",
+                    "description": "Current room.journeyRoute.key"
                   },
                   "gameId": {
                     "enum": [
@@ -1501,20 +1506,26 @@
                   },
                   "result": {
                     "type": "object",
+                    "required": ["score"],
                     "properties": {
                       "score": {
-                        "type": "number"
+                        "type": "number",
+                        "exclusiveMinimum": 0
                       }
                     }
                   }
-                }
+                },
+                "oneOf": [
+                  {"required": ["signId"], "not": {"required": ["challengeId"]}},
+                  {"required": ["challengeId", "result"]}
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Start: challengeId, signId, gameId, expiresAt, minPlayMs. Completion: signId, gameId, items, supplies, inventory."
+            "description": "Start: challengeId, signId, gameId, expiresAt, minPlayMs. Completion: signId, gameId, items (one specialized item), supplies, inventory, optional replayed."
           },
           "400": {
             "description": "Unknown game or sign id",
@@ -1540,7 +1551,9 @@
               "ALREADY_CLAIMED",
               "SIGN_CHALLENGE_INVALID",
               "SIGN_CHALLENGE_EXPIRED",
-              "SIGN_CHALLENGE_TOO_FAST"
+              "SIGN_CHALLENGE_TOO_FAST",
+              "SIGN_GAME_MISMATCH",
+              "SIGN_GOAL_NOT_MET"
             ]
           },
           "503": {
