@@ -48,7 +48,8 @@ const silhouettes = {
 };
 
 function sticker(paths, { accent = '#52f1d0', details = '' } = {}) {
-  const group = `<g stroke-linecap="round" stroke-linejoin="round">${paths}</g>`;
+  // Shapes are stored as bare path data; wrap them so the SVG actually draws them.
+  if (!/^\s*</.test(paths)) paths = `<path d="${paths}"/>`;
   const interior = details || '<path d="M46 49a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm7 4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4Z"/>';
   return `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><g fill="${ink}" stroke="${black}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">${paths}</g><g fill="${ink}" stroke="${cream}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">${paths}</g><g fill="${ink}" stroke="none">${paths}</g><g fill="${accent}" stroke="none">${interior}</g></svg>`;
 }
