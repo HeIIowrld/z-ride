@@ -80,7 +80,7 @@
       <div class="squad-head"><div><h1 id="my-name">동승자</h1><p id="my-seat" class="subtle"></p></div><button id="leave-button" type="button" class="quiet">파티 탈퇴</button></div>
       <section id="pending-panel" class="panel crew-entry crew-pending" hidden><h2>Pleos 승인 대기</h2><p class="subtle">차량 크루 로비에서 내 자리를 승인하면 여행 지도가 열려요.</p></section>
       <section id="approved-content" hidden>
-        <section id="journey-map" class="panel journey-map">
+        <section id="journey-map" class="panel journey-map" tabindex="-1">
           <div class="section-heading map-heading">
             <h2>여행 지도</h2>
             <div class="map-tools"><span class="item-inline"><ply-supply-icon></ply-supply-icon><span>파티 보급품 <b id="journey-supplies">0</b></span></span>
@@ -89,7 +89,7 @@
           <div id="journey-guidance" class="journey-guidance" hidden>
             <p id="journey-guidance-destination"></p>
             <p id="journey-guidance-progress" class="subtle"></p>
-            <p id="journey-guidance-sign" class="journey-sign-next" hidden></p>
+            <button id="journey-guidance-sign" class="journey-sign-next" type="button" hidden></button>
           </div>
           <div class="journey-map-frame">
             <div id="journey-plot" aria-label="차량 주변 지도"></div>
@@ -117,6 +117,7 @@
             <h2 id="journey-next-name"></h2>
             <p id="journey-next-status" class="subtle" role="status"></p>
             <button id="journey-next-enter" type="button" class="primary"></button>
+            <a id="journey-next-link" class="primary journey-game-link" target="_blank" rel="noopener noreferrer" hidden></a>
           </div>
           <div id="journey-place" class="journey-place" hidden>
             <div class="item-inline"><ply-supply-icon id="journey-place-icon" hidden></ply-supply-icon><h2 id="journey-place-name"></h2></div>
@@ -136,10 +137,15 @@
           </section>
         </section>
         <section id="journey-game" hidden>
-          <button id="journey-back" type="button" class="quiet">‹ 지도</button>
-          <div id="drive-play" hidden></div>
-          <section id="journey-bag-view" class="panel" aria-labelledby="journey-bag-title" hidden>
-            <h2 id="journey-bag-title">크루 가방</h2>
+          <div class="journey-toolbar">
+            <button id="journey-back" type="button" class="quiet">‹ 지도</button>
+            <div><h2 id="journey-screen-title" tabindex="-1"></h2><p id="journey-screen-detail" class="subtle" role="status" hidden></p></div>
+          </div>
+          <div id="drive-play" hidden>
+            <div id="drive-stage"></div>
+            <div id="drive-opening" class="drive-opening" role="status"><p id="drive-opening-text"></p><button id="drive-retry" class="quiet" type="button" hidden>다시 시도</button></div>
+          </div>
+          <section id="journey-bag-view" class="panel" aria-labelledby="journey-screen-title" hidden>
             <nav aria-label="아이템 구분"></nav>
             <div class="loot-cards"><p role="status">크루 가방을 여는 중…</p></div>
           </section>

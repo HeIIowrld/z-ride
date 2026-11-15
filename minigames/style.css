@@ -115,3 +115,12 @@
 
 .game-page :is(.overlay-card,.rain-overlay article){border-color:var(--ply-line)!important;background:color-mix(in srgb,var(--ply-surface) 90%,transparent)!important;color:var(--ply-ink)!important}
 .door-status{position:relative;z-index:2;background:var(--ply-surface);padding:2px 4px;border-radius:6px}.door-water{top:auto;bottom:0}.settings-button{display:none!important}
+
+/* Shared result treatment for the three driving arcade games. */
+.run-reward {
+  margin: 10px 0; padding: 10px 12px; border: 1px solid #436266; border-radius: 8px;
+  background: #15292f; color: #d2efea; line-height: 1.45; font-size: 13px; font-weight: 700;
+}
+.run-reward[data-state="earned"] { border-color: #72d8bd; background: #153b36; color: #b3ffe5; }
+.run-reward[data-state="pending"] { color: #ffe1a4; }
+.game-nav .back-link[hidden] { visibility: hidden; }

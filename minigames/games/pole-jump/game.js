@@ -1,8 +1,8 @@
-import { inJourney, inRouteSign, crewHasItem } from '../../shared/journey.js';
+import { inJourney, inRouteSign, crewHasItem, notifyJourneyReady, returnToJourney } from '../../shared/journey.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { getSeat, setSeat } from '../../shared/seat.js';
 import { addItem } from '../../shared/inventory.js';
-import { awardMinigame } from '../../shared/loot-client.js';
+import { presentMinigameReward } from '../../shared/loot-client.js';
 import { startLootTracking } from '../../shared/loot-tracker.js';
 startLootTracking();
 import { getBest, saveRecord } from '../../shared/records.js';
@@ -75,7 +75,7 @@ function reset() {
   $('finish-run').classList.add('hidden');
   startAt = performance.now(); lane = 1; jump = null; seed = 7139; landedAt = 0; passed = [];
   let played = 0; try { played = Number(localStorage.getItem('zride.polejump.games') || 0); } catch {}
-  tutorial = !devAutostart && played < 3; tutorialStep = 0; tutorialAttempts = 0;
+  tutorial = !inRouteSign && !devAutostart && played < 3; tutorialStep = 0; tutorialAttempts = 0;
   if (tutorial) { try { localStorage.setItem('zride.polejump.games', String(played + 1)); } catch {} }
   introRemaining = devAutostart ? 0 : INTRO_SECONDS;
   poles = [makePole(1, 0)]; fillPoles();
@@ -139,9 +139,18 @@ function finish(reason) {
   if (isBest) { try { const skins = JSON.parse(localStorage.getItem('zride.skins') || '[]'); if (!skins.includes('ninja_gold')) skins.push('ninja_gold'); localStorage.setItem('zride.skins', JSON.stringify(skins)); } catch {} }
   $('final-score').textContent = score.toLocaleString('ko-KR'); $('final-poles').textContent = cleared; $('final-combo').textContent = maxCombo; $('final-perfects').textContent = perfects;
   $('final-time').textContent = formatTime(durationMs); $('final-parts').textContent = parts;
-  awardMinigame('pole-jump',{score,poles:cleared}).then(out=>{const line=document.createElement('p');line.textContent=`획득 아이템: ${(out.items||[]).map(x=>x.name).join(', ')||'없음'}`;$('result').append(line);});
+  const again = $('again');
+  again.disabled = true;
+  again.dataset.return = '';
+  again.textContent = '다시 도전';
+  void presentMinigameReward($('run-reward'), 'pole-jump', { score, poles: cleared }).then(reward => {
+    const returnToMap = inRouteSign && reward.error !== 'SIGN_GOAL_NOT_MET';
+    again.dataset.return = String(returnToMap);
+    again.textContent = returnToMap ? '여행 지도로 돌아가기' : '다시 도전';
+    again.disabled = false;
+  });
   $('reason').textContent = ({ completed: '표지판 도전을 마쳤어요.', fall: '다음 발판까지 닿지 못했어요.', pushed_out: '위험 구역 끝에 도달했어요.', obstacle: '착지한 발판에 장애물이 있었어요.', speeding: '과속 상태가 계속됐어요.' })[reason];
-  $('result-title').textContent = reason === 'speeding' ? '과속 감지!' : '모험 종료'; $('best-badge').classList.toggle('hidden', !isBest); $('result').classList.remove('hidden'); if (reason === 'speeding') beep(180, .3);
+  $('result-title').textContent = reason === 'completed' ? '도전 완료!' : reason === 'speeding' ? '과속 감지!' : '도전 종료'; $('best-badge').classList.toggle('hidden', !isBest); $('result').classList.remove('hidden'); if (reason === 'speeding') beep(180, .3);
 }
 function laneMove(d) { if (!running || stoppedAt || jump) return; lane = clamp(lane - d, 0, 2); updateHud(); }
 function completeJump() {
@@ -257,7 +266,7 @@ function onFeed(v) { speed = v.speedKmh; speedLimit = v.speedLimitKmh; feedDista
 function ensureSeat() { if (inJourney || getSeat()) return; setSeat(confirm('오른쪽 좌석인가요?\n확인: 오른쪽 / 취소: 왼쪽') ? 'right' : 'left'); }
 document.querySelector('#start-button').addEventListener('click', async () => { if (!await ensurePassenger()) return; ensureSeat(); if (!feed) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); } if (inJourney) speed = feed.current.speedKmh; audio?.resume(); reset(); });
 $('finish-run').addEventListener('click', () => finish('completed'));
-$('again').addEventListener('click', reset); $('jump').addEventListener('click', doJump); $('up').addEventListener('click', () => laneMove(1)); $('down').addEventListener('click', () => laneMove(-1));
+$('again').addEventListener('click', () => { if ($('again').dataset.return === 'true') returnToJourney(); else reset(); }); $('jump').addEventListener('click', doJump); $('up').addEventListener('click', () => laneMove(1)); $('down').addEventListener('click', () => laneMove(-1));
 $('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textContent = muted ? '◖' : '◗'; });
 if (devAutostart) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); reset(); }
 window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); doJump(); } if (e.code === 'ArrowUp') { e.preventDefault(); laneMove(1); } if (e.code === 'ArrowDown') { e.preventDefault(); laneMove(-1); } });
@@ -266,3 +275,5 @@ canvas.addEventListener('touchend', e => { if (touchY == null) return; const d =
 document.querySelector('#start-button').disabled = false;
 
 // Pleos integration point: forward NaviHelper onCurrentRoadSpeedLimit() and onDrivingInfo() to the server, which relays them over /vehicle WebSocket.
+
+notifyJourneyReady();
