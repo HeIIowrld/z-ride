@@ -861,7 +861,7 @@ async function finishSignGame(message) {
     }
     if (active !== credentials) return;
     reply({ handled: true, items: receipt.items });
-    if (!receipt.replayed) showItemToast('표지판 보상 · ' + receipt.items[0].name, '크루 가방에 들어갔어요.');
+    if (!receipt.replayed) showItemToast('표지판 보상 · ' + receipt.items.map(item => item.name).join(' · '), '크루 가방에 들어갔어요.');
     routeFeedback = '';
   } catch (error) {
     if (active !== credentials) return;

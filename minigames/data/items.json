@@ -40,7 +40,8 @@
       "nightMods": {
         "shieldBonus": 10
       }
-    }
+    },
+    "voltRush": "SHIELD"
   },
   {
     "id": "rail-spear",
@@ -100,7 +101,8 @@
     "roadType": null,
     "deadzone": {
       "startWeapon": "launcher"
-    }
+    },
+    "voltRush": "SCAN"
   },
   {
     "id": "coil-launcher",
@@ -172,7 +174,8 @@
     "description": "기본 전력 부품.",
     "icon": "battery",
     "roadType": null,
-    "deadzone": {}
+    "deadzone": {},
+    "voltRush": "CELL"
   },
   {
     "id": "cable",
@@ -584,7 +587,7 @@
     "stats": {
       "escape": 1
     },
-    "description": "탈출 보조 소모품.",
+    "description": "DEADZONE에서 주변 좀비의 이동 속도를 잠시 늦춰요.",
     "icon": "can",
     "roadType": null,
     "deadzone": {
@@ -602,7 +605,7 @@
     "stats": {
       "defense": 1
     },
-    "description": "간단한 현장 수리 도구.",
+    "description": "DEADZONE에서 공동 차량 내구도를 최대 45 회복해요.",
     "icon": "tool",
     "roadType": null,
     "deadzone": {
@@ -620,7 +623,7 @@
     "stats": {
       "defense": 1
     },
-    "description": "휴대용 응급 키트.",
+    "description": "DEADZONE에서 공동 차량 내구도를 최대 35 회복해요.",
     "icon": "cross",
     "roadType": null,
     "deadzone": {
@@ -640,11 +643,11 @@
     "stats": {
       "detection": 1
     },
-    "description": "위치를 알리는 조명탄.",
+    "description": "DEADZONE에서 살아 있는 좀비들을 잠시 멈춰요.",
     "icon": "flare",
     "roadType": null,
     "deadzone": {
-      "kind": "bubble"
+      "kind": "flare"
     }
   },
   {
@@ -658,7 +661,7 @@
     "stats": {
       "attack": 1
     },
-    "description": "휴대용 탄약 상자.",
+    "description": "DEADZONE에서 충격파를 일으켜 주변 좀비를 공격해요.",
     "icon": "box",
     "roadType": null,
     "deadzone": {
@@ -676,7 +679,7 @@
       "rain"
     ],
     "stats": {},
-    "description": "기존 게임과 호환되는 냉각수.",
+    "description": "DEADZONE에서 공동 차량 내구도를 최대 45 회복해요.",
     "icon": "cell",
     "roadType": null,
     "deadzone": {
@@ -780,5 +783,33 @@
     "icon": "catcher",
     "roadType": null,
     "driveGame": "raindrop"
+  },
+  {
+    "id": "voltage-coil",
+    "name": "고전압 코일",
+    "scope": "specialized",
+    "category": "consumable",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "Volt Rush에서 앞쪽 3칸에 있는 상대 선을 끊어요.",
+    "icon": "launcher",
+    "roadType": null,
+    "voltRush": "CUT"
+  },
+  {
+    "id": "insulated-gloves",
+    "name": "절연 장갑",
+    "scope": "specialized",
+    "category": "consumable",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "Volt Rush에서 다음 한 번 막힌 칸을 뛰어넘어요.",
+    "icon": "grip",
+    "roadType": null,
+    "voltRush": "JUMP"
   }
 ]

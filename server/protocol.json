@@ -6,6 +6,13 @@
   "http": [
     {
       "method": "POST",
+      "path": "/api/game-items",
+      "auth": "Linked DEADZONE or Volt Rush game-server bearer credential bound to room code",
+      "body": "game, code and action loadout/use/refund; use and refund carry itemId and a stable useId",
+      "response": "loadout and item counts, remaining after one use, or refund receipt"
+    },
+    {
+      "method": "POST",
       "path": "/api/rooms/{roomId}/drive-game",
       "auth": "CAR_HOST with fresh parked foreground telemetry",
       "body": {"game": "license-quiz, pole-jump or raindrop"},
@@ -58,7 +65,7 @@
       },
       "response": {
         "start": "challengeId, signId, gameId, expiresAt (5 min), minPlayMs",
-        "completion": "signId, gameId, items (one specialized item), supplies, inventory; replayed=true for a repeated completion before expiry"
+        "completion": "signId, gameId, items (specialized reward and crew crate item), supplies, inventory; replayed=true for a repeated completion before expiry"
       }
     },
     {

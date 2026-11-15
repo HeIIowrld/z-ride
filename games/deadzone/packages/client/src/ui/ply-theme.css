@@ -12,3 +12,18 @@
   --ply-danger: #ff796c;
   --ply-radius: 12px;
 }
+
+.crew-items {
+  position: fixed;
+  z-index: 24;
+  top: max(4.75rem, calc(env(safe-area-inset-top) + 3.5rem));
+  left: max(0.75rem, env(safe-area-inset-left));
+  color: #fff;
+  background: #161e28;
+  border-radius: 0.65rem;
+  padding: 0.5rem;
+  max-height: 44vh;
+  overflow: auto;
+  font-size: 0.8rem;
+}
+.crew-items button { display: block; margin-top: 0.35rem; min-height: 2rem; }

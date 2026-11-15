@@ -187,7 +187,7 @@ async function api(request, env, url, path) {
     const stub = env.MATCH_ROOM.get(env.MATCH_ROOM.idFromName(room.code));
     const configured = await stub.fetch(new Request('https://internal/internal/zride/configure', {
       method:'POST', headers:{'content-type':'application/json'},
-      body:JSON.stringify({code:room.code,players,dashboardToken,sharedVehicle:body.sharedVehicle===true,partySeats:body.partySeats})
+      body:JSON.stringify({code:room.code,players,dashboardToken,sharedVehicle:body.sharedVehicle===true,partySeats:body.partySeats,crewKey:body.crewKey})
     }));
     if (!configured.ok) return json({error:'configuration_failed'},500);
     return json({code:room.code,mode:'coop',players,

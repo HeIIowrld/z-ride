@@ -198,7 +198,8 @@ export class Topdown {
     }
     c.beginPath();
     c.roundRect(-w, -l, w * 2, l * 2, [0.33, 0.33, 0.42, 0.42]);
-    c.fillStyle = '#7693a4';
+    c.fillStyle = vehicle.paint === 'paint_rain_pattern' ? '#5596bd'
+      : vehicle.paint === 'paint_neon_grid' ? '#a270bb' : '#7693a4';
     c.fill();
     c.lineWidth = 0.14;
     c.strokeStyle = '#c9e4ee';

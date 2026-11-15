@@ -194,3 +194,7 @@ SQLite 저장 실패 시 REST는 STORAGE_UNAVAILABLE 503, health는 ok=false인 
 # 폰 웹 로그인 연결 — 2026-11-04
 
 `https://hyundai.hjpark.net/play`가 Google/게스트 계정과 기존 QR/파티 REST·WSS를 연결한다. `/play/account.js`가 계정·초대·전환을, `/play/app.js`가 플레이 티켓과 방 화면을 담당한다. `phone:ticket` 이벤트로 PARTY_PLAY 자격증명만 넘긴다. PHONE_ACCOUNT는 WS에 보내지 않는다. 계정은 tab sessionStorage, 플레이와 Google ID token은 메모리만 사용한다. Google 원본은 `https://hyundai.hjpark.net`, 리디렉션 URI는 사용하지 않는다. [계정 상세](phone-accounts.md) · [도메인 배포](domain-handoff.md)
+
+### 크루 경기의 아이템 연동
+
+표지판 완료 응답의 `items`에는 주행 게임 전용 장비와 크루 상자 보상이 같이 들어간다. `collection.inventory`가 공동 재고이며 같은 `challengeId` 재시도는 재지급하지 않는다. 연결된 DEADZONE과 Volt Rush는 경기 서버끼리 쓰는 `POST /api/game-items`로 재고를 조회하고, 효과를 발동할 때 고정된 `useId`로 1개를 차감한다. 사용 중 경기나 라운드가 끝나 효과를 적용할 수 없으면 같은 영수증을 환불한다. 폰과 차량 화면에는 기존 URL 입장권을 전달한다.

@@ -51,6 +51,7 @@ import { AudioEngine } from './audio/audio.js';
 import { Input, haptic, HAPTIC, setHaptics } from './input/input.js';
 import { UI } from './ui/ui.js';
 import { NetClient } from './net/client.js';
+import { applyCrewLoadout } from '@overrun/shared/crew-loadout.js';
 
 const DEMO = import.meta.env.MODE === 'demo';
 
@@ -268,6 +269,8 @@ class App {
   toTitle() {
     this.partySeat = null;
     this.mounted = false;
+    this.crewVehiclePaint = null;
+    this.clearCrewItems();
     this.input.setMounted(false);
     this.me = null;
     this.serverState = null;
@@ -485,6 +488,7 @@ class App {
       onEvents: (l) => this.presentEvents(l),
       onLobby: (l) => this.onLobby(l),
       onChoice: (c) => this.onChoice(c),
+      onCrewItems: payload => this.onCrewItems(payload),
       onEnd: (e) => this.onMatchEnd(e),
       onKick: (k) => { this.toTitle(); this.ui.toast(k.reason==='full'?'팀 정원이 찼습니다. 다른 팀 코드를 확인해 주세요.':k.reason==='match_in_progress'?'진행 중인 경기입니다. 다음 경기에서 참가해 주세요.':'연결이 종료되었습니다. 다시 참가해 주세요.'); },
       onClose: () => { if (this.state !== 'title') this.ui.net(-1, 'off'); }
@@ -535,6 +539,8 @@ class App {
       this.beginMatch();
       return;
     }
+    if (l.state !== 'playing') this.clearCrewItems();
+    if (l.reason === 'crew_items_unavailable') this.ui.toast('크루 가방에 연결하지 못했어요. 다시 준비해 주세요.');
     this.ui.lobby({
       code: this.roomCode,
       modeName: this.mode.name,
@@ -544,6 +550,45 @@ class App {
       youReady: this._ready
     });
   }
+
+  onCrewItems(payload) {
+    if (payload.loadout && this.me && this.crewLoadoutPlayer !== this.me) {
+      applyCrewLoadout(this.sim, this.me, payload.loadout);
+      this.crewVehiclePaint = payload.loadout.skin;
+      this.crewLoadoutPlayer = this.me;
+    }
+    if (payload.error) {
+      this.ui.toast(payload.error === 'ITEM_NOT_NEEDED' ? '지금은 이 아이템이 필요하지 않아요.'
+        : payload.error === 'ABILITY_COOLDOWN' ? '아직 능력이 충전 중이에요.'
+        : payload.error === 'GAME_ITEM_EMPTY' ? '크루가 이 아이템을 다 썼어요.' : '가방 연결을 확인하고 다시 눌러 주세요.');
+    }
+    const expanded = document.querySelector('.crew-items')?.open ?? false;
+    this.clearCrewItems();
+    if (!payload.items?.length && !payload.loadout?.startAbility) return;
+    const list = document.createElement('details');
+    list.className = 'crew-items';
+    list.open = expanded;
+    const summary = document.createElement('summary');
+    summary.textContent = '크루 아이템';
+    list.append(summary);
+    if (payload.loadout?.startAbility) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = payload.loadout.startAbility === 'turret' ? '보조 포탑 발동' : '연쇄 전격 발동';
+      button.addEventListener('click', () => this.net?.useCrewItem({ ability: true }));
+      list.append(button);
+    }
+    for (const item of payload.items) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = item.name + ' ×' + item.count;
+      button.addEventListener('click', () => this.net?.useCrewItem({ itemId: item.id }));
+      list.append(button);
+    }
+    document.body.append(list);
+  }
+
+  clearCrewItems() { document.querySelector('.crew-items')?.remove(); }
 
   updateRiderSeats(players = []) {
     if (!this.partySeat) return;
@@ -611,6 +656,7 @@ class App {
   }
 
   onMatchEnd(e) {
+    this.clearCrewItems();
     this.matchWinner = e.over ? e.over.winner : null;
     this.state = 'dead';
     const players = (e.results || []).map(p => ({ ...p, me: p.id === this.localId }))
@@ -885,7 +931,7 @@ class App {
       }
       if (this.mounted) {
         const time = win ? lerp(win.a.matchTime, win.b.matchTime, win.t) : s.matchTime;
-        v.vehicle = vehiclePose(time);
+        v.vehicle = { ...vehiclePose(time), paint: this.crewVehiclePaint };
         v.vehicleHealth = s.vehicle;
         v.player = { ...this.me, ...vehiclePoint(v.vehicle, VEHICLE_SEATS[this.partySeat].x, VEHICLE_SEATS[this.partySeat].z) };
         for (const rider of v.mates) {

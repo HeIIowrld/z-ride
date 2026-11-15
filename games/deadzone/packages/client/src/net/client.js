@@ -148,6 +148,7 @@ export class NetClient {
         break;
       }
       case MSG.LOBBY: this.h.onLobby(decodeJson(r)); break;
+      case MSG.CREW_ITEMS: this.h.onCrewItems?.(decodeJson(r)); break;
       case MSG.CHOICE: this.h.onChoice(decodeJson(r)); break;
       case MSG.END: this.h.onEnd(decodeJson(r)); break;
       case MSG.CHATOUT: this.h.onChat && this.h.onChat(decodeJson(r)); break;
@@ -182,6 +183,7 @@ export class NetClient {
     this.send(encodeJson(MSG.PING, { t: performance.now() }));
   }
 
+  useCrewItem(action) { this.send(encodeJson(MSG.CREW_USE, action)); }
   sendPick(pick) { this.send(encodeJson(MSG.PICK, pick)); }
   sendReady(ready) { this.send(encodeJson(MSG.READY, { ready })); }
   sendChat(text) { this.send(encodeJson(MSG.CHAT, { text })); }

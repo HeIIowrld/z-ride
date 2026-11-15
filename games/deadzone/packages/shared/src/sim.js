@@ -588,7 +588,9 @@ export class Sim {
     if (this.sharedVehicle) {
       const vehicle = this.sharedVehicle;
       if (vehicle.iframe > 0 || vehicle.hp <= 0) return;
-      vehicle.iframe = T.player.iframeOnHit;
+      vehicle.iframe = T.player.iframeOnHit * (vehicle.crewIFrameScale ?? 1);
+      if (vehicle.crewThorns && attacker?.alive && !attacker.isPlayer)
+        this.hurtEnemy(attacker, vehicle.crewThorns, p.x, p.z, 0, false, p);
       vehicle.hp = Math.max(0, vehicle.hp - amount);
       for (const rider of this.players) {
         rider.hp = rider.maxHp * vehicle.hp / vehicle.maxHp;

@@ -9,6 +9,7 @@ import { createWorldService } from './world.mjs';
 import { createStateStore, STATE_FORMAT_VERSION } from './state-store.mjs';
 import { createObserverService } from './observer.mjs';
 import { createPhoneClientService } from './phone-client.mjs';
+import { crewGameItems, routeBonusCatalog } from './crew-game-items.mjs';
 import { createEffectsService } from './effects.mjs';
 import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
@@ -73,8 +74,7 @@ export function createDemoServer(options = {}) {
   const deadzoneOrigin = options.deadzoneOrigin ? new URL(options.deadzoneOrigin).origin : null;
   const deadzonePending = new Set();
   // 충전 게임(Power Castle 등)은 DEADZONE처럼 밖에 따로 배포돼 있다. 게임 id → 그 게임 서버 주소
-  const chargeGames = new Map(Object.entries(options.chargeGames ?? {}).map(([id, origin]) => [id, new URL(origin).origin]));
-  const chargeLinks = new WeakMap(); // room → { game, origin, code, hostToken, seats: { memberId: { playerId, token } } }
+  const chargeGames = new Map(Object.entries(options.chargeGames ?? {}).map(([id, origin]) => [id, new URL(origin.replace(/\/$/, '') + '/').href]));
   const chargePending = new Set();
   const supplyChallenges = new WeakMap();
   const venueGames = new WeakMap();
@@ -96,13 +96,12 @@ export function createDemoServer(options = {}) {
     onReady: roomId => { const room = rooms.get(roomId); if (room && !room.closedAt) change(room); } });
   const signChallenges = new WeakMap();
   const rerouteCounts = new Map(); // 경로 이탈로 다시 길찾기한 횟수(방별)
-  const driveRewards = new Map();
-  if (phoneClient.driveGamesAvailable) {
-    const items = JSON.parse(readFileSync(new URL('data/items.json', phoneClient.driveRoot), 'utf8'));
-    for (const item of items) {
-      if (item.scope === 'specialized' && SIGN_GAMES.includes(item.driveGame)) driveRewards.set(item.driveGame, item);
-    }
-  }
+  const itemCatalog = phoneClient.driveGamesAvailable
+    ? JSON.parse(readFileSync(new URL('data/items.json', phoneClient.driveRoot), 'utf8')) : [];
+  const itemsById = new Map(itemCatalog.map(item => [item.id, item]));
+  const driveRewards = new Map(itemCatalog.filter(item => SIGN_GAMES.includes(item.driveGame))
+    .map(item => [item.driveGame, item]));
+  const routeBonus = routeBonusCatalog(itemCatalog);
   const signMinPlayMs = options.signMinPlayMs ?? SIGN_POLICY.minPlayMs;
   let publicOrigin = options.publicOrigin ?? '';
   if (publicOrigin) { const url = new URL(publicOrigin); if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('publicOrigin must be a plain HTTP(S) origin'); publicOrigin = url.origin; }
@@ -131,7 +130,7 @@ export function createDemoServer(options = {}) {
         state: room.state, pauseReason: room.pauseReason, joinCode: room.joinCode,
         joinExpiresAt: room.joinExpiresAt, joinUsed: room.joinUsed,
         emptyLocks: [...room.emptyLocks], stats: room.stats, zombies: room.zombies,
-        collection: room.collection, deadzoneMatch: room.deadzoneMatch, driveGame: room.driveGame, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
+        collection: room.collection, deadzoneMatch: room.deadzoneMatch, chargeGameLink: room.chargeGameLink, driveGame: room.driveGame, game: gameState.durable(room.game), closedAt: room.closedAt ?? null,
         partyWorldClaims:[...(room.partyWorldClaims??[])],partyPickupClaims:[...(room.partyPickupClaims??[])],collectionRevision:room.collectionRevision??0,
         partyPickupRespawns:[...(room.partyPickupRespawns??[])],
         departedMembers: [...(room.departedMembers ?? new Map()).values()].map(m => ({ ...m, socket: undefined, receipts: [...m.receipts], collectedPickups: [...(m.collectedPickups??[])], worldClaims: [...(m.worldClaims??[])], worldReceipts: [...(m.worldReceipts??[])], gameReceipts: [...(m.gameReceipts??[])] })),
@@ -657,15 +656,15 @@ export function createDemoServer(options = {}) {
     return gate(room).allowed ? places.arrivedCharger(navigationSnapshot(room).position) : null;
   }
   function chargeGameView(room, viewer) {
-    const link = chargeLinks.get(room);
+    const link = room.chargeGameLink;
     if (!link || room.closedAt || !gate(room).allowed) return {};
     if (viewer.role === 'CAR_HOST') return { chargeGame: { game: link.game } };
     const seat = viewer.approved && link.seats[viewer.memberId];
-    return seat ? { chargeGame: { game: link.game, joinUrl: link.origin + '/p#join=' + link.code + '.' + seat.playerId + '.' + seat.token } } : {};
+    return seat ? { chargeGame: { game: link.game, joinUrl: link.origin.replace(/\/$/, '') + '/p#join=' + link.code + '.' + seat.playerId + '.' + seat.token } } : {};
   }
   async function chargeRequest(origin, path, init) {
     try {
-      const response = await fetch(new URL(path, origin), { ...init, redirect: 'error', signal: AbortSignal.timeout(3500) });
+      const response = await fetch(new URL(path.replace(/^\//, ''), origin), { ...init, redirect: 'error', signal: AbortSignal.timeout(3500) });
       if (!response.ok) throw new Error('upstream status');
       return await response.json();
     } catch {
@@ -682,11 +681,11 @@ export function createDemoServer(options = {}) {
     const room = roomFor(roomId);
     const member = requireHost(room, session);
     if (body.action === 'close') {
-      if (chargeLinks.delete(room)) atomic(() => change(room));
+      if (room.chargeGameLink) atomic(() => { delete room.chargeGameLink; change(room); });
       return result(res, 200, { closed: true });
     }
     if (body.action === 'item') {
-      const link = chargeLinks.get(room);
+      const link = room.chargeGameLink;
       if (!link || link.game !== body.game) throw fail('NO_CHARGE_GAME', 'Open the charging game first', 409);
       if (!chargeStop(room)) throw fail('CHARGING_STOP_REQUIRED', 'Park at an approved charging stop', 409);
       atomic(() => {
@@ -707,14 +706,18 @@ export function createDemoServer(options = {}) {
     try {
       const riders = [...room.members.values()].filter(item => item.approved && passengerSeat(item.seat) &&
         seatEvidence(room, item.seat) !== 'EMPTY').slice(0, 4);
-      const created = await chargeRequest(origin, '/api/rooms', { method: 'POST' });
+      const crewKey = body.game === 'volt-rush' ? token() : null;
+      const created = await chargeRequest(origin, '/api/rooms', crewKey ? {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ crewKey: roomId + '.' + crewKey }),
+      } : { method: 'POST' });
       if (!/^[A-Z0-9]{5}$/.test(created.code) || !asText(created.hostToken, 128))
         throw fail('CHARGE_GAME_BAD_ROOM', 'Invalid upstream room', 502);
       const seats = {};
       for (const rider of riders) {
         const joined = await chargeRequest(origin, '/api/rooms/' + created.code + '/join', {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ name: [...rider.nickname].slice(0, 10).join('') }),
+          body: JSON.stringify({ name: [...rider.nickname].slice(0, 10).join(''), ...(crewKey && { hostToken: created.hostToken }) }),
         });
         if (!/^[0-9a-f-]{36}$/.test(joined.playerId) || !asText(joined.token, 128))
           throw fail('CHARGE_GAME_BAD_ROOM', 'Invalid upstream seat', 502);
@@ -725,14 +728,59 @@ export function createDemoServer(options = {}) {
           room.roomEpoch !== epoch || !chargeStop(room))
         throw fail('CHARGE_GAME_STALE', 'Vehicle state changed while opening the game', 409);
       atomic(() => {
-        chargeLinks.set(room, { game: body.game, origin, code: created.code, hostToken: created.hostToken, seats });
+        room.chargeGameLink = { game: body.game, origin, code: created.code, seats, crewKey, players: riders.length, itemReceipts: {} };
         change(room);
       });
       return result(res, 200, {
-        game: body.game, hostUrl: origin + '/#host=' + created.code + '.' + created.hostToken,
+        game: body.game, hostUrl: origin + '#host=' + created.code + '.' + created.hostToken,
         crew: riders.length, supplies: room.collection.inventory.supplies,
       });
     } finally { chargePending.delete(roomId); }
+  }
+
+  function handleCrewGameItems(req, body) {
+    const auth = /^Bearer ([0-9a-f-]{36})\.([A-Za-z0-9_-]{32})$/.exec(req.headers.authorization ?? '');
+    const room = auth && rooms.get(auth[1]);
+    const game = body?.game;
+    const link = game === 'deadzone' && room ? linkedDeadzone(room)
+      : game === 'volt-rush' && room?.chargeGameLink?.game === game ? room.chargeGameLink : null;
+    if (!link?.crewKey || !timingSafeEqual(Buffer.from(auth[2]), Buffer.from(link.crewKey)) || body.code !== link.code)
+      throw fail('GAME_ITEMS_FORBIDDEN', 'Active game credential required', 403);
+    const inventory = room.collection.inventory;
+    const view = () => crewGameItems(itemCatalog, game, room, link.players);
+    const receipts = link.itemReceipts;
+    const validUse = typeof body.useId === 'string' && /^[0-9a-f-]{36}$/.test(body.useId);
+    const previous = validUse && receipts[body.useId];
+    if (body.action === 'refund' && previous?.itemId === body.itemId) {
+      return atomic(() => {
+        if (!previous.refunded) {
+          previous.refunded = true;
+          inventory[previous.itemId] = (inventory[previous.itemId] ?? 0) + 1;
+          collectionChanged(room);
+        }
+        return { refunded: true };
+      });
+    }
+    if (previous && body.action === 'use') {
+      if (previous.itemId !== body.itemId || previous.refunded)
+        throw fail('GAME_ITEM_CONFLICT', 'That item receipt is closed', 409);
+      return { remaining: inventory[body.itemId] ?? 0 };
+    }
+    if (room.closedAt || (game === 'deadzone' ? !gate(room).allowed || link.state === 'ended' : !chargeStop(room)))
+      throw fail('GAME_ITEMS_PARK_REQUIRED', 'The game requires the parked vehicle', 409);
+    if (body.action === 'loadout') return view();
+    if (body.action === 'refund' && validUse && !previous) return { refunded: false };
+    const item = itemsById.get(body.itemId);
+    if (body.action !== 'use' || !validUse ||
+        !item || !(game === 'deadzone' ? item.deadzone?.kind : item.voltRush))
+      throw fail('GAME_ITEM_INVALID', 'Choose an item for this game', 400);
+    return atomic(() => {
+      if (!(inventory[item.id] > 0)) throw fail('GAME_ITEM_EMPTY', 'The crew bag is out of this item', 409);
+      inventory[item.id]--;
+      receipts[body.useId] = { itemId: item.id };
+      collectionChanged(room);
+      return { remaining: inventory[item.id] };
+    });
   }
 
   async function handleDeadzone(req, res, roomId, body) {
@@ -756,13 +804,14 @@ export function createDemoServer(options = {}) {
         const players = riders.length;
         const partySeats = riders.map(rider => ({ memberId: rider.memberId, seat: rider.seat, name: rider.nickname, ticket: randomUUID() }));
         if (!players || players > 4) throw fail('DEADZONE_PLAYERS', 'Approve one to four phones first', 409);
+        const crewKey = token();
         const game = await deadzoneRequest('/api/zride/rooms', {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ players, hostName: session.nickname, sharedVehicle: true, partySeats })
+          body: JSON.stringify({ players, hostName: session.nickname, sharedVehicle: true, partySeats, crewKey: roomId + '.' + crewKey })
         });
         if (!/^[A-Z2-9]{6}$/.test(game.code) || !asText(game.dashboardToken, 128))
           throw fail('DEADZONE_BAD_ROOM', 'Invalid upstream room', 502);
-        match = { code: game.code, dashboardToken: game.dashboardToken, cleared: 0, state: 'lobby', scope,
+        match = { code: game.code, dashboardToken: game.dashboardToken, cleared: 0, state: 'lobby', scope, crewKey, players, itemReceipts: {},
           ...(game.partySeatsRequired ? { partySeats: Object.fromEntries(partySeats.map(rider => [rider.memberId, rider.ticket])) } : {}) };
       }
       if (!match) return result(res, 200, { match: null });
@@ -894,6 +943,8 @@ export function createDemoServer(options = {}) {
       if (deadzoneRoute && req.method === 'POST') return await handleDeadzone(req, res, deadzoneRoute[1], body);
       const chargeRoute = path.match(/^\/api\/rooms\/([^/]+)\/charge-game$/);
       if (chargeRoute && req.method === 'POST') return await handleChargeGame(req, res, chargeRoute[1], body);
+      if (path === '/api/game-items' && req.method === 'POST')
+        return result(res, 200, handleCrewGameItems(req, body));
       const driveRoute = path.match(/^\/api\/rooms\/([^/]+)\/drive-game$/);
       if (driveRoute && req.method === 'POST') {
         const room = roomFor(driveRoute[1]);
@@ -998,7 +1049,7 @@ export function createDemoServer(options = {}) {
             const inventory = room.collection.inventory;
             if (previous?.memberId === member.memberId && previous.expiresAt >= now) {
               const { signId, gameId } = previous;
-              return result(res, 200, { signId, gameId, items: [driveRewards.get(gameId)], supplies: inventory.supplies,
+              return result(res, 200, { signId, gameId, items: (previous.itemIds ?? [driveRewards.get(gameId)?.id]).map(id => itemsById.get(id)).filter(Boolean), supplies: inventory.supplies,
                 inventory: { ...inventory }, replayed: true });
             }
             if (activeChallenge?.id !== body.challengeId)
@@ -1021,18 +1072,22 @@ export function createDemoServer(options = {}) {
             signChallenges.delete(member);
             (claims[claimKey] ??= []).push(member.memberId);
             room.collection.routeSignClaims = claims;
-            inventory[item.id] = (Number(inventory[item.id]) || 0) + 1;
+            const rewardIndex = room.collection.routeBonusIndex ?? 0;
+            const bonus = routeBonus[rewardIndex % routeBonus.length];
+            const items = bonus ? [item, bonus] : [item];
+            if (bonus) room.collection.routeBonusIndex = rewardIndex + 1;
+            for (const reward of items) inventory[reward.id] = (Number(inventory[reward.id]) || 0) + 1;
             for (const [id, receipt] of Object.entries(receipts)) {
               if (receipt.expiresAt < now) delete receipts[id];
             }
-            receipts[body.challengeId] = { signId, gameId, memberId: member.memberId, expiresAt };
+            receipts[body.challengeId] = { signId, gameId, memberId: member.memberId, expiresAt, itemIds: items.map(reward => reward.id) };
             room.collection.routeSignReceipts = receipts;
             room.collection.routeSignHistory = [
               { signId, gameId, itemId: item.id, itemName: item.name, nickname: member.nickname, at: now },
               ...(room.collection.routeSignHistory ?? []).slice(0, 19),
             ];
             collectionChanged(room);
-            return result(res, 200, { signId, gameId, items: [item], supplies: inventory.supplies, inventory: { ...inventory } });
+            return result(res, 200, { signId, gameId, items, supplies: inventory.supplies, inventory: { ...inventory } });
           }
           if (body.gameId !== undefined && !SIGN_ROTATION.includes(body.gameId)) throw fail('INVALID_GAME', 'Unknown sign game', 400);
           if (typeof body.signId !== 'string' || body.signId.length > 16) throw fail('INVALID_SIGN', 'signId required', 400);
