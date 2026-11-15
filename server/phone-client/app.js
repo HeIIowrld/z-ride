@@ -749,8 +749,9 @@ window.addEventListener('message', event => {
 });
 
 // ── 경로 표지판: 지도 위 표지판 → 게임 선택 → 서버 판정 → 크루 가방 보상 ──
-const signIcon = window.PLY_ROUTE_SIGN?.icon ?? 'route-sign/sign-battery.png';
-$('journey-sign-icon').src = new URL(signIcon, assets).href;
+const signConfig = window.PLY_ROUTE_SIGN ?? {};
+const signIconFor = gameId => new URL(signConfig.icons?.[gameId] ?? signConfig.icon ?? 'route-sign/sign-battery.png', assets).href;
+$('journey-sign-icon').src = signIconFor(null);
 
 function formatMeters(value) {
   return value < 1000 ? Math.round(value / 10) * 10 + 'm' : (value / 1000).toFixed(1) + 'km';
@@ -777,26 +778,33 @@ function renderRouteSignPanel() {
   if (!sign) return;
   const index = room.journeyRoute.signs.indexOf(sign) + 1;
   const ready = driveAvailable();
-  $('journey-sign-title').textContent = sign.state === 'READY' ? (ready ? '게임을 골라 주세요' : '주행 중에 열려요')
+  // 표지판마다 게임이 하나 정해져 있다. 준비 중인 게임(좀비)은 표지판과 버튼만 보이고 시작할 수 없다.
+  const playable = sign.playable !== false && Object.hasOwn(driveTitles, sign.gameId);
+  const icon = signIconFor(sign.gameId);
+  if ($('journey-sign-icon').src !== icon) $('journey-sign-icon').src = icon;
+  $('journey-sign-title').textContent = sign.state === 'READY' ? (!playable ? '곧 열리는 게임이에요' : ready ? '게임을 시작해 주세요' : '주행 중에 열려요')
     : sign.state === 'CLAIMED' ? '아이템 획득 완료'
     : sign.state === 'MISSED' ? '지나친 표지판'
     : formatMeters(Math.max(0, sign.aheadM)) + ' 앞 표지판';
   $('journey-sign-count').textContent = '경로 표지판 ' + index + ' / ' + room.journeyRoute.signs.length;
-  const canPlay = sign.state === 'READY' && driveAvailable() && !signRequestPending;
+  const canPlay = playable && sign.state === 'READY' && driveAvailable() && !signRequestPending;
   const status = sign.state === 'READY'
-    ? (ready ? '게임을 끝내면 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
+    ? (!playable ? '이 게임은 준비 중이에요. 다음 표지판을 노려 보세요.' : ready ? '게임을 끝내면 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
     : sign.state === 'CLAIMED' ? '크루 가방에서 확인할 수 있어요.'
     : sign.state === 'MISSED' ? '다음 표지판을 노려 보세요.'
     : (room.journeyRoute.readyRadiusM ?? 200) + 'm 안으로 가까워지면 게임이 열려요.';
   const text = status + (sign.crewClaims ? ' · 크루 ' + sign.crewClaims + '명 획득' : '');
   if ($('journey-sign-status').textContent !== text) $('journey-sign-status').textContent = text;
-  for (const button of $('journey-sign-games').querySelectorAll('[data-sign-game]')) button.disabled = !canPlay;
+  for (const button of $('journey-sign-games').querySelectorAll('[data-sign-game]')) {
+    button.hidden = button.dataset.signGame !== sign.gameId;
+    button.disabled = !canPlay;
+  }
 }
 $('journey-sign-games').addEventListener('click', async event => {
   const game = event.target.closest('[data-sign-game]')?.dataset.signGame;
   const sign = currentSign();
   const active = credentials;
-  if (!Object.hasOwn(driveTitles, game) || !sign || !active || signRequestPending) return;
+  if (!Object.hasOwn(driveTitles, game) || !sign || game !== sign.gameId || !active || signRequestPending) return;
   signRequestPending = true;
   renderRouteSignPanel();
   try {
@@ -809,6 +817,7 @@ $('journey-sign-games').addEventListener('click', async event => {
     const code = error?.message;
     routeFeedback = code === 'SIGN_NOT_NEAR' ? '표지판에서 멀어졌어요. 다음 표지판을 노려 보세요.'
       : code === 'ALREADY_CLAIMED' ? '이 표지판의 아이템은 이미 받았어요.'
+      : code === 'SIGN_GAME_NOT_READY' ? '이 게임은 준비 중이에요.'
       : '지금은 게임을 시작할 수 없어요.';
     renderJourneyMap();
   } finally {

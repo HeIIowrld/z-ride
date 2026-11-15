@@ -14,7 +14,7 @@ import { createGameStateService } from './game-state.mjs';
 import { createCabinService } from './cabin.mjs';
 import { createPlacesService } from './places.mjs';
 import {navigationReport,navigationSnapshot} from './navigation.mjs';
-import { createRoutePlanner, osrmRouter, pickReward, SIGN_GAMES, SIGN_POLICY } from './route-signs.mjs';
+import { createRoutePlanner, osrmRouter, pickReward, SIGN_GAMES, SIGN_POLICY, SIGN_ROTATION } from './route-signs.mjs';
 import { createPartyApi } from './party-api.mjs';
 import { createAccounts } from './accounts.mjs';
 import { createAccountApi } from './account-api.mjs';
@@ -1008,10 +1008,12 @@ export function createDemoServer(options = {}) {
             return result(res, 200, { signId: challenge.signId, gameId: challenge.gameId,
               items: item ? [item] : [], supplies: inventory.supplies, inventory: { ...inventory } });
           }
-          if (!SIGN_GAMES.includes(body.gameId)) throw fail('INVALID_GAME', 'Unknown sign game', 400);
+          if (!SIGN_ROTATION.includes(body.gameId)) throw fail('INVALID_GAME', 'Unknown sign game', 400);
           if (typeof body.signId !== 'string' || body.signId.length > 16) throw fail('INVALID_SIGN', 'signId required', 400);
           const found = routePlanner.sign(room.roomId, body.signId, navigationSnapshot(room).position);
           if (!found) throw fail('SIGN_UNAVAILABLE', 'No active route sign', 409);
+          if (found.sign.gameId !== body.gameId) throw fail('SIGN_GAME_MISMATCH', 'This sign opens a different game', 409);
+          if (!SIGN_GAMES.includes(body.gameId)) throw fail('SIGN_GAME_NOT_READY', 'This game is not available yet', 409);
           if ((claims[found.plan.key + ':' + body.signId] ?? []).includes(member.memberId))
             throw fail('ALREADY_CLAIMED', 'Already rewarded at this sign', 409);
           if (found.state !== 'READY') throw fail('SIGN_NOT_NEAR', 'Move closer to the sign', 409);

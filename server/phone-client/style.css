@@ -351,3 +351,5 @@ main:has(> #game:not([hidden])) .app-header .ply-symbol { display: block; }
 .journey-sign-count { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .journey-sign #journey-sign-status { margin: 10px 0 0; }
 .journey-sign .drive-game-list { margin-top: 10px; }
+.journey-sign .drive-game-list button[hidden] { display: none; }
+.journey-sign .drive-game-list button[data-sign-game="zombie"] { color: #ffc9c4; background: #3a1f22; border-color: #6e3a3d; }

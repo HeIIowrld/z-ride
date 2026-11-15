@@ -253,7 +253,7 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
   // ── 경로 표지판 ─────────────────────────────────────────
   function renderSigns(route, selectedSignId) {
     const signs = route?.status === 'READY' ? route.signs : [];
-    const signature = JSON.stringify([signs.map(s => [s.signId, s.state, s.latitude, s.longitude]), selectedSignId]);
+    const signature = JSON.stringify([signs.map(s => [s.signId, s.gameId, s.state, s.latitude, s.longitude]), selectedSignId]);
     if (signature === signSignature) return;
     signSignature = signature;
     signLayer.clearLayers();
@@ -266,7 +266,7 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
       button.setAttribute('aria-label', config.label + ' ' + (index + 1) + '/' + signs.length);
       button.style.setProperty('--sign-size', (ready ? config.readySize : config.size) + 'px');
       const image = document.createElement('img');
-      image.src = asset(config.icon);
+      image.src = asset(config.icons?.[sign.gameId] ?? config.icon);
       image.alt = '';
       image.draggable = false;
       button.append(image);
