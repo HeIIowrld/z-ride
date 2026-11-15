@@ -1,44 +1,29 @@
-# Z-RIDE 최소 방 서버
+# PLY 서버
 
-실제 Pleos AVD 화면: **https://hyundai.hjpark.net/vehicles/** · [차량 1](https://hyundai.hjpark.net/vehicles/1). 별도 CT317/KVM에서 구동하고 화면은 읽기 전용으로 송출한다. 현재 1대만 실행하며 2·3번은 중지 상태다. [운영·자원·신호 검증](docs/pleos-emulator-hosting.md).
+차량과 폰을 같은 방에 연결하고, 승인된 참가자에게 차량 상태·경로·게임·재고를 보낸다. [Pleos 차량 화면](https://hyundai.hjpark.net/vehicles/)에서 크루를 열고, 동승자는 QR로 [폰 화면](https://hyundai.hjpark.net/play)에 참가한다. [에뮬레이터 운영](docs/pleos-emulator-hosting.md) · [폰 로그인과 QR](docs/phone-accounts.md)
 
 공개 시연은 차량 접근키 없이 파티를 만들 수 있다. `/api/client-config`의 `sessionAccessKeyRequired=false`를 보고 웹/차량 앱에서 입력란을 숨긴다. 운영자 관제·장소 검수·개인/파티 토큰 인증은 별도로 유지한다.
 
-통합 통신 목업: **https://hyundai.hjpark.net/play/demo** — 센터페시아 QR·수동 승인과 폰 로그인/참가를 나란히 확인한다. [실행·API 순서](docs/vehicle-phone-mock.md). 실제 차량 SDK 대신 시뮬레이션 신호를 사용한다.
-
-폰 참가: **https://hyundai.hjpark.net/play** · [Google/게스트 로그인·QR 참가](docs/phone-accounts.md#폰-웹-참가-페이지--2026-11-04). 클라이언트 ID는 운영 `GAME_GOOGLE_CLIENT_ID` 설정, 폰은 서버에서 공개 설정을 조회한다. 실제 Google 동의는 사용자 브라우저에서 수행한다.
-
-revision 10: [폰 계정·QR 참가·차량 전환 API와 목업](docs/phone-accounts.md). Google 설정 전 비활성, REST 55개.
-
-revision 9: [범용 미션·이벤트 회차·결과·보상·재생성](docs/events-results-rewards.md).
-
-revision 8: [파티 공동 수집·5분 리스폰](docs/collection-respawn.md) · [도메인 연결 인계](docs/domain-handoff.md) · [부하 검증](docs/load-validation-20261102.md).
-
-revision 7: 원본 장소 import·검수/접근성·경로 corridor·QR 게스트·탈퇴/제거/해산·스팟별 파티 공개/공동 기여를 추가했다. REST 36개. [장소·파티 계약](docs/places-parties.md). Google/Pleos 로그인은 비활성 연동 포트로 남긴다.
-
-revision 6: 서버가 시나리오·임무 단계·역할·목표 기여·가상 이동과 공조·벨트·에너지 관측 상태를 관리한다. 조회 2개와 게임 POST 4개를 추가해 전체 REST는 21개다. 앱 팀은 입력·센서 관측을 보내고 서버 snapshot을 화면에 반영한다. [서버 상태 계약·시연 방법](docs/server-state.md)
-
-4D 효과는 방별 `/effects` 조회와 `session / scene / cue / stop` POST, 현재 CAR_HOST WebSocket의 `vehicle.effect.report`로 처리한다. heist 임무의 장면·속도는 서버 게임 상태에서 연결한다. 실제 SDK 실행은 차량 앱이 로컬 조건을 확인해 수행하며, 현재 참조 Android 앱에는 이 native 실행기가 없다. [4D 차량 효과 API](docs/vehicle-effects.md)
+계약은 [REST OpenAPI](openapi.json)와 [WebSocket 프로토콜](protocol.json)에 있다. [앱 팀 인계서](docs/client-handoff.md)에서 참가와 승인 순서를, [경로 표지판 문서](docs/route-signs.md)에서 OSRM 경로와 게임 보상을 확인한다. [브라우저 통신 목업](https://hyundai.hjpark.net/play/demo)은 시뮬레이션 신호로 QR과 승인을 시험한다. [목업 실행·API 순서](docs/vehicle-phone-mock.md)
 
 현재 CLI 서버는 SQLite에 방·세션 해시·승인·재고·진행·중복 지급 기록을 저장한다. 재시작 때 연결/차량 lease를 초기화하고, 진행 중 전투를 PAUSED로 복구한다. 저장 실패는 503으로 차단하며 성공 응답과 방송은 커밋 후에만 전송한다. 테스트용 `createDemoServer()`는 dbPath를 생략하면 메모리 모드다. [영속성](docs/persistence.md)
 
 `/observer`는 운영자 키로 방 목록·4인/개인별 게임 상태를 보는 읽기 전용 제품 화면이다. 실제 기기 픽셀·음성 영상 중계와 구분한다. [관제](docs/observer.md), [Proxmox·CI/CD](docs/deployment.md)
 
-2026-11-01. Pleos 차량 앱과 동승자 폰이 같은 방에 참가하는 HTTP + 표준 WebSocket 서버다. **폰 독립 수집과 주차 공동 전투를 분리**한다. revision 4는 외부 팀 테스트 접근키를 추가한다. `/play`는 아이폰 Safari용 최소 참가 클라이언트이며 좌석별 사격·GPS 없는 데모 수집을 제공한다. 실제 지도·현장 GPS는 이 브라우저 버전에 포함하지 않는다.
+이전 구현 기록은 [장소·파티](docs/places-parties.md), [공동 수집·리스폰](docs/collection-respawn.md), [미션과 이벤트](docs/events-results-rewards.md), [서버 상태](docs/server-state.md), [차량 효과](docs/vehicle-effects.md)에 있다.
 
 ## 실행
 
 Node 22.13 이상, 의존성 `ws` 8.22.1(MIT)을 사용한다. `package.json`과 `package-lock.json`으로 버전을 고정했다. 라이브러리 출처: [공식 ws 저장소](https://github.com/websockets/ws).
 
-```powershell
-node server.mjs
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm start
 ```
 
 기본 주소는 `127.0.0.1:8000`이다. AVD에서는 `http://10.0.2.2:8000` 및 `ws://10.0.2.2:8000/ws`를 사용한다. 외부 팀 테스트는 `http://afsd.iptime.org:8000`, 관제는 `/observer`, 폰 참가는 `/play`다. 공개 배포의 `ZRIDE_TEST_ACCESS_KEY`는 `/api/session`의 `accessKey`로 보내며 관찰키와 다르다. 실제 값은 별도로 전달한다. HTTP 팀 테스트 주소는 암호화되지 않으며 실제 개인정보를 다루는 정식 서비스에는 HTTPS/WSS가 필요하다.
 
-계약은 [protocol.json](protocol.json)이다. 이전 설계의 17개 HTTP API를 전부 구현한 것이 아니라 별도 이름의 `zride-demo-v1` 수직 데모다.
-
-## 동작
+## 기존 좌석별 협동 전투 API
 
 1. 차량/폰은 `/api/session`에서 각각 `CAR_HOST`/`PHONE` 세션을 만든다.
 2. 차량은 `/api/rooms`로 방을 만들고 `/ws`에 인증한다.

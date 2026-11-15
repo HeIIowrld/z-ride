@@ -1,18 +1,11 @@
 import { createHash } from 'node:crypto';
 
-// 경로선을 따라 랜덤 표지판을 배치하고, 차량 위치에 따라 표지판 상태를 판정한다.
-// 경로선 출처: 1) 서버에 등록된 경로(DEMO_ROUTE·EXTERNAL_ROUTING) 2) Pleos 목적지 좌표 + 외부 길찾기(OSRM)
-// Pleos NaviHelper는 도로 폴리라인을 주지 않으므로(native-navigation.md) 2)는 외부 길찾기 결과다.
-
 export const SIGN_POLICY = Object.freeze({
   minGapM: 1200, maxGapM: 2000, edgeM: 400, maxSigns: 12,
   readyRadiusM: 500, graceMs: 30_000, challengeMs: 5 * 60_000, minPlayMs: 5_000,
   offRouteM: 150, offRouteMs: 8_000,
   maxGeometryPoints: 400,
 });
-// 표지판마다 게임 하나가 정해진다. SIGN_GAMES는 실제로 플레이할 수 있는 게임,
-// SIGN_COMING_SOON은 지도에 표지판만 나오고 아직 게임이 연결되지 않은 게임이다.
-// 좀비 게임을 연결할 때는 'zombie'를 SIGN_GAMES로 옮기고 폰 화면(app.js driveTitles)에 게임을 추가한다.
 export const SIGN_GAMES = Object.freeze(['license-quiz', 'pole-jump', 'raindrop']);
 export const SIGN_COMING_SOON = Object.freeze(['zombie']);
 export const SIGN_ROTATION = Object.freeze([...SIGN_GAMES, ...SIGN_COMING_SOON]);
@@ -142,7 +135,6 @@ export function placeSigns(seed, geometry, cum = cumulative(geometry), policy = 
   return signs;
 }
 
-/** OSRM 호환 길찾기. baseUrl 예: https://router.project-osrm.org */
 export function osrmRouter(baseUrl, { timeoutMs = 8000, fetchImpl = globalThis.fetch } = {}) {
   const base = new URL(baseUrl);
   return async (origin, destination, waypoints = []) => {
@@ -230,7 +222,6 @@ export function createRoutePlanner({ router = null, clock = Date.now, onReady = 
     for (const sign of plan.signs) if (isNear(plan, sign, position)) plan.nearAt.set(sign.signId, now);
   }
 
-  /** 외부 길찾기 경로에서 일정 시간 이상 벗어나 있으면 재탐색이 필요하다. */
   function offRoute(roomId) {
     const state = rooms.get(roomId), plan = state?.ready;
     return Boolean(plan?.native && !state.pending && plan.offSince != null && clock() - plan.offSince >= policy.offRouteMs);

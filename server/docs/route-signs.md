@@ -53,7 +53,7 @@ Pleos NaviHelper 3.0.5는 도로 폴리라인을 주지 않는다([native-naviga
 
 ## 아이콘 교체
 
-`server/phone-client/route-sign/` 폴더에 새 이미지(png·svg·webp·jpg)를 넣고 [config.js](../phone-client/route-sign/config.js)의 `icons`(게임별 표지판), `icon`(기본 표지판) 또는 `destinationIcon`(도착) 값을 바꾼 뒤 서버를 다시 시작한다. 이 폴더의 파일은 서버가 `/play/route-sign/`에서 자동으로 제공하므로 다른 코드는 고칠 필요가 없다. 현재 게임별 표지판은 `sign-license-quiz.png`·`sign-pole-jump.png`·`sign-raindrop.png`·`sign-zombie.png`(로고 이미지를 그대로 사용), 기본은 `sign-battery.png`, 도착은 `destination.svg`(핀 끝이 도착 지점)이다.
+`server/phone-client/route-sign/`에 새 이미지(png·svg·webp·jpg)를 넣는다. 게임별 그림을 바꾸려면 [config.js](../phone-client/route-sign/config.js)의 `icons[gameId]`와 보상 기록에 쓰는 `games[gameId].icon`을 함께 바꾼다. 기본 표지판은 `icon`, 도착 핀은 `destinationIcon`에서 바꾼다. 서버를 다시 시작하면 `/play/route-sign/`에서 새 파일을 제공한다.
 
 ## 실제 Pleos 사용 흐름
 
