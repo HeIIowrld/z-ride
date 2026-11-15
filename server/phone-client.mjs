@@ -74,12 +74,14 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
   assets.set('/play/leaflet.css', { bytes: readFileSync(require.resolve('leaflet/dist/leaflet.css')), type: 'text/css; charset=utf-8' });
   assets.set('/play/leaflet-license', { bytes: readFileSync(require.resolve('leaflet/LICENSE')), type: 'text/plain; charset=utf-8' });
   assets.set('/play/config.js',{bytes:Buffer.from('window.GAME_CONFIG=window.ZRIDE_CONFIG=Object.freeze('+JSON.stringify({apiOrigin,displayName})+');\n'),type:'text/javascript; charset=utf-8'});
+  const assetMethods = ['GET', 'HEAD'];
   return {
     driveGamesAvailable, driveRoot,
+    servesAsset: (method, path) => assetMethods.includes(method) && assets.has(path),
     handleHttp(req, res, path) {
       if (path !== '/play' && !path.startsWith('/play/')) return false;
       const file = assets.get(path);
-      if (!file || !['GET', 'HEAD'].includes(req.method)) {
+      if (!file || !assetMethods.includes(req.method)) {
         req.resume();
         res.writeHead(file ? 405 : 404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
         res.end('Not available'); return true;

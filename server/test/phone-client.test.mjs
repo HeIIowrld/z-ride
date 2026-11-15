@@ -3,6 +3,31 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { once } from 'node:events';
 import { createPhoneClientService } from '../phone-client.mjs';
+import { createDemoServer } from '../server.mjs';
+
+test('loading phone game assets keeps the journey API available', async () => {
+  const app = createDemoServer();
+  const address = await app.listen(0);
+  const origin = 'http://127.0.0.1:' + address.port;
+  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+  const status = (path, method) => new Promise((resolve, reject) => {
+    const request = http.request(origin + path, { method, agent }, response => {
+      response.once('end', () => resolve(response.statusCode));
+      response.resume();
+    });
+    request.once('error', reject);
+    request.end();
+  });
+  try {
+    for (let i = 0; i < 121; i++) {
+      assert.equal(await status('/play/drive/games/license-quiz/questions.json', 'HEAD'), 200);
+    }
+    assert.equal(await status('/api/client-config', 'GET'), 200);
+  } finally {
+    agent.destroy();
+    await app.close();
+  }
+});
 
 test('phone reference client serves only allow-listed static assets with same-origin CSP', async () => {
   const client = createPhoneClientService();
