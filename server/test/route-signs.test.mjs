@@ -59,17 +59,24 @@ test('projection, simplification and OSRM parsing', async () => {
   assert.deepEqual(await router({ latitude: 37.56, longitude: 126.97 }, { latitude: 37.55, longitude: 126.98 }),
     [{ latitude: 37.56, longitude: 126.97 }, { latitude: 37.55, longitude: 126.98 }]);
   assert.match(requested, /\/route\/v1\/driving\/126\.970000,37\.560000;126\.980000,37\.550000\?overview=full&geometries=geojson$/);
+  await router(line[0], line.at(-1), [line[20], line[40]]);
+  const sent = new URL(requested).pathname.split('/').at(-1).split(';');
+  assert.deepEqual(sent, [
+    '126.978000,37.566000', '126.978000,37.546000', '126.978000,37.526000', '126.978000,37.466000',
+  ]);
 });
 
 test('planner falls back to a straight line when the router fails and tracks sign state', async () => {
   let now = 0, ready = 0;
   const planner = createRoutePlanner({ router: async () => { throw new Error('offline'); }, clock: () => now, onReady: () => { ready++; } });
-  planner.sync('r', { key: 'k', source: 'EXTERNAL_ROUTING_OSRM', origin: line[0], destination: line.at(-1) });
+  const waypoint = { latitude: 37.52, longitude: 126.99 };
+  planner.sync('r', { key: 'k', source: 'EXTERNAL_ROUTING_OSRM', origin: line[0], waypoints: [waypoint], destination: line.at(-1) });
   assert.equal(planner.view('r', line[0]).status, 'PENDING');
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(ready, 1);
   const view = planner.view('r', line[0]);
   assert.equal(view.source, 'STRAIGHT_LINE_FALLBACK');
+  assert.deepEqual(view.geometry, [line[0], waypoint, line.at(-1)]);
   assert.ok(view.signs.every(sign => sign.state === 'AHEAD'));
   const first = view.signs[0];
   planner.observe('r', { latitude: first.latitude, longitude: first.longitude });
@@ -125,12 +132,21 @@ test('re-route: old route stays visible while fetching, off-route driving asks f
 });
 
 test('navigation report keeps destination coordinates and heading', () => {
-  const value = navigationReport({ source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 1, status: 'ROUTE_DRIVE',
+  const report = { source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 1, status: 'ROUTE_DRIVE',
     latitude: 37.5, longitude: 126.9, locationAgeMs: 0, heading: 182, positionSource: 'SIMULATED',
-    destinationLatitude: 37.55, destinationLongitude: 126.97 });
+    destinationLatitude: 37.55, destinationLongitude: 126.97 };
+  const waypoints = [line[10], line[30]];
+  const value = navigationReport({ ...report, waypoints });
   assert.deepEqual(value.destinationPosition, { latitude: 37.55, longitude: 126.97 });
   assert.equal(value.heading, 182);
   assert.equal(value.positionSource, 'SIMULATED');
+  assert.deepEqual(value.waypoints, waypoints);
+  assert.equal(navigationReport(report).waypoints, undefined);
+  assert.deepEqual(navigationReport({ ...report, waypoints: [] }).waypoints, []);
+  assert.equal(navigationReport({ ...report, waypoints: [], missingWaypointCount: 2 }).missingWaypointCount, 2);
+  assert.equal(navigationReport({ ...report, missingWaypointCount: 0 }).missingWaypointCount, undefined);
+  for (const invalid of [null, {}, [null], [{ latitude: 91, longitude: 0 }], [{ latitude: 0, longitude: 0 }], Array(17).fill(line[10])])
+    assert.throws(() => navigationReport({ ...report, waypoints: invalid }), { code: 'INVALID_NAVIGATION_REPORT' });
   assert.equal(navigationReport({ source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 1,
     destinationLatitude: 0, destinationLongitude: 0 }).destinationPosition, undefined, '(0,0) means no destination');
 });
@@ -168,7 +184,7 @@ test('route sign flow: route from destination → sign near car → game challen
     chargeGames: { 'volt-rush': origin + '/volt-rush/' },
     placeReviewToken: 'review-sign-items',
     placesCatalog: { version: 'test', places: [charger] },
-    routeRouter: async (origin, destination) => { calls.push([origin, destination]); return line; },
+    routeRouter: async (origin, destination, waypoints) => { calls.push([origin, destination, waypoints]); return line; },
   });
   const address = await app.listen(0), clients = [];
   t.after(async () => { for (const c of clients) c.ws.terminate(); await app.close(); });
@@ -199,15 +215,17 @@ test('route sign flow: route from destination → sign near car → game challen
   await api('/api/rooms/' + room.roomId + '/approve', { memberId: secondJoin.memberId, allowManualUnknown: true }, host.token);
   await car.send({ type: 'vehicle.report', reportSeq: 1, gear: 'D', ux: 'ALLOWED', foreground: true, speedMps: 14 });
   let seq = 0;
-  const report = position => car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: {
+  const waypoints = [line[20], line[40]];
+  const report = (position, points = waypoints) => car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: {
     source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 7, status: 'ROUTE_DRIVE', destination: '서울역',
     destinationLatitude: line.at(-1).latitude, destinationLongitude: line.at(-1).longitude,
-    latitude: position.latitude, longitude: position.longitude, locationAgeMs: 0, positionSource: 'SIMULATED' } });
+    latitude: position.latitude, longitude: position.longitude, locationAgeMs: 0, positionSource: 'SIMULATED', waypoints: points } });
 
   const start = { latitude: line[0].latitude + 0.01, longitude: line[0].longitude };
   assert.equal((await report(start)).ok, true);
   const route = await until(() => p.room.journeyRoute?.status === 'READY' && p.room.journeyRoute);
   assert.equal(calls.length, 1, 'router called once per route');
+  assert.deepEqual(calls[0], [start, line.at(-1), waypoints]);
   assert.equal(route.source, 'EXTERNAL_ROUTING_OSRM');
   assert.ok(route.geometry.length >= 2 && route.signs.length >= 2);
   assert.ok(car.room.journeyRoute, 'vehicle also sees the route');
@@ -259,16 +277,28 @@ test('route sign flow: route from destination → sign near car → game challen
   }
   assert.equal(calls.length, 1, 'no re-route along the same route');
 
-  // 주행 중 목적지 변경 → 새 경로·새 표지판
+  // 목적지와 SDK revision을 유지하더라도 경유지 순서가 바뀌면 새 경로를 계산한다.
   const firstKey = p.room.journeyRoute.key;
+  const reversed = [...waypoints].reverse();
+  await report(sign, reversed);
+  const reordered = await until(() => p.room.journeyRoute?.key && p.room.journeyRoute.key !== firstKey && p.room.journeyRoute);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1], [{ latitude: sign.latitude, longitude: sign.longitude }, line.at(-1), reversed]);
+  await report(sign, []);
+  const cleared = await until(() => p.room.journeyRoute?.key && p.room.journeyRoute.key !== reordered.key && p.room.journeyRoute);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls[2][2], []);
+
+  // 주행 중 목적지 변경 → 새 경로·새 표지판
   await car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: {
     source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 8, status: 'ROUTE_DRIVE', destination: '시청',
     destinationLatitude: 37.5663, destinationLongitude: 126.9779,
     latitude: sign.latitude, longitude: sign.longitude, locationAgeMs: 0, positionSource: 'SIMULATED' } });
-  await until(() => p.room.journeyRoute?.key && p.room.journeyRoute.key !== firstKey);
-  assert.equal(calls.length, 2, 'router called again for the new destination');
+  await until(() => p.room.journeyRoute?.key && p.room.journeyRoute.key !== cleared.key);
+  assert.equal(calls.length, 4, 'router called again for the new destination');
   assert.equal((await call(signPath, startBody, phone.token)).data.error.code, 'SIGN_UNAVAILABLE');
-  assert.deepEqual(calls[1][0], { latitude: sign.latitude, longitude: sign.longitude }, 'new route starts at the current position');
+  assert.deepEqual(calls[3][0], { latitude: sign.latitude, longitude: sign.longitude }, 'new route starts at the current position');
+  assert.deepEqual(calls[3][2], [], 'clients omitting waypoints still route directly');
 
   // 안내 종료 → 경로·표지판 해제
   await car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: { source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 8, status: 'NAVIGATION_ENDED' } });

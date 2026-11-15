@@ -1026,7 +1026,9 @@ function renderJourneyMap() {
   const mapMessage = routeFeedback || (!position ? '차량 위치 대기 중'
     : room.journeyRoute?.status === 'PENDING' ? '경로를 불러오는 중…'
     : room.journeyRoute?.rerouting ? '경로 재탐색 중…'
-    : room.journeyRoute?.source === 'STRAIGHT_LINE_FALLBACK' ? '길찾기 서버 연결 실패 · 직선 경로로 표시 중' : '');
+    : room.journeyRoute?.source === 'STRAIGHT_LINE_FALLBACK' ? '길찾기 서버 연결 실패 · 직선 경로로 표시 중'
+    : room.journeyRoute?.source === 'EXTERNAL_ROUTING_OSRM' && room.navigation?.missingWaypointCount > 0
+      ? 'Pleos에서 좌표를 받지 못한 경유지는 지도에서 생략했어요.' : '');
   if (mapStatus.textContent !== mapMessage) mapStatus.textContent = mapMessage;
   mapStatus.hidden = !mapMessage;
   const markers = spots.map(spot => ({

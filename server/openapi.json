@@ -1549,7 +1549,7 @@
         "operationId": "playRouteSign",
         "summary": "Start or complete a route-sign minigame challenge",
         "x-websocket-snapshot": "room.journeyRoute.signs[] includes gameId and reward {id, name, description}.",
-        "description": "Signs are placed at random (seeded per route) along the journey route: an explicit route geometry, or a route fetched from an OSRM-compatible router between the vehicle position and the Pleos destination coordinates (Pleos NaviHelper does not supply road polylines). A sign is READY within readyRadiusM of the vehicle (and within 2x readyRadiusM along the route); after passing it stays READY only while within readyRadiusM along the route and for at most 30s. Each playable sign grants the assigned specialized reward. Zombie signs have playable=false and cannot start a game. Start with signId and the current routeKey while the vehicle is in Drive with fresh telemetry. If gameId is supplied it must equal the assigned game. Complete with challengeId and a finite positive result.score after minPlayMs and before expiresAt. Score is reported by the passenger client. Each passenger can earn the assigned item once per route sign. The same completion can be retried until the challenge expires; it returns replayed=true without granting another item.",
+        "description": "Signs are placed along a registered route or an OSRM-compatible route from the vehicle through the reported Pleos waypoints in order to the destination. A sign is READY within readyRadiusM of the vehicle (and within 2x readyRadiusM along the route); after passing it stays READY only while within readyRadiusM along the route and for at most 30s. Each playable sign grants the assigned specialized reward. Zombie signs have playable=false and cannot start a game. Start with signId and the current routeKey while the vehicle is in Drive with fresh telemetry. If gameId is supplied it must equal the assigned game. Complete with challengeId and a finite positive result.score after minPlayMs and before expiresAt. Score is reported by the passenger client. Each passenger can earn the assigned item once per route sign. The same completion can be retried until the challenge expires; it returns replayed=true without granting another item.",
         "requestBody": {
           "required": true,
           "content": {
@@ -16207,6 +16207,21 @@
               "null"
             ],
             "maxLength": 128
+          },
+          "destinationPosition": {
+            "$ref": "#/components/schemas/PlaceCoordinate"
+          },
+          "waypoints": {
+            "type": "array",
+            "description": "Waypoint coordinates in the order reported by Pleos NaviHelper. An empty array means the SDK reported no waypoints.",
+            "maxItems": 16,
+            "items": {"$ref": "#/components/schemas/PlaceCoordinate"}
+          },
+          "missingWaypointCount": {
+            "description": "Number of Pleos waypoints omitted from OSRM routing because the SDK provided no usable coordinates.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
           },
           "nativeRouteRevision": {
             "type": "integer",

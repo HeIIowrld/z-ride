@@ -1206,6 +1206,7 @@
       "geometryAvailable": false,
       "destinationLatitude": 37.5547,
       "destinationLongitude": 126.9707,
+      "waypoints": [{"latitude": 37.5663, "longitude": 126.9779}],
       "heading": 180
     }
   },
@@ -1217,6 +1218,6 @@
     "persistence": "SDK coordinates and navigation state excluded from SQLite checkpoints",
     "callbacks": "Request success alone is not route readiness; callback delivery depends on the navigation app. Destination changes can be detected from SDK destination responses.",
     "screen": "Existing game UX gates preserved; no APP_MAPS or driving exemption",
-    "routeSigns": "Optional destinationLatitude/destinationLongitude (0,0 ignored) and heading 0..360 are accepted. With a destination and position the server fetches one OSRM route per nativeRouteRevision+destination (ZRIDE_ROUTING_URL, default public OSRM demo, \"off\" disables) and falls back to a straight line. The route is used for the passenger map and route signs only; it is not attested Pleos road geometry. positionSource SIMULATED is accepted for clearly labelled test reports."
+    "routeSigns": "Optional destinationLatitude/destinationLongitude (0,0 ignored), heading 0..360, waypoints (ordered array of up to 16 latitude/longitude objects, excluding 0,0), and missingWaypointCount (1..16 when the SDK reports waypoints with no usable coordinates) are accepted. With a destination and position the server fetches an OSRM route from the position through those waypoints in order to the destination whenever the native revision, waypoint sequence, destination, or off-route counter changes. Omitted or empty waypoints use direct routing. The fallback connects these points with straight segments. ZRIDE_ROUTING_URL defaults to the public OSRM demo and accepts \"off\". The route serves the passenger map and signs; its geometry is calculated separately from Pleos. positionSource SIMULATED is accepted for clearly labelled test reports."
   }
 }

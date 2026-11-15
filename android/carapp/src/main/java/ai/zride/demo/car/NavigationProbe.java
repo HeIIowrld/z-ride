@@ -52,11 +52,41 @@ final class NavigationProbe implements AutoCloseable {
         put("nextWaypoint", waypoint == null ? null : waypoint.getName());
         put("nextWaypointDistanceM", waypoint == null ? null : waypoint.getRemainDistance());
     }
+    private void clearRoutePoints() {
+        put("destinationLatitude", null);
+        put("destinationLongitude", null);
+        state.remove("waypoints");
+        state.remove("missingWaypointCount");
+    }
+    private static boolean validCoordinate(Double latitude, Double longitude) {
+        return latitude != null && longitude != null
+                && Double.isFinite(latitude) && Math.abs(latitude) <= 90
+                && Double.isFinite(longitude) && Math.abs(longitude) <= 180
+                && (latitude != 0 || longitude != 0);
+    }
+    private void showWaypoints(java.util.List<WaypointInfo> values) {
+        showWaypoint(values.isEmpty() ? null : values.get(0));
+        JSONArray points = new JSONArray();
+        for (WaypointInfo value : values) {
+            Double latitude = value.getLatitude(), longitude = value.getLongitude();
+            if (!validCoordinate(latitude, longitude)) {
+                latitude = value.getDisplayLatitude();
+                longitude = value.getDisplayLongitude();
+            }
+            if (!validCoordinate(latitude, longitude)) continue;
+            try {
+                points.put(new JSONObject().put("latitude", latitude).put("longitude", longitude));
+            } catch (JSONException ignored) {}
+        }
+        put("waypoints", points);
+        put("missingWaypointCount", values.size() - points.length());
+    }
     private final NaviHelperEventListener events=new NaviHelperEventListener(){
         @Override public void onRouteStarted(RouteStartInfo value){main.post(()->{
             arrived=false;
             put("arrivedWaypoint",null);
             showWaypoint(null);
+            clearRoutePoints();
             put("destination",null);
             put("remainingDistanceM",null);
             put("remainingTimeSec",null);
@@ -65,10 +95,13 @@ final class NavigationProbe implements AutoCloseable {
             emit("ROUTE_STARTED");
         });}
         @Override public void onRoutingCompleted(){main.post(()->{arrived=false;revision++;put("error",null);put("status","ROUTE_READY");emit("ROUTING_COMPLETED");sdk.getDestinationInfo();sdk.getRouteStateInfo();sdk.getWaypointInfo();});}
-        @Override public void onReRouteEnded(){main.post(()->{revision++;put("status","ROUTE_READY");emit("REROUTE_ENDED");sdk.getDestinationInfo();});}
-        @Override public void onDestinationChanged(){main.post(()->{revision++;emit("DESTINATION_CHANGED");sdk.getDestinationInfo();});}
-        @Override public void onRouteCancelled(){main.post(()->{arrived=false;revision++;put("status","CANCELLED");put("destination",null);showWaypoint(null);put("arrivedWaypoint",null);put("remainingDistanceM",null);put("remainingTimeSec",null);emit("ROUTE_CANCELLED");});}
-        @Override public void onDestinationArrived(DestinationArrivedInfo info){main.post(()->{arrived=true;revision++;put("status","ARRIVED");showWaypoint(null);if(info.getName()!=null&&!info.getName().isEmpty())put("destination",info.getName());put("remainingDistanceM",0);put("remainingTimeSec",0);emit("DESTINATION_ARRIVED");});}
+        @Override public void onReRouteEnded(){main.post(()->{revision++;put("status","ROUTE_READY");emit("REROUTE_ENDED");sdk.getDestinationInfo();sdk.getWaypointInfo();});}
+        @Override public void onDestinationChanged(){main.post(()->{revision++;clearRoutePoints();emit("DESTINATION_CHANGED");sdk.getDestinationInfo();sdk.getWaypointInfo();});}
+        @Override public void onRouteCancelled(){main.post(()->{arrived=false;revision++;put("status","CANCELLED");put("destination",null);clearRoutePoints();showWaypoint(null);put("arrivedWaypoint",null);put("remainingDistanceM",null);put("remainingTimeSec",null);emit("ROUTE_CANCELLED");});}
+        @Override public void onDestinationArrived(DestinationArrivedInfo info){main.post(()->{arrived=true;revision++;put("status","ARRIVED");showWaypoints(java.util.List.of());if(info.getName()!=null&&!info.getName().isEmpty())put("destination",info.getName());put("remainingDistanceM",0);put("remainingTimeSec",0);emit("DESTINATION_ARRIVED");});}
+        @Override public void onWaypointChanged(WaypointChangedInfo info){main.post(()->{
+            if(!arrived)sdk.getWaypointInfo();
+        });}
         @Override public void onWayPointArrived(WaypointArrivedInfo info){main.post(()->{
             put("arrivedWaypoint",info.getName());
             showWaypoint(null);
@@ -77,7 +110,7 @@ final class NavigationProbe implements AutoCloseable {
         });}
         @Override public void onWayPointInfo(java.util.List<WaypointInfo> values){main.post(()->{
             if(arrived)return;
-            showWaypoint(values.isEmpty() ? null : values.get(0));
+            showWaypoints(values);
             emit("WAYPOINT_INFO");
         });}
         @Override public void onCurrentRoadSpeedLimit(int kmh) { main.post(() -> {

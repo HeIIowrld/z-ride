@@ -1,11 +1,8 @@
 'use strict';
 const JOURNEY_MAP_BASE = document.currentScript ? new URL('.', document.currentScript.src) : new URL('/play/', location.href);
 
-// 여행 지도(내비 방식): 진행 방향이 항상 화면 위쪽, 차량은 화면 아래쪽에 고정되고 지도가 회전·이동한다.
-// Leaflet은 회전을 지원하지 않으므로 지도를 프레임 대각선 크기의 정사각형(rotor)에 그리고 CSS로 회전한다.
-//  - 마커(표지판·도착·장소 핀)는 --upright 변수로 반대 회전해 항상 똑바로 선다.
-//  - 손으로 끌 때는 화면 이동량을 지도 좌표계로 되돌려(회전 보정) 손가락 방향대로 움직인다.
-//  - 사용자가 지도를 움직이면 따라가기를 멈추고 왼쪽 아래 '현재 위치' 버튼을 띄운다.
+// 화면 모서리가 비지 않도록 뷰포트 대각선만큼 큰 정사각형에 지도를 그리고 CSS로 돌린다.
+// 마커는 --upright로 반대로 돌려 방향을 유지한다.
 function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra = {}) {
   const defaultCenter = [37.5665, 126.978];
   const followZoom = 16;
@@ -27,7 +24,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
   const pins = L.layerGroup().addTo(map);
   const signLayer = L.layerGroup().addTo(map);
 
-  // 차량 아이콘: 내비 화살표(화면 기준 항상 위를 향함)
   const carElement = document.createElement('div');
   carElement.className = 'journey-car-arrow';
   carElement.innerHTML = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="halo"/>' +
@@ -42,7 +38,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
   let shown = null, carHeading = 0, targetHeading = 0, viewHeading = 0, anim = null, lastFixAt = 0, frame = 0;
   let failed = 0, loaded = 0, tileTimeout, pinTimer;
 
-  // ── 회전 ───────────────────────────────────────────────
   const rotorSize = () => Math.ceil(Math.hypot(plot.clientWidth, plot.clientHeight)) + 4;
   function layoutRotor() {
     const d = rotorSize();
@@ -53,7 +48,7 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
   function applyRotation() {
     rotor.style.transform = 'rotate(' + (-viewHeading).toFixed(2) + 'deg)';
     rotor.style.setProperty('--upright', viewHeading.toFixed(2) + 'deg');
-    // 화살표는 회전하는 지도 안에 있으므로 지도 좌표 기준 진행 방향으로 돌리면 화면에서는 (carHeading - viewHeading) = 위쪽이 된다.
+    // 화살표는 지도와 함께 회전하므로 화면 방향은 carHeading - viewHeading이다.
     carElement.style.transform = 'translate(-50%, -50%) rotate(' + carHeading.toFixed(2) + 'deg)';
   }
   layoutRotor();
@@ -67,7 +62,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
     drag._newPos = drag._startPos.add(L.point(dx * c - dy * s, dx * s + dy * c));
   });
 
-  // ── 타일 상태 ───────────────────────────────────────────
   tiles.on('loading', () => {
     failed = 0;
     loaded = 0;
@@ -90,7 +84,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
   }
   const turn = (from, to) => ((to - from + 540) % 360) - 180;
 
-  // ── 따라가기 ───────────────────────────────────────────
   // 차량이 화면 아래쪽(높이의 75%)에 오도록 지도 중심을 진행 방향 앞으로 옮긴다.
   function followCenter(latlng) {
     const zoom = map.getZoom();
@@ -143,7 +136,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
   }
   function kick() { if (!frame) frame = requestAnimationFrame(tick); }
 
-  // ── 주변 장소 핀 ────────────────────────────────────────
   function renderPins() {
     pins.clearLayers();
     if (!position) return;
@@ -199,7 +191,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
     pinTimer = setTimeout(() => { pinTimer = null; renderPins(); }, 600);
   }
 
-  // ── 경로선 ─────────────────────────────────────────────
   let routePoints = [], routeCum = [], passedLine;
   function cumulative(points) {
     const cum = [0];
@@ -250,7 +241,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
     }
   }
 
-  // ── 경로 표지판 ─────────────────────────────────────────
   function renderSigns(route, selectedSignId) {
     const signs = route?.status === 'READY' ? route.signs : [];
     const signature = JSON.stringify([signs.map(s => [s.signId, s.gameId, s.state, s.latitude, s.longitude]), selectedSignId]);
@@ -282,7 +272,6 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
     }
   }
 
-  // ── 조작 ───────────────────────────────────────────────
   map.on('dragstart', () => setFollowing(false));
   map.on('dragend', scheduleResume);
   map.on('zoomend', () => { if (following) applyFollow(); renderPins(); });
