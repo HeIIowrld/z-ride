@@ -20,7 +20,7 @@ Pleos NaviHelper 3.0.5는 도로 폴리라인을 주지 않는다([native-naviga
 
 ## 표지판 배치와 상태
 
-- 경로를 따라 2~3.2km 간격으로 랜덤 배치한다(10km에 3~4개, 출발·도착 400m 이내 제외, 최대 12개). 시드는 `roomId + 경로 key`라서 같은 크루는 같은 위치를 보고, 새 경로면 새 배치가 된다.
+- 경로를 따라 1.2~2km 간격으로 랜덤 배치한다(10km에 약 5~8개, 출발·도착 400m 이내 제외, 최대 12개). 시드는 `roomId + 경로 key`라서 같은 크루는 같은 위치를 보고, 새 경로면 새 배치가 된다.
 - **표지판 게임**: 표지판마다 `gameId`가 하나 정해진다. 셔플 백 방식이라 모든 게임이 한 번씩 나온 뒤에 다음 순서를 다시 섞고, 같은 게임이 연속으로 나오지 않는다(묶음 경계 포함). 순서도 `roomId + 경로 key` 시드라 크루 모두 같다.
   - 플레이 가능: `license-quiz`·`pole-jump`·`raindrop` (`SIGN_GAMES`)
   - 준비 중: `zombie` (`SIGN_COMING_SOON`). 지도에 표지판이 나오고 패널도 열리지만 `playable=false`라 시작 버튼이 비활성이다. 게임을 연결할 때는 [route-signs.mjs](../route-signs.mjs)에서 `zombie`를 `SIGN_GAMES`로 옮기고 폰 앱 `driveTitles`에 게임을 추가한다.

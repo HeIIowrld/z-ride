@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 // Pleos NaviHelper는 도로 폴리라인을 주지 않으므로(native-navigation.md) 2)는 외부 길찾기 결과다.
 
 export const SIGN_POLICY = Object.freeze({
-  minGapM: 2000, maxGapM: 3200, edgeM: 400, maxSigns: 12,
+  minGapM: 1200, maxGapM: 2000, edgeM: 400, maxSigns: 12,
   readyRadiusM: 500, graceMs: 30_000, challengeMs: 5 * 60_000, minPlayMs: 5_000,
   offRouteM: 150, offRouteMs: 8_000,
   maxGeometryPoints: 400,
