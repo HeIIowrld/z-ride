@@ -940,8 +940,11 @@ export function createDemoServer(options = {}) {
 
   const server = http.createServer(async (req, res) => {
     try {
-      rateLimit('http:' + requestPolicy.clientAddress(req));
       const path = new URL(req.url, 'http://localhost').pathname;
+      const clientAddress = requestPolicy.clientAddress(req);
+      // Loading several game frames must leave capacity for the reward and journey APIs.
+      if (phoneClient.servesAsset(req.method, path)) rateLimit('http-phone-assets:' + clientAddress, 480);
+      else rateLimit('http:' + clientAddress);
       if(requestPolicy.apply(req,res,path))return;
       if (req.method === 'GET' && path === '/healthz') return result(res, storageFailed ? 503 : 200, { ok: !storageFailed, protocol: 'zride-demo-v1', contractRevision: 10 });
       if (storageFailed) throw unavailable();
