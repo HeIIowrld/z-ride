@@ -42,6 +42,26 @@ class ViewerTests(unittest.TestCase):
             self.assertEqual(error.exception.code,404)
         finally:server.shutdown();server.server_close();thread.join()
 
+    def test_single_vehicle_redirect_and_disabled_vehicle_routes(self):
+        server=viewer.ThreadingHTTPServer(('127.0.0.1',0),viewer.Handler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        try:
+            from http.client import HTTPConnection
+            connection=HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+            with patch.object(viewer,'VEHICLES',(1,)), patch.object(viewer,'command',return_value=''):
+                for method,path,code in [('GET','/',302),('GET','/1',200),('GET','/2',404),
+                                         ('GET','/navigation/3',404),('GET','/simulation/2',404),
+                                         ('POST','/simulation/2',404),('GET','/phone',200),('GET','/status.json',200)]:
+                    connection.request(method,path)
+                    response=connection.getresponse()
+                    body=response.read()
+                    self.assertEqual(response.status,code)
+                    if path=='/':self.assertEqual(response.getheader('Location'),'/vehicles/1')
+                    if path=='/status.json':
+                        self.assertEqual([vehicle['id'] for vehicle in json.loads(body)['vehicles']],['1'])
+        finally:server.shutdown();server.server_close();thread.join()
+
     def test_android_only_opens_an_exact_ply_invite(self):
         invite='https://hyundai.hjpark.net/play#invite='+'a'*32
         with patch.object(viewer,'command',return_value='Starting: Intent') as command:

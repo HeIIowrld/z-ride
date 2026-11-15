@@ -2,6 +2,7 @@
 """Interactive screen catalog for fixed Pleos AVDs. Pointer/keyboard control uses VNC; no arbitrary command endpoint."""
 import json, re, signal, subprocess, threading, time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from os import environ
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 from simulation import EmulatorLocationError, ROUTES, simulator
@@ -11,6 +12,9 @@ ROOT=Path(__file__).resolve().parent
 NOVNC=Path('/usr/share/novnc').resolve()
 ADB='/opt/android-sdk/platform-tools/adb'
 APP='ai.zride.demo.car'
+VEHICLES=tuple(dict.fromkeys(int(vehicle) for vehicle in environ.get('PLEOS_VIEWER_VEHICLES','1,2,3').split(',')))
+if any(vehicle not in (1,2,3) for vehicle in VEHICLES):
+    raise ValueError('PLEOS_VIEWER_VEHICLES must contain vehicle IDs 1, 2 or 3')
 cache={'at':0,'value':None}
 lock=threading.Lock()
 
@@ -28,7 +32,7 @@ def visible_invite(vehicle):
 
 def open_phone_invite(body):
     if not isinstance(body,dict):raise ValueError('INVALID_COMMAND')
-    if set(body)=={'vehicle'} and type(body['vehicle']) is int and body['vehicle'] in (1,2,3):
+    if set(body)=={'vehicle'} and type(body['vehicle']) is int and body['vehicle'] in VEHICLES:
         invite=visible_invite(body['vehicle'])
     elif set(body)=={'invite'}:
         invite=body['invite']
@@ -49,7 +53,7 @@ def catalog():
     with lock:
         if time.monotonic()-cache['at']<3 and cache['value'] is not None:return cache['value']
         vehicles=[]
-        for i in range(1,4):
+        for i in VEHICLES:
             active=command(['systemctl','is-active',f'pleos-vehicle@{i}.service'])=='active'
             serial=f'emulator-{5552+i*2}'
             boot=active and command([ADB,'-s',serial,'shell','getprop','sys.boot_completed'])=='1'
@@ -75,14 +79,28 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path=unquote(urlsplit(self.path).path)
         match=re.fullmatch(r'/simulation/([123])',path)
-        if match:return self.send_body(json.dumps(simulator.snapshot(int(match[1])),ensure_ascii=False).encode(),'application/json; charset=utf-8')
+        if match:
+            vehicle=int(match[1])
+            if vehicle not in VEHICLES:return self.send_error(404)
+            return self.send_body(json.dumps(simulator.snapshot(vehicle),ensure_ascii=False).encode(),'application/json; charset=utf-8')
         if path=='/scenarios.json':return self.send_body(json.dumps(ROUTES,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         match=re.fullmatch(r'/navigation/([123])',path)
-        if match:return self.send_body(json.dumps(native_navigation.status(int(match[1]))).encode(),'application/json')
+        if match:
+            vehicle=int(match[1])
+            if vehicle not in VEHICLES:return self.send_error(404)
+            return self.send_body(json.dumps(native_navigation.status(vehicle)).encode(),'application/json')
         if path=='/status.json':return self.send_body(json.dumps(catalog(),ensure_ascii=False).encode(),'application/json; charset=utf-8')
-        if path in ['/','/index.html']:file=ROOT/'index.html'
+        if path in ['/','/index.html']:
+            if len(VEHICLES)==1:
+                self.send_response(302)
+                self.send_header('Location',f'/vehicles/{VEHICLES[0]}')
+                self.send_header('Cache-Control','no-store')
+                self.send_header('Content-Length','0')
+                self.end_headers()
+                return
+            file=ROOT/'index.html'
         elif path in ['/phone','/phone/']:file=ROOT/'phone.html'
-        elif re.fullmatch(r'/[123]/?',path):file=ROOT/'viewer.html'
+        elif re.fullmatch(r'/[123]/?',path) and int(path.strip('/')) in VEHICLES:file=ROOT/'viewer.html'
         elif path in ['/app.js','/viewer.js','/simulation.js','/native-navigation.js','/phone.js','/style.css']:file=ROOT/path[1:]
         elif path.startswith('/novnc/'):
             file=(NOVNC/path[len('/novnc/'):]).resolve()
@@ -94,7 +112,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         match=re.fullmatch(r'/(simulation|navigation)/([123])',urlsplit(self.path).path)
         phone=urlsplit(self.path).path=='/phone/invite'
-        if not match and not phone:return self.send_error(404)
+        if not phone and (not match or int(match[2]) not in VEHICLES):return self.send_error(404)
         if self.headers.get('Origin')!='https://hyundai.hjpark.net':return self.send_error(403)
         try:
             size=int(self.headers.get('Content-Length','0'))
