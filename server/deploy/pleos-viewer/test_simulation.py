@@ -69,6 +69,20 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(self.act('seek',progress=1)['state'],'ARRIVED')
         with self.assertRaisesRegex(ValueError,'ROUTE_FINISHED'):self.act('start')
 
+    def test_custom_waypoint_is_used_for_route_submission_and_reroute(self):
+        via={'latitude':37.529,'longitude':126.918}
+        end={'latitude':37.529,'longitude':126.919}
+        with patch.object(self.sim,'submit',wraps=self.sim.submit) as submit:
+            result=self.act('destination',route='custom',start=START,waypoint=via,end=end)
+            self.assertEqual(result['geometry'],[START,via,end])
+            self.assertEqual(submit.call_args.args[-1],[START,via,end])
+            self.sim.tick(1,100)
+            sought=self.act('seek',progress=.2)['position']
+            result=self.act('reroute',route='custom',start=START,waypoint=via,end=end)
+            self.assertEqual(result['geometry'],[sought,via,end])
+        with self.assertRaisesRegex(ValueError,'INVALID_PARAMETERS'):
+            self.act('destination',route='custom',start=START,waypoint=None,end=end)
+
     def test_invalid_custom_geometry_is_rejected_before_emulator_write(self):
         for end in [START,{'latitude':0,'longitude':0}]:
             with self.assertRaisesRegex(ValueError,'INVALID_ROUTE_LENGTH'):

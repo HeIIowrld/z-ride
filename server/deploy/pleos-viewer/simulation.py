@@ -121,13 +121,16 @@ class Simulator:
             s['progressM']=round(s.pop('travelled',0));s['distanceM']=round(s['distanceM'])
             return s
     def act(self,i,body):
-        if not isinstance(body,dict) or set(body)-{'action','route','speedKph','rate','expectedRevision','start','end','progress'}:raise ValueError('INVALID_COMMAND')
+        if not isinstance(body,dict) or set(body)-{'action','route','speedKph','rate','expectedRevision','start','waypoint','end','progress'}:raise ValueError('INVALID_COMMAND')
         action=body.get('action')
         if action not in ['destination','reroute','start','pause','park','cancel','seek']:raise ValueError('INVALID_ACTION')
         route=body.get('route','A');speed=body.get('speedKph',30);rate=body.get('rate',5)
         if not isinstance(route,str) or route not in (*ROUTES,'custom') or type(speed) not in (int,float) or not 1<=speed<=60 or type(rate) is not int or rate not in RATES:raise ValueError('INVALID_PARAMETERS')
         if action in ('destination','reroute') and route=='custom':
-            points=[point(body.get('start')),point(body.get('end'))]
+            points=[point(body.get('start'))]
+            if 'waypoint' in body:
+                points.append(point(body['waypoint']))
+            points.append(point(body.get('end')))
         else:
             points=copy.deepcopy(ROUTES.get(route,ROUTES['A'])['geometry'])
         progress=body.get('progress')

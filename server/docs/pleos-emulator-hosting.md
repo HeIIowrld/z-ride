@@ -4,7 +4,7 @@
 
 | 주소 | 역할 |
 | --- | --- |
-| https://hyundai.hjpark.net/vehicles/ | 차량별 실행·부팅·중지와 최신 서버 연결 상태 |
+| https://hyundai.hjpark.net/vehicles/ | 등록 차량의 센터페시아. 한 대만 등록하면 해당 차량 화면으로 바로 이동 |
 | https://hyundai.hjpark.net/vehicles/1 | 실제 Pleos 1 화면·클릭·드래그·스크롤 |
 | https://hyundai.hjpark.net/vehicles/2 | 실제 Pleos 2, 별도 파티 |
 | https://hyundai.hjpark.net/vehicles/3 | 실제 Pleos 3, 별도 파티 |
@@ -29,27 +29,27 @@ CT317: RAM 제한20GiB, 8 CPU, rootfs64GiB. AVD 서비스는 MemoryMax7500M/Memo
 
 ## 공개 범위
 
-사용자 요청에 따라 웹에서 세 차량의 마우스·키보드 입력을 허용했다. 같은 차량 페이지를 여럿 열면 동일한 실제 화면과 입력을 공유한다. 별도 차량 접근키 없이 팀 테스트가 가능하다. 게임 로그인·초대·차량 승인 권한은 기존 서버 계약을 유지한다. raw VNC는 CT317 loopback이며 ADB/콘솔 포트는 인터넷으로 포워딩하지 않는다. 공개 화면은 hyundai vhost에만 연결하고 클립보드 동기화는 끈다. 공개 HTTP에는 임의 ADB·일반 명령·파일 읽기·에뮬레이터 기동/중지 API가 없다.
+등록된 차량의 마우스·키보드 입력을 웹에서 허용한다. 같은 차량 페이지를 여럿 열면 동일한 실제 화면과 입력을 공유한다. 별도 차량 접근키 없이 팀 테스트가 가능하다. 게임 로그인·초대·차량 승인 권한은 기존 서버 계약을 유지한다. raw VNC는 CT317 loopback이며 ADB/콘솔 포트는 인터넷으로 포워딩하지 않는다. 공개 화면은 hyundai vhost에만 연결하고 클립보드 동기화는 끈다. 공개 HTTP에는 임의 ADB·일반 명령·파일 읽기·에뮬레이터 기동/중지 API가 없다.
 
 `/vehicles/console/1/`~`3/`는 각 AVD의 **공식 Pleos Connect Virtual Console**이다. `adb forward tcp:8081..8083 tcp:8088`를 내부에서 유지하고 socat의 고정8181..8183을 nginx로 연결한다. 하위경로 프록시는 vendor/vehicle/glb/hdri/browser/highway 자원 경로를 차량별로 재작성한다. 외부로 ADB를 공개하지 않는다. 공식 콘솔의 기어·속도·공조·벨트/착석 시뮬레이션은 이 가상 차량에만 적용된다. 공식 콘솔과 자동 이동을 동시에 조작하지 않는다. 사용자 계정이 로그인된 개인 용도로 에뮬레이터를 사용하지 않는다.
 
 ## 이동·경로 변경 시험
 
-차량 앱에서 여정을 시작해 동승자 QR을 발급한 다음, [Pleos 1](https://hyundai.hjpark.net/vehicles/1)의 **여정 시나리오**를 펼친다. 여의도 동·서쪽, 짧은 보급품 시연, 직접 설정 중에서 고른다. 직접 설정은 위도, 경도 순의 출발점과 도착점을 직선으로 잇는다. **경로 적용** 후 **시작**을 누른다. 10/30/60km/h와 1/2/5/10배속을 선택할 수 있다. 배속은 위치 진행에 적용되며 표시 차량 속도는 그대로다. 중간 위치로 이동하면 P에 정차하고, 시작을 누르면 그 위치에서 재개한다.
+[Pleos 1](https://hyundai.hjpark.net/vehicles/1)의 **데모 여정**에서 여의도 동·서쪽, 짧은 보급품 시연, 직접 설정 중에서 고른다. 시험 경로 미리보기에 출발지, 경유지와 도착지가 표시된다. 직접 설정은 위도, 경도 순으로 입력한 출발지, 경유지(선택), 도착지를 직선으로 잇는다. 차량 앱에서 여정을 연 뒤 **여정 설정 및 재생**에서 **경로 적용**과 **시작 / 재개**를 차례로 누른다. 실제 길 안내는 센터페시아의 Pleos 내비에서 설정한다. 10/30/60km/h와 1/2/5/10배속을 선택할 수 있다. 배속은 위치 진행에 적용되며 표시 차량 속도는 그대로다. 중간 위치로 이동하면 P에 정차하고, 시작을 누르면 그 위치에서 재개한다.
 
-**시나리오 링크 복사**로 프리셋 또는 직접 입력한 좌표, 차량 속도, 배속을 공유한다. 링크를 열면 설정만 채운다. 실제 재생은 진행자가 누른다. 같은 차량 화면과 재생 상태는 팀원이 함께 볼 수 있다. 실제 폰은 차량 QR로 참가한다. Pleos 화면에 QR을 띄우고 **현재 QR을 Android에서 열기**를 누르면 [공유 Android](https://hyundai.hjpark.net/vehicles/phone)의 Chrome에서 초대가 열린다. Android에서 게스트로 좌석을 신청하고 차량에서 승인한다. D·UX 제한에서는 차량 게임과 QR을 숨기고 주차 P에서 다시 표시한다.
+**링크 복사**로 시나리오 또는 직접 입력한 좌표(선택 경유지 포함), 차량 속도, 배속을 공유한다. 링크를 열면 설정만 채운다. 실제 재생은 진행자가 누른다. 같은 차량 화면과 재생 상태는 팀원이 함께 볼 수 있다. 실제 폰은 차량 QR로 참가한다. Pleos 화면에 QR을 띄우고 **차량 QR을 Android에서 열기**를 누르면 [공유 Android](https://hyundai.hjpark.net/vehicles/phone)의 Chrome에서 초대가 열린다. Android에서 게스트로 좌석을 신청하고 차량에서 승인한다. D·UX 제한에서는 차량 게임과 QR을 숨기고 주차 P에서 다시 표시한다.
 
-운영용 `GET/POST /vehicles/simulation/{1|2|3}`는 고정 동작만 받는다. POST는 같은 Origin과 JSON, expectedRevision 일치가 필요하다. 액션은 destination/reroute/start/pause/park/cancel/seek다. 직접 설정은 위경도 숫자 두 쌍을 받고, seek는 0부터 1까지의 진행률을 받는다. 차량별 잠금과 revision으로 중복·동시 조작 충돌을 구분한다. 오류 시 이동을 중단하고 P 복귀를 시도한다. 서비스 재시작 때 시뮬레이터 상태는 초기화되며 자동 이동을 재개하지 않는다.
+운영용 `GET/POST /vehicles/simulation/{1|2|3}`는 고정 동작만 받는다. POST는 같은 Origin과 JSON, expectedRevision 일치가 필요하다. 액션은 destination/reroute/start/pause/park/cancel/seek다. 직접 설정은 위경도 숫자 쌍 `start`, `end`와 선택값 `waypoint`를 받고, seek는 0부터 1까지의 진행률을 받는다. 차량별 잠금과 revision으로 중복·동시 조작 충돌을 구분한다. 오류 시 이동을 중단하고 P 복귀를 시도한다. 서비스 재시작 때 시뮬레이터 상태는 초기화되며 자동 이동을 재개하지 않는다.
 
 GPS는 Android Emulator geo fix 또는 Pleos AVD의 Android 테스트 위치 공급자로 넣고, 기어·속도는 공식 Virtual Console에 반영한다. 테스트 위치 공급자는 여정 종료와 viewer 종료 때 해제한다. 디버그 차량 APK의 private `demo-route.json` bridge는 자신의 메모리 내 HOST 인증으로 기존 POST /api/rooms/{id}/route를 호출한다. 결과 영수증이 확인되기 전에는 이동을 시작하지 않는다. 서버 경로 변경은 승인된 폰의 snapshot.party.route revision/source/active로 즉시 전달하며 실제 경로 geometry는 방송하지 않는다. 폰은 revision 변경 후 기존 route/spots를 재조회한다. 경로 변경은 현재 위치에서 출발하며 도착 시 자동 P, 취소는 source=NONE으로 서버 경로를 비운다.
 
-**두 경로는 여의도 일대 합성 시험 좌표이며 도로망·통행 가능성을 검증한 길찾기 결과가 아니다.** 출처는 DEMO_ROUTE다. 내장 내비 앱에 실제 목적지를 입력하거나 Pleos Navigation SDK의 길찾기·재탐색 callback을 연결한 결과가 아니며, 실제 SDK callback 연동은 팀 차량 앱 구현에서 이 기존 route API로 교체한다. 에뮬레이터 GPS를 바꿔도 실물 폰의 GPS나 아이템 획득 위치 증명은 바꾸지 않는다. GPS 이동만으로 아이템/보상이 자동 지급되지 않는다.
+**미리보기와 데모 재생은 여의도 일대의 합성 시험 좌표를 사용한다.** 출처는 DEMO_ROUTE다. 내장 내비 앱에 실제 목적지를 입력하거나 Pleos Navigation SDK의 길찾기·재탐색 callback을 연결한 결과가 아니며, 실제 SDK callback 연동은 팀 차량 앱 구현에서 이 기존 route API로 교체한다. 에뮬레이터 GPS를 바꿔도 실물 폰의 GPS나 아이템 획득 위치 증명은 바꾸지 않는다. GPS 이동만으로 아이템/보상이 자동 지급되지 않는다.
 
 SDK 이미지·실행 파일·AVD 사용자 데이터·APK·개인 키는 저장소와 공개 정적 디렉토리에 넣지 않는다. viewer 파일만 별도 서비스에 설치한다. 기존 API CI와 Android APK 빌드/lint를 유지하며 에뮬레이터 APK 자동 설치는 별도 운영 작업이다.
 
 ## 운영
 
-PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicle@1`로 각 대를 관리한다. 상태/로그는 CT317의 `pleos-viewer.service`, `pleos-vehicle@1.service`, `/home/emulator/logs/`에서 확인한다. SDK는 /opt/android-sdk, AVD는 /home/emulator/.android/avd에 있다. 서비스를 추가로 시작하기 전에 실제 호스트 메모리를 확인한다.
+PVE에서 `pct exec 317 -- systemctl start pleos-vehicle@1` / `stop pleos-vehicle@1`로 각 대를 관리한다. 상태/로그는 CT317의 `pleos-viewer.service`, `pleos-vehicle@1.service`, `/home/emulator/logs/`에서 확인한다. SDK는 /opt/android-sdk, AVD는 /home/emulator/.android/avd에 있다. 서비스를 추가로 시작하기 전에 실제 호스트 메모리를 확인한다. 한 대만 공개하려면 viewer의 systemd 환경에 `PLEOS_VIEWER_VEHICLES=1`을 지정하고 1번 차량만 기동한다. 기본값은 `1,2,3`이다.
 
 소스: deploy/pleos-viewer. 같은 디렉토리의 unittest는 사용자10/최신성/비공개 값 제외/경로 탈출/제어 API 부재를 검사한다. 실제 기동·SDK 신호·WSS 화면은 별도로 확인한다.
 

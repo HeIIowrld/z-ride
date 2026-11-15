@@ -1161,16 +1161,18 @@
     "enrollment": "Public demo GAME_TEST_ACCESS_KEY is empty; client-config.sessionAccessKeyRequired=false hides the key field. Existing role/party/session/observer authority is unchanged."
   },
   "pleosEmulatorViews": {
-    "catalog": "/vehicles/",
+    "catalog": "/vehicles/ redirects to the detail page when only one vehicle is configured",
     "screens": [
       "/vehicles/1",
       "/vehicles/2",
       "/vehicles/3"
     ],
     "status": "/vehicles/status.json on the separate CT317 viewer service",
-    "source": "ACTUAL_PLEOS_AVD, API34/Pleos2.1.0; 1 running, 2/3 stopped",
+    "source": "ACTUAL_PLEOS_AVD, API34/Pleos2.1.0",
+    "publicVehicles": "CT317 uses PLEOS_VIEWER_VEHICLES=1. Screens, status entries and simulation/navigation endpoints are restricted to configured vehicles.",
+    "demoJourney": "Preview and shared links include start, end and an optional custom waypoint. Playback submits demo geometry. Actual navigation uses Pleos in the vehicle screen.",
     "capacity": "Only 1 constrained 3GiB/1600x900 demo AVD validated; official guide is 4GiB and host cannot sustain 2-3 with current workloads",
-    "authority": "Read-only VNC server and browser; no public ADB, control, start/stop or arbitrary-file endpoint",
+    "authority": "Interactive browser VNC with fixed demo and navigation commands. No public ADB, emulator start/stop or arbitrary-file endpoint.",
     "freshness": "Current Android user (10), app-private snapshot under10s; only room ID/state, counts, gear and UX are public"
   },
   "navigationReportExample": {
