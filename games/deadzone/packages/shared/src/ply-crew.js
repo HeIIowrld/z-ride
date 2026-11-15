@@ -3,7 +3,7 @@ export const validCrewKey = value => typeof value === 'string' && /^[0-9a-f-]{36
 export async function crewItems(env, crewKey, game, code, action, details = {}) {
   const url = new URL('/api/game-items', env.PLY_ITEMS_ORIGIN || 'https://hyundai.hjpark.net');
   const init = {
-    method: 'POST', redirect: 'error',
+    method: 'POST', redirect: 'manual',
     headers: { authorization: 'Bearer ' + crewKey, 'content-type': 'application/json' },
     body: JSON.stringify({ game, code, action, ...details }),
   };

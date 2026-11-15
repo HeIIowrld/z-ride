@@ -657,7 +657,7 @@ export function createDemoServer(options = {}) {
   }
   function chargeGameView(room, viewer) {
     const link = room.chargeGameLink;
-    if (!link || room.closedAt || !gate(room).allowed) return {};
+    if (!link || link.closed || room.closedAt || !gate(room).allowed) return {};
     if (viewer.role === 'CAR_HOST') return { chargeGame: { game: link.game } };
     const seat = viewer.approved && link.seats[viewer.memberId];
     return seat ? { chargeGame: { game: link.game, joinUrl: link.origin.replace(/\/$/, '') + '/p#join=' + link.code + '.' + seat.playerId + '.' + seat.token } } : {};
@@ -681,12 +681,12 @@ export function createDemoServer(options = {}) {
     const room = roomFor(roomId);
     const member = requireHost(room, session);
     if (body.action === 'close') {
-      if (room.chargeGameLink) atomic(() => { delete room.chargeGameLink; change(room); });
+      if (room.chargeGameLink) atomic(() => { room.chargeGameLink.closed = true; change(room); });
       return result(res, 200, { closed: true });
     }
     if (body.action === 'item') {
       const link = room.chargeGameLink;
-      if (!link || link.game !== body.game) throw fail('NO_CHARGE_GAME', 'Open the charging game first', 409);
+      if (!link || link.closed || link.game !== body.game) throw fail('NO_CHARGE_GAME', 'Open the charging game first', 409);
       if (!chargeStop(room)) throw fail('CHARGING_STOP_REQUIRED', 'Park at an approved charging stop', 409);
       atomic(() => {
         if (room.collection.inventory.supplies < 1) throw fail('SUPPLY_REQUIRED', 'Collect a supply first', 409);
@@ -766,6 +766,7 @@ export function createDemoServer(options = {}) {
         throw fail('GAME_ITEM_CONFLICT', 'That item receipt is closed', 409);
       return { remaining: inventory[body.itemId] ?? 0 };
     }
+    if (link.closed) throw fail('GAME_ITEMS_FORBIDDEN', 'Active game credential required', 403);
     if (room.closedAt || (game === 'deadzone' ? !gate(room).allowed || link.state === 'ended' : !chargeStop(room)))
       throw fail('GAME_ITEMS_PARK_REQUIRED', 'The game requires the parked vehicle', 409);
     if (body.action === 'loadout') return view();

@@ -270,7 +270,11 @@
   async function open(fresh) {
     session = fresh ? null : store.get(KEY);
     if (!session) {
-      try { session = await post('/api/rooms'); store.set(KEY, session); }
+      try {
+        session = await post('/api/rooms');
+        session.joinUrl = new URL('./p#' + session.code, location.href).href;
+        store.set(KEY, session);
+      }
       catch { stage.replaceChildren(h('p', 'hint', '서버에 연결할 수 없어요. 새로고침해 주세요.')); return; }
     }
     sentSoc = null;

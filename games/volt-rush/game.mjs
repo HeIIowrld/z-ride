@@ -14,7 +14,7 @@ export const BOLT = 3, ITEM_CELL = 5, BOOST_MS = 8000, BLACKOUT_MS = 5000, SHIEL
 export const EVENT_EVERY_MS = 30_000; // 판(90초) 안에 30초·60초 두 번 터진다
 const WALL = -2, EMPTY = -1;
 
-// 주행 중 얻은 아이템이 들어올 자리. 루트 시스템이 붙기 전까지는 테스트 가방에서 2개씩 준다
+// 크루 경기는 공동 가방을 쓰고, 단독 체험은 테스트 아이템을 받는다.
 export const ITEMS = {
   JUMP: { name: '절연 장갑', tag: 'escape', desc: '다음 한 번, 막힌 칸을 뛰어넘어요' },
   CUT: { name: '고전압 코일', tag: 'attack', desc: '앞쪽 3칸의 남의 선을 끊어요' },
