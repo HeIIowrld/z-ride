@@ -266,8 +266,22 @@ public final class ChargeGameActivity extends Activity implements ChargeDrivingG
     }
 
     // Pleos는 분할 화면이라 지도에 포커스가 가면 onPause가 오지만 게임은 계속 보인다. 보이는 동안을 기준으로 한다.
-    @Override protected void onStart() { super.onStart(); foreground = true; if (gate != null) gate.recheck(); main.post(heartbeat); }
-    @Override protected void onStop() { foreground = false; restoreCabin(); main.removeCallbacks(heartbeat); signal(true); super.onStop(); }
+    @Override protected void onStart() {
+        super.onStart();
+        foreground = true;
+        if (link != null) NavigationRelayService.setChargeGameForeground(true);
+        if (gate != null) gate.recheck();
+        main.post(heartbeat);
+    }
+
+    @Override protected void onStop() {
+        foreground = false;
+        if (link != null) NavigationRelayService.setChargeGameForeground(false);
+        restoreCabin();
+        main.removeCallbacks(heartbeat);
+        signal(true);
+        super.onStop();
+    }
     @Override protected void onDestroy() {
         main.removeCallbacksAndMessages(null);
         foreground = false;
