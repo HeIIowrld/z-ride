@@ -84,7 +84,7 @@ export function createAccounts({clock=Date.now,sessionMs=28800000,capacity=10000
     if(m.fromMembershipId&&clock()-m.consentedAt>300000)throw fail('SWITCH_CONFIRMATION_EXPIRED','Confirm the vehicle change again');
     return {user,m,old:state.memberships[user.activeMembershipId]??null};
   }
-  function activate(plan){if(!plan)return;const {user,m,old}=plan;if(old){old.status='SWITCHED';old.endedAt=clock();}m.status='ACTIVE';user.activeMembershipId=m.membershipId;user.pendingMembershipId=null;}
+  function activate(plan){if(!plan)return;const {user,m,old}=plan;if(old){old.status='SWITCHED';old.endedAt=clock();}m.status='ACTIVE';user.activeMembershipId=m.membershipId;user.pendingMembershipId=null;return membershipView(m);}
   function depart(member,status){
     const user=state.users[member.accountUserId],m=state.memberships[member.accountMembershipId];if(!user||!m)return;
     if(user.activeMembershipId===m.membershipId)user.activeMembershipId=null;if(user.pendingMembershipId===m.membershipId)user.pendingMembershipId=null;

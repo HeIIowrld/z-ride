@@ -41,7 +41,6 @@ try{
     const invite=await api('/api/rooms/'+p.roomId+'/party/invite',{},host.token,true),inviteToken=invite.joinUrl.split('invite=')[1];
     for(const seat of ['REAR_LEFT','REAR_RIGHT','FRONT_PASSENGER']){
       const phone=await api('/api/invites/redeem',{inviteToken,nickname:'LOAD '+seat,seat,passengerConfirmed:true},null,true);
-      await api('/api/rooms/'+p.roomId+'/approve',{memberId:phone.memberId,allowManualUnknown:true},host.token,true);
       const c=await connect(phone.token,p.roomId,seat);if(c){c.lastShotMemberId=phone.memberId;p.phones.push(c);}
     }
   }

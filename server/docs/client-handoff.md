@@ -1,6 +1,6 @@
 # 앱 팀 전달용 서버 연결 계약 — revision 10
 
-revision 10은 폰 개인 계정·게스트/Google 검증 구조·QR 미리보기·승인 후 차량 전환·개인 이력·이름/주소 설정을 추가한다. REST 55개. accountToken과 기존 게임/HOST 토큰을 분리한다. [계정 통신·목업·앱 호출 순서](phone-accounts.md)를 확인한다. Google Cloud client ID가 없어 운영 Google은 비활성이다.
+폰은 초대 QR에서 빈 좌석을 골라 바로 합류한다. 계정 클라이언트는 `POST /api/me/invitations/accept` 응답의 `PARTY_PLAY` 티켓으로 WS에 연결한다. 차량 전환에 동의한 경우 합류가 성공하는 시점에 기존 파티에서 나간다. 테스트 참가 코드의 승인과 이전 승인 대기 기록은 기존 경로를 사용한다. [계정 통신과 앱 호출 순서](phone-accounts.md)
 
 revision 9는 이벤트 회차·미션 결과 원장·공동 기여·보상 수령·재생성을 추가한다. REST 40개. **기여에는 instanceId와 시작 전 이벤트 참가가 필수**다. 좀비/습격/보급/협동 퍼즐을 지원한다. [앱 호출 순서와 정책](events-results-rewards.md)을 우선 확인한다.
 

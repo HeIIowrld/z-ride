@@ -10,7 +10,7 @@ import {createStateStore} from '../state-store.mjs';
 import {DatabaseSync} from 'node:sqlite';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-test('phone identity survives vehicle changes: approved atomic switch, isolated inventory, personal history and restart',async()=>{
+test('QR joins immediately and account switches are atomic across restart',async()=>{
   const directory=await mkdtemp(join(tmpdir(),'game-accounts-')),clients=[];let app,base,failCommit=false;
   const start=async()=>{const store=createStateStore(join(directory,'state.sqlite'));app=createDemoServer({publicOrigin:'https://game.example',displayName:'Renamed game',trustedProxyAddresses:['127.0.0.1'],leaseMs:60000,stateStore:{kind:'sqlite',load:()=>store.load(),save:v=>{if(failCommit)throw new Error('Injected switch save failure');store.save(v);},close:()=>store.close()}});const a=await app.listen(0);base=`http://127.0.0.1:${a.port}`;};
   const api=async(path,body,token)=>{const r=await fetch(base+path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json','x-forwarded-proto':'https',...(token?{authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,body:await r.json()};};
@@ -28,10 +28,16 @@ test('phone identity survives vehicle changes: approved atomic switch, isolated 
     const a=await car('A'),b=await car('B'),guest=(await api('/api/accounts/guest',{nickname:'Persistent crew'})).body,accountToken=guest.accountToken,userId=guest.account.userId;
     const invitation=await invite(a);assert.equal((await api('/api/invites/preview',{inviteToken:invitation})).body.partyId,a.roomId);
     const first=(await api('/api/me/invitations/accept',{inviteToken:invitation,seat:'REAR_LEFT',passengerConfirmed:true,expectedActivePartyId:null},accountToken)).body;
-    assert.equal((await api('/api/me',undefined,accountToken)).body.account.activePartyId,null);
-    assert.equal((await api(a.path+'/approve',{memberId:first.memberId},a.host.token)).status,200);const phone=await connect(first.token,a.roomId);assert.equal((await api('/api/join',{joinCode:'ignored',seat:'REAR_LEFT'},first.token)).body.error.code,'ACCOUNT_PARTY_JOIN_REQUIRED');
+    assert.equal(first.pending,false);
+    assert.equal(first.membership.status,'ACTIVE');
+    assert.equal(first.account.activePartyId,a.roomId);
+    assert.equal(first.account.pendingPartyId,null);
+    const nextPreview=(await api('/api/invites/preview',{inviteToken:invitation},accountToken)).body;
+    assert.equal(nextPreview.requiresHostApproval,false);
+    assert.equal(nextPreview.availableSeats.includes('REAR_LEFT'),false);
+    const phone=await connect(first.token,a.roomId);assert.equal((await api('/api/join',{joinCode:'ignored',seat:'REAR_LEFT'},first.token)).body.error.code,'ACCOUNT_PARTY_JOIN_REQUIRED');
     const other=(await api('/api/invites/redeem',{inviteToken:invitation,nickname:'Other',seat:'REAR_RIGHT',passengerConfirmed:true})).body;
-    await api(a.path+'/approve',{memberId:other.memberId},a.host.token);await connect(other.token,a.roomId);
+    assert.equal(other.pending,false);await connect(other.token,a.roomId);
     assert.equal((await phone.send({type:'command',action:'mobile.collect',pickupId:'DEMO_PICKUP_A',passengerConfirmed:true})).ok,true);
     await game(a,'configure',{scenarioId:'signal-puzzle-v1'});
     await a.client.send({type:'vehicle.report',reportSeq:1,ux:'ALLOWED',gear:'P',foreground:true,seats:[],source:'SIMULATED_NO_SDK'});
@@ -41,14 +47,15 @@ test('phone identity survives vehicle changes: approved atomic switch, isolated 
     const award=(await api(a.path+'/rewards',undefined,a.host.token)).body.awards[0];await api(a.path+'/rewards/claim',{commandId:'host-reward',awardId:award.awardId},a.host.token);assert.equal((await state(a)).collection.inventory.supplies,2);
     const nextInvite=await invite(b),joinBody={inviteToken:nextInvite,seat:'REAR_LEFT',passengerConfirmed:true,expectedActivePartyId:a.roomId};
     assert.equal((await api('/api/me/invitations/accept',joinBody,accountToken)).body.error.code,'PARTY_SWITCH_CONFIRMATION_REQUIRED');
-    const second=(await api('/api/me/invitations/accept',{...joinBody,confirmSwitch:true},accountToken)).body;
     assert.equal((await api('/api/me',undefined,accountToken)).body.account.activePartyId,a.roomId);
     assert.ok((await state(a)).members.some(m=>m.memberId===first.memberId));
-    failCommit=true;assert.equal((await api(b.path+'/approve',{memberId:second.memberId},b.host.token)).status,503);
+    failCommit=true;assert.equal((await api('/api/me/invitations/accept',{...joinBody,confirmSwitch:true},accountToken)).status,503);
     await app.close();failCommit=false;await start();
     assert.equal((await api('/api/me',undefined,accountToken)).body.account.activePartyId,a.roomId);
-    assert.equal((await state(b)).members.find(m=>m.memberId===second.memberId).approved,false);
-    assert.equal((await api(b.path+'/approve',{memberId:second.memberId},b.host.token)).status,200);
+    assert.equal((await state(b)).members.length,1);
+    const second=(await api('/api/me/invitations/accept',{...joinBody,inviteToken:await invite(b),confirmSwitch:true},accountToken)).body;
+    assert.equal(second.previousPartyRemainsActiveUntilApproval,false);
+    assert.equal(second.membership.status,'ACTIVE');
     assert.equal((await api('/api/me',undefined,accountToken)).body.account.activePartyId,b.roomId);
     assert.equal((await api(a.path,undefined,first.token)).status,401);assert.ok(!(await state(a)).members.some(m=>m.memberId===first.memberId));
     assert.equal((await state(a)).collection.inventory.supplies,2);assert.equal((await state(b)).collection.inventory.supplies,0);
@@ -58,8 +65,7 @@ test('phone identity survives vehicle changes: approved atomic switch, isolated 
     ticket=(await api('/api/me/party-ticket',{},accountToken)).body;assert.equal(ticket.roomId,b.roomId);assert.equal(ticket.room.vehicle.playAllowed,false);
     assert.equal((await api('/api/me/history',undefined,accountToken)).body.results[0].resultId,history[0].resultId);
     const memberships=(await api('/api/me/parties',undefined,accountToken)).body.memberships;assert.deepEqual(memberships.map(m=>m.status),['SWITCHED','ACTIVE']);
-    const back=await invite(a);await api('/api/me/invitations/accept',{inviteToken:back,seat:'REAR_LEFT',passengerConfirmed:true,expectedActivePartyId:b.roomId,confirmSwitch:true},accountToken);
-    assert.equal((await api('/api/me/invitations/cancel',{},accountToken)).status,200);assert.equal((await api('/api/me',undefined,accountToken)).body.account.activePartyId,b.roomId);
+    assert.equal((await api('/api/me/invitations/cancel',{},accountToken)).body.error.code,'NO_PENDING_PARTY');
     assert.equal((await api('/api/accounts/logout',{},accountToken)).status,200);assert.equal((await api('/api/me',undefined,accountToken)).status,401);assert.equal((await api(b.path,undefined,ticket.token)).status,401);
   }finally{for(const ws of clients)ws.terminate();await app.close();const target=resolve(directory);assert.equal(dirname(target),resolve(tmpdir()));assert.ok(basename(target).startsWith('game-accounts-'));await rm(target,{recursive:true,force:true});}
 });

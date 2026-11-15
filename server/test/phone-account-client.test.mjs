@@ -28,7 +28,7 @@ function browser(base,storage=new Map(),hash=''){
     poll:()=>Promise.all([...intervals].map(fn=>fn())),close:()=>{for(const t of timers)clearTimeout(t);window.dispatchEvent(new Event('pagehide'));}};
 }
 
-test('phone page links guest Google identity, resumes on reload and joins a car only after HOST approval',async()=>{
+test('phone page links guest Google identity, resumes on reload and joins immediately by QR',async()=>{
   const origin='https://hyundai.hjpark.net',clientId='fixture.apps.googleusercontent.com';
   const app=createDemoServer({publicOrigin:origin,googleClientId:clientId,trustedProxyAddresses:['127.0.0.1'],verifyGoogleIdToken:async({credential})=>JSON.parse(credential)});
   const address=await app.listen(0),base='http://127.0.0.1:'+address.port,browsers=[];
@@ -53,18 +53,15 @@ test('phone page links guest Google identity, resumes on reload and joins a car 
     const invite=await api('/api/rooms/'+room.roomId+'/party/invite',{},host.token);
     // The QR capability is removed from the visible URL before any Google script loads.
     reload.location.hash=new URL(invite.joinUrl).hash;reload.window.dispatchEvent(new Event('hashchange'));
-    assert.equal(reload.location.hash,'');await until(()=>reload.element('invite-status').textContent.includes('승인 후'));
+    assert.equal(reload.location.hash,'');await until(()=>reload.element('invite-status').textContent.includes('참가 가능'));
     assert.equal(reload.element('account-panel').hidden,false);
     const joined=await reload.window.PHONE_ACCOUNT.join('REAR_LEFT',true);
     reload.element('game').hidden=false;
     reload.window.PHONE_ACCOUNT.render();
     assert.equal(reload.element('account-panel').hidden,true);
-    assert.equal(joined.pending,true);assert.equal((await api('/api/me',undefined,accountToken(reload))).account.activePartyId,null);
-    let ticket;reload.window.addEventListener('phone:ticket',event=>{ticket=event.detail;});
-    await reload.poll();assert.equal(ticket,undefined);
-    await api('/api/rooms/'+room.roomId+'/approve',{memberId:joined.memberId},host.token);
-    await Promise.all([reload.poll(),reload.poll()]);assert.equal(ticket.roomId,room.roomId);assert.equal(ticket.tokenPurpose,'PARTY_PLAY');
-    assert.notEqual(ticket.token,accountToken(reload));
+    assert.equal(joined.pending,false);assert.equal((await api('/api/me',undefined,accountToken(reload))).account.activePartyId,room.roomId);
+    assert.equal(joined.roomId,room.roomId);assert.equal(joined.tokenPurpose,'PARTY_PLAY');
+    assert.notEqual(joined.token,accountToken(reload));
     reload.click('account-logout');await until(()=>!accountToken(reload));
     const login=browser(base);browsers.push(login);await until(()=>!login.element('google-start').disabled);
     login.click('google-start');await until(()=>login.rendered()&&!login.element('google-start').disabled);

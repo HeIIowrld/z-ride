@@ -69,7 +69,7 @@
     $('account-logout').hidden = !account;
     for (const id of ['account-resume','account-cancel','account-logout']) $(id).disabled = busy;
     $('switch-label').hidden = !preview?.requiresVehicleSwitch;
-    $('invite-status').textContent = preview ? `${preview.partyName || '차량 파티'} · ${preview.joinable ? '차량 승인 후 참가' : '빈자리 없음'}` : invite ? '초대 확인 중…' : '';
+    $('invite-status').textContent = preview ? `${preview.partyName || '차량 파티'} · ${preview.joinable ? '참가 가능' : '빈자리 없음'}` : invite ? '초대 확인 중…' : '';
     renderSeats();
   }
   function setAccount(data) { token = data.accountToken; account = data.account; save(); render(); }
@@ -86,8 +86,9 @@
     invite = cap; history.replaceState(null,'',location.pathname+location.search);
     legacy = false; $('legacy-fields').hidden = true; $('nickname').required = false; $('join-code').required = false;
     $('legacy-toggle').hidden = true;
+    $('join-button').textContent = '합류하기';
     $('login-panel').hidden = false; $('game').hidden = true;
-    $('join-description').textContent = '앉은 자리를 선택하면 Pleos로 합류 요청을 보냅니다.';
+    $('join-description').textContent = '앉은 자리를 선택하고 크루에 합류하세요.';
     seatChoice.selectedIndex = -1;
     if (config) void checkInvite();
   }
@@ -153,6 +154,7 @@
     legacy = !legacy; $('legacy-fields').hidden = !legacy;
     $('nickname').required = legacy; $('join-code').required = legacy;
     $('legacy-toggle').textContent = legacy ? 'QR 참가로 돌아가기' : '테스트 참가 코드';
+    $('join-button').textContent = legacy ? '합류 요청' : '합류하기';
     renderSeats();
   });
   window.PHONE_ACCOUNT = {
@@ -167,7 +169,12 @@
         await refresh();
         const joined = await api('/api/me/invitations/accept', {inviteToken:invite,seat,passengerConfirmed,
           expectedActivePartyId:preview.activePartyId,confirmSwitch:$('switch-confirm').checked});
-        account = joined.account; return joined;
+        account = joined.account;
+        if (!joined.pending) { invite = null; preview = null; }
+        return joined;
+      } catch (e) {
+        if (['SEAT_TAKEN','ROOM_FULL'].includes(e.message)) await checkInvite();
+        throw e;
       } finally { busy = false; render(); }
     },
     async leave(pending = false) { const data = await api(pending ? '/api/me/invitations/cancel' : '/api/me/party/leave', {}); account = data.account; render(); },

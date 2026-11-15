@@ -78,7 +78,7 @@ test('provider port never enables incomplete OAuth and rejects missing or mismat
   assert.equal(configured.describe().google.enabled,false);await assert.rejects(configured.verifyGoogle({credential:'fixture',expectedNonce:'other'}),{code:'AUTH_PROVIDER_REJECTED'});
   assert.deepEqual(await configured.verifyGoogle({credential:'fixture',expectedNonce:'n'}),{provider:'google',subject:'123'});
 });
-test('QR guests, approval, pending withdrawal, removal, party isolation and disband revoke access',async t=>{
+test('direct QR guests cannot double-book a seat and can leave or be removed',async t=>{
   const app=createDemoServer({placesCatalog:catalog,publicOrigin:'https://example.test',testAccessKey:'host-key',placeReviewToken:'review-key'});const address=await app.listen(0);const sockets=[];
   t.after(async()=>{for(const ws of sockets)ws.terminate();await app.close();});
   const request=async(path,body,token,method='POST')=>{
@@ -91,10 +91,14 @@ test('QR guests, approval, pending withdrawal, removal, party isolation and disb
   assert.equal((await request('/api/admin/places/review',review,host.token)).status,401);
   assert.equal((await request('/api/admin/places/review',review,'review-key')).status,200);
   const invite=(await request(base+'/party/invite',{},host.token)).body;
+  assert.equal(invite.requiresHostApproval,false);
   assert.ok(invite.joinUrl.startsWith('https://example.test/play#invite='));const inviteToken=invite.joinUrl.split('=')[1];
-  const phone=(await request('/api/invites/redeem',{inviteToken,nickname:'Guest',seat:'REAR_LEFT',passengerConfirmed:true})).body;
-  assert.ok(phone.token);assert.equal(phone.pending,true);
-  assert.equal((await request(base+'/route',undefined,phone.token,'GET')).status,403);
+  const attempts=await Promise.all(['Guest','Other guest'].map(nickname=>request('/api/invites/redeem',{inviteToken,nickname,seat:'REAR_LEFT',passengerConfirmed:true})));
+  const phone=attempts.find(result=>result.status===201).body;
+  assert.deepEqual(attempts.map(result=>result.status).sort(),[201,409]);
+  assert.equal(attempts.find(result=>result.status===409).body.error.code,'SEAT_TAKEN');
+  assert.ok(phone.token);assert.equal(phone.pending,false);
+  assert.equal((await request(base+'/route',undefined,phone.token,'GET')).status,200);
   assert.equal((await request('/api/rooms/'+other.roomId+'/party/disband',{},phone.token)).status,403);
   assert.equal((await request(base+'/party/disband',{},host.token)).status,200);
   assert.equal((await request('/api/invites/redeem',{inviteToken,nickname:'Late',seat:'REAR_RIGHT',passengerConfirmed:true})).status,409);
@@ -102,10 +106,10 @@ test('QR guests, approval, pending withdrawal, removal, party isolation and disb
   // A disbanded host may create a fresh room; the previous party ID never revives.
   const fresh=(await request('/api/rooms',{},host.token)).body;assert.notEqual(fresh.roomId,room.roomId);
   const b='/api/rooms/'+fresh.roomId;const i=(await request(b+'/party/invite',{},host.token)).body.joinUrl.split('=')[1];
-  const guest=(await request('/api/invites/redeem',{inviteToken:i,nickname:'Pending',seat:'REAR_LEFT',passengerConfirmed:true})).body;
+  const guest=(await request('/api/invites/redeem',{inviteToken:i,nickname:'Guest',seat:'REAR_LEFT',passengerConfirmed:true})).body;
   assert.equal((await request(b+'/party/leave',{},guest.token)).status,200);
   const g2=(await request('/api/invites/redeem',{inviteToken:i,nickname:'Other',seat:'REAR_LEFT',passengerConfirmed:true})).body;
-  assert.equal((await request(b+'/approve',{memberId:g2.memberId,allowManualUnknown:true},host.token)).status,200);
+  assert.equal(g2.pending,false);
   const ws=new WebSocket(`ws://127.0.0.1:${address.port}/ws`);sockets.push(ws);await new Promise(resolve=>ws.once('open',resolve));ws.send(JSON.stringify({type:'auth',token:g2.token,roomId:fresh.roomId}));
   await new Promise(resolve=>ws.once('message',resolve));
   // Route revisions must reach the phone without waiting for unrelated vehicle reports.
