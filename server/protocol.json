@@ -38,7 +38,7 @@
     {
       "method": "POST",
       "path": "/api/rooms/{roomId}/charge-game",
-      "auth": "CAR_HOST, parked at an approved charging stop (charging or waiting)",
+      "auth": "CAR_HOST, parked at an approved charging stop or a configured simulation stop while following DEMO_ROUTE (charging or waiting)",
       "availability": "snapshot.room.chargeGamesAvailable lists the configured games for the vehicle host.",
       "body": {"action": "open, item or close", "game": "game id for open and item"},
       "response": {"open": "hostUrl with #host ticket, crew, supplies", "item": "supplies after spending one", "close": "closed"},

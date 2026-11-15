@@ -2447,7 +2447,7 @@
       ],
       "post": {
         "operationId": "chargeGame",
-        "summary": "Open an external charging game for the party, spend a party supply in it, or close it (parked vehicle host at an approved charging stop)",
+        "summary": "Open an external charging game for the party, spend a party supply in it, or close it (parked vehicle host at an approved charging stop (or an explicitly configured simulation stop on an active DEMO_ROUTE))",
         "description": "Like DEADZONE, the game runs on its own server (GAME_CHARGE_GAMES; defaults to the Cloudflare deployment of games/cloudflare). open creates a room there, joins every approved passenger in advance and returns the car screen URL with its host ticket. Charging is not required, so a car waiting for a charger can play.",
         "requestBody": {
           "required": true,

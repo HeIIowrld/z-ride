@@ -29,8 +29,8 @@ async function fakeGame(t) {
   return { origin: 'http://127.0.0.1:' + upstream.address().port, calls };
 }
 
-async function fixture(t, chargeGames) {
-  const app = createDemoServer({ leaseMs: 60000, startRound: false, chargeGames, placeReviewToken: REVIEW,
+async function fixture(t, chargeGames, demoCharger) {
+  const app = createDemoServer({ leaseMs: 60000, startRound: false, chargeGames, demoCharger, placeReviewToken: REVIEW,
     placesCatalog: { version: 'charge-fixture', places: [charger] } });
   const address = await app.listen(0);
   const sockets = [];
@@ -139,4 +139,26 @@ test('설정이 없으면 충전 게임 연결은 꺼져 있다', async t => {
   const view = await f.car.wait(value => value.type === 'snapshot');
   assert.equal(view.room.chargeGamesAvailable, undefined);
   assert.equal((await f.api(f.path, { action: 'open', game: 'charge-relay' }, f.host.token)).status, 404);
+});
+
+test('시연 충전 거점은 등록된 데모 경로와 시뮬레이션 위치에서만 열린다', async t => {
+  const game = await fakeGame(t);
+  const f = await fixture(t, { 'volt-rush': game.origin }, charger);
+  await f.park();
+  const action = { action: 'open', game: 'volt-rush' };
+  const report = (reportSeq, positionSource, point = {}) => f.car.send({ type: 'navigation.report', reportSeq,
+    navigation: { ...navigation, ...point, owned: false, positionSource } });
+  const testRoute = {
+    commandId: 'demo-route', expectedRouteRevision: 0, source: 'DEMO_ROUTE',
+    geometry: [charger, { ...charger, latitude: charger.latitude + 0.02 }],
+  };
+  await report(1, 'SIMULATED');
+  assert.equal((await f.api(f.path, action, f.host.token)).body.error.code, 'CHARGING_STOP_REQUIRED');
+  assert.equal((await f.api('/api/rooms/' + f.room.roomId + '/route', testRoute, f.host.token)).status, 200);
+  await report(2, 'PLEOS_NAVI_HELPER');
+  assert.equal((await f.api(f.path, action, f.host.token)).body.error.code, 'CHARGING_STOP_REQUIRED');
+  await report(3, 'ANDROID_GNSS', { latitude: charger.latitude + 0.001 });
+  assert.equal((await f.api(f.path, action, f.host.token)).body.error.code, 'CHARGING_STOP_REQUIRED');
+  await report(4, 'ANDROID_GNSS');
+  assert.equal((await f.api(f.path, action, f.host.token)).status, 200);
 });
