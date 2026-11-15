@@ -12,7 +12,7 @@ START={'latitude':37.5285,'longitude':126.9180}
 ROUTES={
  'A':{'name':'여의도 동쪽 스팟 (데모)', 'geometry':[START,{'latitude':37.5285,'longitude':126.9250},{'latitude':37.5320,'longitude':126.9250},{'latitude':37.5320,'longitude':126.9320}]},
  'B':{'name':'여의도 서쪽 스팟 (데모)', 'geometry':[START,{'latitude':37.5240,'longitude':126.9180},{'latitude':37.5240,'longitude':126.9100},{'latitude':37.5290,'longitude':126.9100}]},
- 'C':{'name':'짧은 보급품 시연', 'geometry':[{'latitude':37.5389,'longitude':126.9418},{'latitude':37.5399,'longitude':126.943}]}
+ 'C':{'name':'서울시청 가상 충전 거점', 'geometry':[{'latitude':37.5653,'longitude':126.9774},{'latitude':37.5665,'longitude':126.9780}]}
 }
 RATES=(1,2,5,10)
 MAX_SEGMENT_M=19500
