@@ -798,12 +798,12 @@ function renderRouteSignPanel() {
   signPlayButton.hidden = sign.state === 'CLAIMED' || sign.state === 'MISSED';
   const playable = sign.playable !== false && Boolean(title);
   signPlayButton.disabled = !playable || sign.state !== 'READY' || !ready || signRequestPending;
-  signPlayButton.textContent = signRequestPending ? '게임 여는 중…' : playable ? title + ' 시작' : '좀비 게임 준비 중';
+  signPlayButton.textContent = signRequestPending ? '게임 여는 중…' : playable ? title + ' 시작' : '정차 후 DEADZONE 입장';
   const owned = room.collection?.inventory?.[sign.reward?.id] > 0;
   $('journey-sign-reward').textContent = sign.reward
     ? (owned ? '크루 효과 적용 중 · ' : '보상 · ') + sign.reward.name + ' · ' + sign.reward.description : '';
   const status = sign.state === 'READY'
-    ? (!playable ? '이 게임은 준비 중이에요.' : ready ? '점수를 얻고 게임을 마치면 전용 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
+    ? (!playable ? '정차한 뒤 차량 화면에서 DEADZONE을 열어 주세요.' : ready ? '점수를 얻고 게임을 마치면 전용 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
     : sign.state === 'CLAIMED' ? '아이템 획득 완료 · 크루 가방에서 확인할 수 있어요.'
     : sign.state === 'MISSED' ? '지나친 표지판이에요.'
     : formatMeters(Math.max(0, sign.aheadM)) + ' 앞 · 가까워지면 게임이 열려요.';

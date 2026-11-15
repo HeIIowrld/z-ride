@@ -214,10 +214,9 @@ test('route sign flow: route from destination → sign near car → game challen
   const signIndex = route.signs.findIndex(s => s.playable), sign = route.signs[signIndex];
   assert.ok(sign && SIGN_GAMES.includes(sign.gameId), 'a playable sign exists');
   const comingSoon = route.signs.find(s => !s.playable);
-  if (comingSoon) {
-    assert.equal(comingSoon.gameId, 'zombie');
-    assert.equal((await call('/api/world/route-sign', { signId: comingSoon.signId, gameId: 'zombie' }, phone.token)).data.error.code, 'SIGN_GAME_NOT_READY');
-  }
+  assert.equal(comingSoon?.gameId, 'zombie', 'the map still shows the parked game');
+  assert.equal(comingSoon.reward, undefined);
+  assert.equal((await call('/api/world/route-sign', { signId: comingSoon.signId, gameId: 'zombie' }, phone.token)).data.error.code, 'SIGN_GAME_NOT_READY');
 
   const signPath = '/api/world/route-sign';
   const startBody = { signId: sign.signId, routeKey: route.key };

@@ -301,9 +301,9 @@ export function createDemoServer(options = {}) {
     const route = routePlanner.view(room.roomId, navigationSnapshot(room).position,
       room.collection.routeSignClaims ?? {}, viewer.memberId);
     if (!route) return null;
-    return { ...route, signs: route.signs.flatMap(sign => {
+    return { ...route, signs: route.signs.map(sign => {
       const reward = driveRewards.get(sign.gameId);
-      return reward ? [{ ...sign, reward: { id: reward.id, name: reward.name, description: reward.description } }] : [];
+      return reward ? { ...sign, reward: { id: reward.id, name: reward.name, description: reward.description } } : sign;
     }) };
   }
 
