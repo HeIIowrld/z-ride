@@ -7,7 +7,7 @@ import { startLootTracking } from '../../shared/loot-tracker.js';
 startLootTracking();
 import { getBest, saveRecord } from '../../shared/records.js';
 import { ensurePassenger } from '../../shared/passenger.js';
-import { sketchLine, hatchRect, drawRunner, drawPoleJumpHand, poleJumpHandGeometry } from '../../shared/sketch.js';
+import { sketchLine, hatchRect, drawRunner, drawFingerWalker, poleJumpHandGeometry } from '../../shared/sketch.js';
 import { HOP_MS, SCROLL_MULTIPLIER, STANDING_ZONE_RATIO, LANDING_TOLERANCE_RATIO, HAND_X_RATIO, FOOTHOLD_LENGTH, poleGeometry, wireCurves, landingOutcome, standingOutcome } from './logic.js';
 import { travelDir, frontEdgeX, rearEdgeX } from '../../shared/motion.js';
 import { createScenery } from '../../shared/scenery.js';
@@ -59,53 +59,46 @@ function updateHud() {
 }
 function beep(f = 660, d = .1) { if (muted) return; try { audio ||= new AudioContext(); const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = f; g.gain.setValueAtTime(.055, audio.currentTime); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + d); o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + d); } catch {} }
 function toast(text) { const el = $('toast'); el.textContent = text; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 850); }
+// ---- Model (single source of truth) ----------------------------------------
+// The hand rests at a fixed place on the window. Poles sweep past from the front
+// edge to the rear edge. The hand rides the pole it stands on for at most ZONE_M
+// metres; a tap makes it hop up in place and it comes down on the next pole when
+// that pole arrives under the resting place.
+const ZONE_M = 20, MAX_AIR_M = 26, PERFECT_RIDE_M = 11;
+let passed = [];
+function handBaseX() { return frontEdgeX(w, getSeat()) === 0 ? w * .34 : w * .66; }
+function rideM() { return poles.length ? worldM - poles[0].distance : 0; }
+function arrivalM() { return poles.length > 1 ? poles[1].distance - worldM : Infinity; }
+function fillPoles() { let guard = 0; while (poles.length < 7 && guard++ < 20) { const last = poles.at(-1); poles.push(makePole(last.index + 1, last.distance + nextGap())); } }
 function reset() {
   running = true; ended = false; endReason = null; score = cleared = perfects = combo = maxCombo = parts = feedDistance = worldM = speeding = stoppedAt = 0;
-  startAt = performance.now(); lane = 1; jump = null; seed = 7139; cameraX = playerX() - 12 - travelDir(getSeat()) * 26 * pxPerMeter(); playerScreenX = playerX(); landedAt = 0;
+  startAt = performance.now(); lane = 1; jump = null; seed = 7139; landedAt = 0; passed = [];
   let played = 0; try { played = Number(localStorage.getItem('zride.polejump.games') || 0); } catch {}
   tutorial = !devAutostart && played < 3; tutorialStep = 0; tutorialAttempts = 0;
   if (tutorial) { try { localStorage.setItem('zride.polejump.games', String(played + 1)); } catch {} }
   introRemaining = devAutostart ? 0 : INTRO_SECONDS;
-  poles = [makePole(1, 26), makePole(2, 64), makePole(3, 102), makePole(4, 140)];
+  poles = [makePole(1, 0)]; fillPoles();
   if (devPose) {
-    lane = ({ stand1: 0, stand2: 1, stand3: 2 })[devPose] ?? 1;
-    if (['stand1', 'stand2', 'stand3', 'hop', 'fall'].includes(devPose)) {
-      const direction = travelDir(getSeat());
-      const desiredPoleX = playerX() - 12;
-      cameraX = desiredPoleX - direction * 26 * pxPerMeter();
-      tutorial = false; introRemaining = 0;
-      if (devPose === 'hop') {
-        poles[0] = poles[1]; poles[1] = makePole(3, 102);
-        cameraX = playerX() - 12 - direction * 64 * pxPerMeter();
-        jump = { at: startAt - HOP_MS / 2, target: poles[0], obstacle: null, lane, d: IDEAL, gap: 38 };
-      }
-      if (devPose === 'fall') { jump = null; poles[0].distance = 26; cameraX = desiredPoleX - direction * 26 * pxPerMeter() + direction * 50; }
-    }
+    lane = ({ stand1: 0, stand2: 1, stand3: 2 })[devPose] ?? 1; tutorial = false; introRemaining = 0; worldM = 5;
+    if (devPose === 'hop') { const air0 = poles[1].distance - worldM; worldM += air0 * .5; jump = { air0, startRide: 5, lane, perfect: false }; }
   }
-  $('jump').disabled = true;
-  showJumpHint(tutorial ? '연습 1/3 · 화면의 점프 버튼을 눌러요' : '달리는 중 · 첫 전봇대가 다가와요');
+  $('jump').disabled = introRemaining > 0;
+  showJumpHint(tutorial ? '연습 1/3 · 다음 전봇대가 가까워지면 탭해요' : '다음 전봇대가 가까워지면 점프');
   $('start').classList.add('hidden'); $('result').classList.add('hidden'); $('pause').classList.add('hidden'); updateHud(); lastFrame = performance.now();
   if (devPose) { draw(performance.now()); setInterval(() => draw(performance.now()), 250); } else requestAnimationFrame(frame);
 }
 function pxPerMeter() { return w / 60; }
-function worldX(p) { return (p.distance - worldM) * pxPerMeter(); }
-function screenX(p) { return cameraX + travelDir(getSeat()) * worldX(p); }
-function playerX() { return frontEdgeX(w,getSeat())===w ? w*(1-HAND_X_RATIO) : w*HAND_X_RATIO; }
-function targetVisible() {
-  const x = screenX(poles[1]);
-  return x >= w * .08 && x <= w * .92;
-}
+function screenX(p) { return handBaseX() + travelDir(getSeat()) * (worldM - p.distance) * pxPerMeter(); }
+function playerX() { return handBaseX(); }
+function targetVisible() { return arrivalM() <= MAX_AIR_M; }
 function showJumpHint(text) {
   const hint = $('jump-hint');
   hint.hidden = !text;
   if (text !== hint.textContent) hint.textContent = text;
 }
-function updateCamera() {
-  playerScreenX = playerX();
-}
 window.__polejump = { getState() {
-  const edge = rearEdgeX(w,getSeat())===0 ? w*.15 : w*.85;
-  const nextPoleDistanceM = poles.length > 1 ? Math.abs(screenX(poles[1]) - screenX(poles[0])) / pxPerMeter() : null;
+  const edge = handBaseX() + travelDir(getSeat()) * ZONE_M * pxPerMeter();
+  const nextPoleDistanceM = poles.length > 1 ? arrivalM() : null;
   const nextPoleScreenX = poles.length > 1 ? screenX(poles[1]) : null;
   const nextPoleInWindow = nextPoleScreenX != null && targetVisible();
   const canJump = running && !introRemaining && !stoppedAt && !jump && performance.now() - landedAt >= 150 && nextPoleInWindow;
@@ -113,27 +106,24 @@ window.__polejump = { getState() {
   const geo = poles[0] ? poleGeometry(poles[0], screenX(poles[0]), h*.11, h*.57) : null;
   const peg = geo?.footholds[lane];
   const standPose = devPose?.startsWith('stand');
-  const onFoothold = !!(peg && !jump && (standPose || Math.abs(peg.x - handX) <= standingZone));
+  const onFoothold = !!(peg && !jump);
   const contactX = peg?.x ?? handX, contactY = peg?.y ?? null;
   const contacts = peg ? [{ x: peg.x - travelDir(getSeat()) * 4.5, y: peg.y }, { x: peg.x + travelDir(getSeat()) * 4.5, y: peg.y }] : [];
   const handGeometry = peg ? poleJumpHandGeometry(peg, { direction: travelDir(getSeat()) }) : null;
-  return { running, intro: introRemaining > 0, tutorial, tutorialStep, score, cleared, character, contacts, handX, standingZone, landingTolerance, onFoothold, contactX, contactY, pegX: peg?.x ?? null, pegY: peg?.y ?? null, wrist: handGeometry?.wrist ?? null, elbow: handGeometry?.elbow ?? null, forearm: handGeometry?.forearm ?? null, dangerEdgeX: edge,
+  return { running, rideM: rideM(), arrivalM: arrivalM(), poleCount: poles.length, jumping: !!jump, intro: introRemaining > 0, tutorial, tutorialStep, score, cleared, character, contacts, handX, standingZone, landingTolerance, onFoothold, contactX, contactY, pegX: peg?.x ?? null, pegY: peg?.y ?? null, wrist: handGeometry?.wrist ?? null, elbow: handGeometry?.elbow ?? null, forearm: handGeometry?.forearm ?? null, dangerEdgeX: edge,
     nextPoleDistanceM, nextPoleScreenX, nextPoleInWindow, canJump,
     reachM: poles.length > 1 ? (poles[1].distance - poles[0].distance > 70 ? REACH * 2.1 : cleared < 10 ? REACH * 1.3 : REACH) : REACH, endReason, sceneryOffsetM: scenery.distance };
 } };
 window.__layoutCheck=()=>findLayoutOverlaps(document.querySelector('.stage'),'.door-hud,#toast,#jump-hint');
 function doJump() {
-  if (!running || introRemaining || stoppedAt || jump || poles.length < 2 || performance.now() - landedAt < 150) return;
-  const gap = poles[1].distance - poles[0].distance;
-  const nextX = screenX(poles[1]);
-  if (!targetVisible()) {
-    if (tutorial) { tutorialAttempts++; toast('괜찮아요. 같은 전봇대에서 다시!'); showJumpHint(`연습 ${tutorialStep + 1}/3 · 다시 점프해요`); return; }
-    if (cleared === 0) return;
-    finish('fall'); return;
+  if (!running || introRemaining || stoppedAt || jump || poles.length < 2) return;
+  const air0 = arrivalM();
+  if (air0 > MAX_AIR_M) {
+    if (tutorial) { tutorialAttempts++; toast('조금만 더 기다렸다가 탭해요'); return; }
+    if (cleared === 0) { toast('다음 전봇대가 더 가까워지면!'); return; }
+    draw(performance.now()); finish('fall'); return;
   }
-  const d = Math.abs(nextX - playerX()) / pxPerMeter();
-  const target = poles[1], obstacle = target.obstacles.find(o => o.lane === lane);
-  jump = { at: performance.now(), target, obstacle: obstacle || null, lane, d, gap };
+  jump = { air0: Math.max(air0, .5), startRide: rideM(), lane, perfect: rideM() >= PERFECT_RIDE_M };
   beep(520, .08);
 }
 function formatTime(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
@@ -153,21 +143,25 @@ function finish(reason) {
 }
 function laneMove(d) { if (!running || stoppedAt || jump) return; lane = clamp(lane - d, 0, 2); updateHud(); }
 function completeJump() {
-  if (!jump) return;
-  if (jump.obstacle) { jump = null; if (tutorial) { toast('괜찮아요. 다시 도전해요!'); return; } draw(performance.now()); finish('obstacle'); return; }
+  if (!jump || poles.length < 2) return;
+  const target = poles[1], obstacle = target.obstacles.find(o => o.lane === lane), wasPerfect = jump.perfect;
+  passed.push(poles.shift()); if (passed.length > 6) passed.shift(); fillPoles();
+  worldM = poles[0].distance; jump = null; landedAt = performance.now();
+  if (obstacle) {
+    if (tutorial) { toast('장애물! 위아래로 발판을 옮겨요'); }
+    else { draw(performance.now()); finish('obstacle'); return; }
+  }
   if (tutorial) {
-    tutorialStep++; jump = null; landedAt = performance.now();
-    if (tutorialStep >= 3) { tutorial = false; score = cleared = perfects = combo = maxCombo = parts = feedDistance = 0; startAt = performance.now(); poles = [makePole(1, 26), makePole(2, 64), makePole(3, 102), makePole(4, 140)]; showJumpHint('시작! 이제 기록이 시작돼요'); toast('시작!'); }
-    else { poles[0] = poles[1]; poles[0].distance = worldM + 26; poles[1] = makePole(poles[0].index + 1, poles[0].distance + 38); poles[2] = makePole(poles[1].index + 1, poles[1].distance + 38); showJumpHint(`연습 ${tutorialStep + 1}/3 · 지금! 탭해서 점프`); }
-    return;
+    tutorialStep++;
+    if (tutorialStep >= 3) { tutorial = false; score = cleared = perfects = combo = maxCombo = parts = feedDistance = 0; startAt = performance.now(); showJumpHint('시작! 이제 기록이 시작돼요'); toast('시작!'); }
+    else showJumpHint(`연습 ${tutorialStep + 1}/3 · 다음 전봇대가 가까워지면 탭해요`);
+    updateHud(); return;
   }
   cleared++; score += 10; if (cleared === 30) addItem('gear-tires-a', 1, { from: 'pole-jump', milestone: 30 });
-  const isPerfect = Math.abs(jump.d - IDEAL) <= (cleared <= 10 ? PERFECT * 1.4 : PERFECT);
-  if (isPerfect) { combo++; perfects++; maxCombo = Math.max(maxCombo, combo); score += 5 * Math.min(combo, 5); toast('완벽 착지!'); beep(880, .12); }
+  if (wasPerfect) { combo++; perfects++; maxCombo = Math.max(maxCombo, combo); score += 5 * Math.min(combo, 5); toast('완벽 착지!'); beep(880, .12); }
   else { combo = 0; toast('착지 +10'); beep(620, .08); }
-  poles.shift(); const last = poles.at(-1); poles.push(makePole(last.index + 1, last.distance + nextGap()));
-  if (cleared && cleared % 10 === 0) { parts++; addItem('part', 1, { from: 'pole-jump' }); toast('+1 부품'); }
-  jump = null; landedAt = performance.now(); playerScreenX = screenX(poles[0]); updateHud();
+  if (cleared % 10 === 0) { parts++; addItem('part', 1, { from: 'pole-jump' }); toast('+1 부품'); }
+  updateHud();
 }
 let frameErrorLogged = false;
 function frame(now) {
@@ -186,30 +180,24 @@ function frameStep(now) {
   if (!stoppedAt) {
     const speedFactor = tutorial ? .6 : cleared < 5 ? .8 + .2 * (cleared / 5) : cleared >= 30 ? 1.15 : 1;
     if (introRemaining > 0) {
-      introRemaining = Math.max(0, introRemaining - dt);
-      worldM = 0;
-      playerScreenX = cameraX;
-      if (!introRemaining) {
-        landedAt = now;
-        $('jump').disabled = false;
-      }
+      introRemaining = Math.max(0, introRemaining - dt); worldM = 0;
+      if (!introRemaining) { landedAt = now; $('jump').disabled = false; }
     } else {
       const scrollSpeed = cleared === 0 ? Math.min(speed, FIRST_JUMP_SPEED) : speed;
       worldM += scrollSpeed / 3.6 * GAME_SPEED * speedFactor * dt;
-      updateCamera();
+      fillPoles();
+      if (jump) { if (arrivalM() <= 0) completeJump(); }
+      else {
+        const ride = rideM();
+        if (ride > ZONE_M * .7 && now - warningBeepAt > 420) { warningBeepAt = now; beep(980, .07); }
+        if (ride > ZONE_M) {
+          if (tutorial) { worldM = poles[0].distance + 4; toast('괜찮아요. 다시 해봐요!'); }
+          else { draw(now); finish('pushed_out'); return; }
+        }
+        showJumpHint(tutorial ? `연습 ${tutorialStep + 1}/3 · ${targetVisible() ? '지금! 탭해서 점프' : '다음 전봇대를 기다려요'}` : cleared < 3 ? (targetVisible() ? '지금 점프' : '다음 전봇대를 기다려요') : '');
+        if (demoMode && arrivalM() <= MAX_AIR_M - 4 && ride >= 4) doJump();
+      }
     }
-    if (!introRemaining) {
-      showJumpHint(cleared === 0 && !jump
-        ? targetVisible() ? '지금 점프' : '다음 전봇대가 보이면 점프' : '');
-    }
-    const edge = rearEdgeX(w,getSeat())===0 ? w*.15 : w*.85;
-    const endangered = travelDir(getSeat())*(playerX()-edge)>0;
-    const outEdge = rearEdgeX(w,getSeat())===0 ? w*.03 : w*.97;
-    const pushedOut = travelDir(getSeat())*(playerX()-outEdge)>0;
-    if (!introRemaining && endangered && now - warningBeepAt > 420) { warningBeepAt = now; beep(980, .07); }
-    if (!tutorial && !introRemaining && pushedOut && !jump) { draw(now); finish('pushed_out'); return; }
-    if (jump && now - jump.at >= HOP_MS) completeJump();
-    if (demoMode && !jump && !introRemaining && !stoppedAt && poles.length > 1 && now - landedAt > 150) { const tx=screenX(poles[1]), ix=playerX()+travelDir(getSeat())*IDEAL*pxPerMeter(); if(Math.abs(tx-ix)<w*.19) doJump(); }
   }
   updateHud(); draw(now); requestAnimationFrame(frame);
 }
@@ -238,20 +226,25 @@ function drawObstacle(x,y,type,index) {
 function draw(now) {
   const direction=travelDir(getSeat()), glassBottom=h*.60, top=h*.11, base=h*.57;
   scenery.draw(ctx,0,h*.07,w,glassBottom-h*.07,{sharp:true});
-  const dangerW=w*.15,dangerX=rearEdgeX(w,getSeat())===0?0:w-dangerW;ctx.save();traceWindow(ctx,w,h,{glassBottom,seat:getSeat()});ctx.clip('evenodd');
-  ctx.fillStyle='rgba(30,30,30,.08)';ctx.fillRect(dangerX,top,dangerW,base-top);hatchRect(ctx,dangerX,top,dangerW,base-top,9,'#8195ad');sketchLine(ctx,dangerX===0?dangerW:w-dangerW,top,dangerX===0?dangerW:w-dangerW,base,{seed:77,width:2.2});
-  const geometries = poles.map(p => poleGeometry(p, screenX(p), top, base));
-  for(let i=0;i<poles.length-1;i++){const a=poles[i],b=poles[i+1];if(a.tree||b.tree)continue;for(const wire of wireCurves(geometries[i],geometries[i+1],10+((a.index*13)%10))){ctx.beginPath();ctx.moveTo(wire.from.x,wire.from.y);ctx.quadraticCurveTo(wire.control.x,wire.control.y,wire.to.x,wire.to.y);ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#d8e8f3';ctx.lineWidth=1.4;ctx.stroke();}}
-  poles.forEach(p=>{const x=screenX(p);if(x< -60||x>w+60)return;const pTop=base-(base-top)*.8*p.height,pBase=base+p.ground*.25;if(p.tree)drawTree(x,pBase,pTop,p);else drawPole(x,pTop,pBase,p);for(const obstacle of p.obstacles)drawObstacle(x,yLevel(obstacle.lane,pTop,pBase),obstacle.type,p.index);});
-  const geo=poles[0]?poleGeometry(poles[0],screenX(poles[0]),top,base):null, foot=geo?.footholds[lane];
-  const hopT=jump?clamp((now-jump.at)/HOP_MS,0,1):0, hopAmount=jump?Math.sin(hopT*Math.PI):0;
-  const nx=foot&&!jump&&!devPose?.startsWith('fall')?foot.x:playerX();
-  const feetY=foot?foot.y:yLevel(lane,top,base), pose=devPose==='fall'?'fall':jump?'hop':now-landedAt<180&&landedAt?'land':targetVisible()&&Math.abs(screenX(poles[1])-playerX())<w*.18?'crouch':'stand';
-  if(new URLSearchParams(location.search).get('hitbox')==='1'){ctx.strokeStyle='#ffb35c';ctx.strokeRect(playerX()-w*LANDING_TOLERANCE_RATIO,top,w*LANDING_TOLERANCE_RATIO*2,base-top);ctx.strokeStyle='#ff5757';ctx.strokeRect(playerX()-w*STANDING_ZONE_RATIO,top,w*STANDING_ZONE_RATIO*2,base-top);for(const p of poles){const g=poleGeometry(p,screenX(p),top,base);g.footholds.forEach(f=>{ctx.beginPath();ctx.moveTo(f.x-FOOTHOLD_LENGTH/2,f.y);ctx.lineTo(f.x+FOOTHOLD_LENGTH/2,f.y);ctx.stroke();});}}
-  const characterPose = devPose === 'hop' ? 'hop' : devPose === 'fall' ? 'fall' : pose;
-  if (character === 'runner') drawRunner(ctx,nx,feetY,{night:scenery.timeOfDay==='night',dusk:scenery.timeOfDay==='dusk',pose:characterPose,step:devPose?1:now/120,bob:pose==='stand'?Math.sin(now/150)*1.2:0,direction});
-  else if (foot) drawPoleJumpHand(ctx, foot, { night: scenery.timeOfDay==='night', dusk: scenery.timeOfDay==='dusk', pose: characterPose, step: devPose ? 1 : now / 400, bob: pose === 'stand' ? Math.sin(now / 150) : 0, direction, glassBottom });
-  else drawPoleJumpHand(ctx, { x: nx, y: feetY }, { night: scenery.timeOfDay==='night', dusk:scenery.timeOfDay==='dusk', pose: characterPose, direction, glassBottom });
+  const zoneEdge=handBaseX()+direction*ZONE_M*pxPerMeter(),dangerX=direction>0?zoneEdge:0,dangerW=direction>0?w-zoneEdge:zoneEdge;ctx.save();traceWindow(ctx,w,h,{glassBottom,seat:getSeat()});ctx.clip('evenodd');
+  ctx.fillStyle='rgba(30,30,30,.08)';ctx.fillRect(dangerX,top,dangerW,base-top);hatchRect(ctx,dangerX,top,dangerW,base-top,9,'#8195ad');sketchLine(ctx,zoneEdge,top,zoneEdge,base,{seed:77,width:2.2});
+  const allPoles = [...passed, ...poles]; const geometries = allPoles.map(p => poleGeometry(p, screenX(p), top, base));
+  for(let i=0;i<allPoles.length-1;i++){const a=allPoles[i],b=allPoles[i+1];if(a.tree||b.tree)continue;for(const wire of wireCurves(geometries[i],geometries[i+1],10+((a.index*13)%10))){ctx.beginPath();ctx.moveTo(wire.from.x,wire.from.y);ctx.quadraticCurveTo(wire.control.x,wire.control.y,wire.to.x,wire.to.y);ctx.strokeStyle=scenery.timeOfDay==='night'?'#ffc77e':'#d8e8f3';ctx.lineWidth=1.4;ctx.stroke();}}
+  allPoles.forEach(p=>{const x=screenX(p);if(x< -60||x>w+60)return;const pTop=base-(base-top)*.8*p.height,pBase=base+p.ground*.25;if(p.tree)drawTree(x,pBase,pTop,p);else drawPole(x,pTop,pBase,p);for(const obstacle of p.obstacles)drawObstacle(x,yLevel(obstacle.lane,pTop,pBase),obstacle.type,p.index);});
+  const standFoot = poles[0] ? poleGeometry(poles[0], screenX(poles[0]), top, base).footholds[lane] : { x: handBaseX(), y: yLevel(lane, top, base) };
+  let foot = standFoot, pose = 'stand';
+  if (jump && poles[1]) {
+    const t = clamp(1 - arrivalM() / jump.air0, 0, 1), target = poleGeometry(poles[1], handBaseX(), top, base).footholds[lane];
+    const fromX = handBaseX() + direction * jump.startRide * pxPerMeter() + (standFoot.x - screenX(poles[0])), hopH = 34 + 34 * Math.min(1, jump.air0 / MAX_AIR_M);
+    foot = { x: fromX + (target.x - fromX) * (t * t * (3 - 2 * t)), y: standFoot.y + (target.y - standFoot.y) * t - Math.sin(t * Math.PI) * hopH };
+    pose = t < .12 ? 'crouch' : 'hop';
+  } else if (landedAt && now - landedAt < 160) pose = 'land';
+  else if (arrivalM() <= 9) pose = 'crouch';
+  if (devPose === 'fall') { pose = 'fall'; foot = { x: standFoot.x + direction * 26, y: standFoot.y + 46 }; }
+  if (new URLSearchParams(location.search).get('hitbox') === '1') { ctx.strokeStyle = '#ff5757'; ctx.strokeRect(Math.min(handBaseX(), zoneEdge), top, Math.abs(zoneEdge - handBaseX()), base - top); ctx.strokeStyle = '#ffb35c'; ctx.beginPath(); ctx.moveTo(handBaseX(), top); ctx.lineTo(handBaseX(), base); ctx.stroke(); }
+  const night = scenery.timeOfDay === 'night', dusk = scenery.timeOfDay === 'dusk';
+  if (character === 'runner') drawRunner(ctx, foot.x, foot.y, { night, dusk, pose, step: devPose ? 1 : now / 120, bob: pose === 'stand' ? Math.sin(now / 150) * 1.2 : 0, direction });
+  else drawFingerWalker(ctx, foot, { night, dusk, pose, step: devPose ? .25 : now / 260, direction });
   ctx.restore();
   drawWindowFrame(ctx,w,h,{glassBottom});if(speeding){ctx.fillStyle='#101725';ctx.fillRect(0,0,w,32);ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('과속 — 정지',w/2,21);ctx.strokeStyle='#ffc77e';ctx.lineWidth=5;ctx.strokeRect(3,3,w-6,h-6);}drawLowerHud();
 }

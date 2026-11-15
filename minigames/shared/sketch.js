@@ -71,3 +71,36 @@ export function drawPoleJumpHand(ctx, peg, { night = false, dusk = false, pose =
   ctx.restore();
   return g;
 }
+
+// Upside-down "V sign": a small fist with the index and middle fingers pointing
+// down as two legs. No arm. `foot` is the point on the peg under the fingers.
+export function drawFingerWalker(ctx, foot, { night = false, dusk = false, pose = 'stand', step = 0, direction = 1 } = {}) {
+  const fill = night ? '#3b4558' : dusk ? '#f0d3b6' : '#f6e3cb', ink = night ? '#ffe2b0' : '#27313b';
+  const swing = pose === 'stand' ? Math.sin(step * Math.PI * 2) : 0;
+  const legLen = pose === 'hop' ? 19 : pose === 'land' ? 22 : pose === 'crouch' ? 26 : 31;
+  const spread = pose === 'hop' ? 13 : pose === 'land' ? 12 : pose === 'crouch' ? 11 : pose === 'fall' ? 14 : 9;
+  const tilt = pose === 'fall' ? direction * .5 : pose === 'hop' ? -direction * .08 : 0;
+  const hipY = -legLen;
+  ctx.save(); ctx.translate(foot.x, foot.y); ctx.rotate(tilt); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (night) { ctx.shadowColor = '#ffc985'; ctx.shadowBlur = 8; }
+  const legs = [-1, 1].map(side => {
+    const lift = pose === 'stand' ? Math.max(0, swing * side) * 4 : pose === 'hop' ? 6 : 0;
+    const fx = side * spread + (pose === 'stand' ? swing * side * 2 : 0), fy = -lift;
+    const hx = side * 3.5, kx = (hx + fx) / 2 + side * (pose === 'hop' || pose === 'land' ? 4 : 1), ky = (hipY + fy) / 2;
+    return { hx, kx, ky, fx, fy };
+  });
+  for (const pass of [{ color: ink, width: 8 }, { color: fill, width: 4.6 }]) {
+    ctx.strokeStyle = pass.color; ctx.lineWidth = pass.width;
+    for (const l of legs) { ctx.beginPath(); ctx.moveTo(l.hx, hipY + 2); ctx.quadraticCurveTo(l.kx, l.ky, l.fx, l.fy - 3); ctx.stroke(); }
+  }
+  ctx.shadowBlur = 0; ctx.strokeStyle = ink; ctx.lineWidth = 1.2;
+  for (const l of legs) { ctx.beginPath(); ctx.arc(l.kx * .92 + l.hx * .08, l.ky, 1.6, 0, Math.PI * 2); ctx.stroke(); }
+  // Fist: curled ring and little fingers plus the thumb tucked across them.
+  ctx.fillStyle = fill; ctx.strokeStyle = ink; ctx.lineWidth = 2;
+  if (night) { ctx.shadowColor = '#ffc985'; ctx.shadowBlur = 8; }
+  ctx.beginPath(); ctx.roundRect(-10, hipY - 13, 20, 15, 7); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  for (const kx of [-6, -2, 2, 6]) { ctx.beginPath(); ctx.arc(kx, hipY - 12, 2.6, Math.PI, 0); ctx.fill(); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(-direction * 9, hipY - 5); ctx.quadraticCurveTo(-direction * 2, hipY - 1, direction * 4, hipY - 4); ctx.stroke();
+  ctx.restore();
+}
