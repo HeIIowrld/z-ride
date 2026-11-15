@@ -15,7 +15,11 @@ const errors = {
   INVALID_PARAMETERS: '각 지점을 위도, 경도 순서로 입력하세요.',
   INVALID_ROUTE_LENGTH: '경로는 총 1m 이상, 한 구간은 약 19km 이하여야 합니다.',
   ROUTE_FINISHED: '재생 위치를 앞으로 옮기거나 경로를 다시 적용해 주세요.',
-  EMULATOR_UNAVAILABLE: 'Pleos 앱에서 여정을 시작했는지 확인해 주세요.',
+  VEHICLE_ROOM_NOT_CONNECTED: 'Pleos에서 PLY 앱을 열고 크루 파티에 연결한 뒤 경로를 적용해 주세요.',
+  VEHICLE_ROUTE_BRIDGE_TIMEOUT: '차량 앱이 경로를 받았다는 응답을 보내지 않았습니다. 파티 연결을 확인해 주세요.',
+  ROUTE_SUBMIT_FAILED: '차량 앱에서 경로를 서버에 적용하지 못했습니다.',
+  EMULATOR_OR_ROUTE_UNAVAILABLE: '차량 실행 상태와 크루 파티 연결을 확인해 주세요.',
+  EMULATOR_UNAVAILABLE: 'Pleos 에뮬레이터 연결을 확인해 주세요.',
   EMULATOR_LOCATION_REJECTED: '에뮬레이터에서 시험 위치를 받지 못했습니다.',
   REQUEST_FAILED: '요청에 실패했습니다. 차량 상태를 확인해 주세요.'
 };

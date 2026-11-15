@@ -14,10 +14,16 @@ async function connect() {
   if ((!id && !phone) || rfb || connecting) return;
   connecting = true;
   try {
-    if (!phone) {
-      const response = await fetch('/vehicles/status.json', { cache: 'no-store' });
-      if (!response.ok) throw Error();
-      const { vehicles } = await response.json();
+    const response = await fetch('/vehicles/status.json', { cache: 'no-store' });
+    if (!response.ok) throw Error();
+    const { vehicles, phoneState } = await response.json();
+    if (phone) {
+      if (phoneState !== 'RUNNING') {
+        status.textContent = phoneState === 'BOOTING' ? 'Android 동승자 부팅 중…'
+          : '공유 Android 화면이 중지되어 있습니다. 차량 QR을 휴대폰으로 스캔해 참가할 수 있습니다.';
+        return;
+      }
+    } else {
       document.getElementById('vehicle-list').hidden = vehicles.length <= 1;
       const vehicle = vehicles.find(candidate => candidate.id === id);
       if (!vehicle || vehicle.state === 'STOPPED') {

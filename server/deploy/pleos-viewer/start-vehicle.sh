@@ -26,6 +26,11 @@ websockify --heartbeat=30 "$((6080+i))" "127.0.0.1:$((5900+i))" >"/home/emulator
 "$emulator_bin" -avd "Pleos_$i" -port "$((5552+i*2))" -memory "$ram_mb" -cores 2 -gpu "$gpu_mode" -feature -Vulkan -no-snapshot -no-boot-anim -noaudio -no-metrics -crash-report-mode never -camera-back none -camera-front none >"/home/emulator/logs/emulator-$i.log" 2>&1 &
 emu=$!
 # Official Virtual Console. ADB remains private; the fixed vehicle proxy uses this port.
-(for attempt in $(seq 1 180);do /opt/android-sdk/platform-tools/adb -s "emulator-$((5552+i*2))" forward "tcp:$((8080+i))" tcp:8088 >/dev/null 2>&1 && break;sleep 1;done) &
+while kill -0 "$emu" 2>/dev/null; do
+    # The forward belongs to the current ADB transport and disappears on reconnect.
+    "$ANDROID_SDK_ROOT/platform-tools/adb" -s "emulator-$((5552+i*2))" \
+        forward "tcp:$((8080+i))" tcp:8088 >/dev/null 2>&1 || true
+    sleep 5
+done &
 wait "$emu"
 

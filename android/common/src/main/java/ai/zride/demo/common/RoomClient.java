@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import okhttp3.*;
 
 /** Demo-only server client. Tokens remain in memory and never enter URLs/logs. */
@@ -21,6 +22,7 @@ public final class RoomClient {
         .connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS)
         .pingInterval(10, TimeUnit.SECONDS).build();
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean destroyed = new AtomicBoolean();
     private volatile Listener listener;
     private final java.util.concurrent.atomic.AtomicLong vehicleSequence=new java.util.concurrent.atomic.AtomicLong();
     public long nextVehicleReportSequence(){return vehicleSequence.incrementAndGet();}
@@ -146,5 +148,15 @@ public final class RoomClient {
         authenticatedGeneration=-1;
         if (socket != null) { socket.close(1000, "Activity finished"); socket = null; }
     }
-    public void destroy() { close(); io.shutdownNow(); http.dispatcher().executorService().shutdown(); http.connectionPool().evictAll(); }
+    public void destroy() {
+        if (!destroyed.compareAndSet(false, true)) return;
+        close();
+        io.shutdownNow();
+        // TLS socket teardown can write to the network. Activity and Service destruction run on the main thread.
+        new Thread(() -> {
+            http.dispatcher().cancelAll();
+            http.connectionPool().evictAll();
+            http.dispatcher().executorService().shutdown();
+        }, "PLY HTTP cleanup").start();
+    }
 }

@@ -49,6 +49,13 @@ def command(args,timeout=2):
         return r.stdout.strip() if r.returncode==0 else ''
     except (OSError,subprocess.TimeoutExpired):return ''
 
+def phone_state():
+    if command(['systemctl', 'is-active', 'ply-phone.service']) != 'active':
+        return 'STOPPED'
+    boot = command([ADB, '-s', 'emulator-5560', 'shell', 'getprop', 'sys.boot_completed'])
+    return 'RUNNING' if boot == '1' else 'BOOTING'
+
+
 def catalog():
     with lock:
         if time.monotonic()-cache['at']<3 and cache['value'] is not None:return cache['value']
@@ -71,7 +78,7 @@ def catalog():
                         v=room.get('vehicle',{});row['gear']=v.get('gear','UNKNOWN');row['ux']=v.get('ux','UNKNOWN')
                 except (ValueError,TypeError):pass
             vehicles.append(row)
-        value={'vehicles':vehicles,'updatedAt':int(time.time()*1000),'note':'실제 Pleos 화면 웹 조작 가능. 중지된 차량은 화면을 만들지 않음.'}
+        value={'vehicles':vehicles,'phoneState':phone_state(),'updatedAt':int(time.time()*1000),'note':'실제 Pleos 화면 웹 조작 가능. 중지된 차량은 화면을 만들지 않음.'}
         cache.update(at=time.monotonic(),value=value)
         return value
 
@@ -123,7 +130,7 @@ class Handler(BaseHTTPRequestHandler):
             else:value=simulator.act(int(match[2]),body)
             self.send_body(json.dumps(value,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         except (ValueError,TypeError) as e:
-            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED','INVITE_NOT_VISIBLE'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
+            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED','INVITE_NOT_VISIBLE','VEHICLE_ROOM_NOT_CONNECTED','NAVIGATION_SDK_NOT_CONNECTED','DEMO_JOURNEY_ACTIVE'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
         except EmulatorLocationError as e:
             self.send_body(json.dumps({'error':str(e)}).encode(),'application/json',503)
         except Exception:

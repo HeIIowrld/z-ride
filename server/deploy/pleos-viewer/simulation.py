@@ -54,6 +54,12 @@ class Simulator:
         user=self.adb(i,'shell','am','get-current-user')
         if not user.isdigit():raise RuntimeError('ANDROID_USER_UNAVAILABLE')
         return self.adb(i,'shell','run-as',APP,'--user',user,*args,input_data=input_data)
+    def fresh_snapshot(self, i, file, max_age=10):
+        stamp = self.private(i, 'stat', '-c', '%Y', 'files/' + file)
+        if not stamp.isdigit() or not 0 <= time.time() - int(stamp) < max_age:
+            raise ValueError('STALE_VEHICLE_SNAPSHOT')
+        return json.loads(self.private(i, 'cat', 'files/' + file))
+
     def console(self,i,path,method='GET'):
         self.adb(i,'forward',f'tcp:{8080+i}','tcp:8088')
         # The official simulator requires a live browser-session lease for writes.
@@ -95,11 +101,11 @@ class Simulator:
         # A read during truncation is transient, not an invalid browser command.
         for attempt in range(5):
             try:
-                room=json.loads(self.private(i,'cat','files/room-state.json'))
+                room=self.fresh_snapshot(i,'room-state.json')
                 if not isinstance(room,dict) or not room.get('roomId'):raise ValueError()
                 break
-            except ValueError:
-                if attempt==4:raise RuntimeError('VEHICLE_SNAPSHOT_UNAVAILABLE')
+            except (RuntimeError, ValueError):
+                if attempt==4:raise ValueError('VEHICLE_ROOM_NOT_CONNECTED') from None
                 time.sleep(.05)
         command=str(uuid.uuid4())
         body={'commandId':command,'roomId':room['roomId'],'source':source,'geometry':geometry}
@@ -201,7 +207,9 @@ class Simulator:
                 if arrived:
                     self.motion(i,0,'Park');self.geo(i,point,0);s.update(state='ARRIVED',speedKph=0,travelled=s['distanceM']);s['revision']+=1
             except Exception as exc:
-                error=str(exc) if isinstance(exc,EmulatorLocationError) else 'EMULATOR_OR_ROUTE_UNAVAILABLE'
+                error = str(exc)
+                if error not in ('EMULATOR_LOCATION_REJECTED', 'ROUTE_SUBMIT_FAILED', 'VEHICLE_ROUTE_BRIDGE_TIMEOUT'):
+                    error = 'EMULATOR_OR_ROUTE_UNAVAILABLE'
                 s.update(state='ERROR',speedKph=0,error=error);s['revision']+=1
                 try:self.motion(i,0,'Park')
                 except Exception:pass

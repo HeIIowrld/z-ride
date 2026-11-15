@@ -30,6 +30,18 @@ class ViewerTests(unittest.TestCase):
             if 'cat'in args:return json.dumps({'roomId':'12345678-1234-1234-1234-123456789012'})
             return str(int(time.time())-60)
         with patch.object(viewer,'command',side_effect=command):self.assertFalse(viewer.catalog()['vehicles'][0]['roomConnected'])
+    def test_stopped_phone_is_reported_before_attempting_adb(self):
+        with patch.object(viewer, 'command', return_value='inactive') as command:
+            self.assertEqual(viewer.phone_state(), 'STOPPED')
+            command.assert_called_once_with(['systemctl', 'is-active', 'ply-phone.service'])
+
+    def test_native_navigation_does_not_accept_stale_sdk_status(self):
+        sdk = viewer.native_navigation
+        with patch.object(sdk.simulator, 'fresh_snapshot', side_effect=ValueError('STALE_VEHICLE_SNAPSHOT')):
+            self.assertFalse(sdk.status(1)['sdkConnected'])
+            with self.assertRaisesRegex(ValueError, 'NAVIGATION_SDK_NOT_CONNECTED'):
+                sdk.execute(1, {'action': 'destinationA'})
+
     def test_public_http_exposes_no_control_or_arbitrary_file_endpoint(self):
         server=viewer.ThreadingHTTPServer(('127.0.0.1',0),viewer.Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();base='http://127.0.0.1:'+str(server.server_port)
         try:

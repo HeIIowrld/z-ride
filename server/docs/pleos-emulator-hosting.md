@@ -79,3 +79,11 @@ Environment=PLEOS_GPU_MODE=host
 Environment=ANDROID_EMULATOR_FEATURES=-HardwareDecoder,GLESDynamicVersion
 Environment=LP_NUM_THREADS=4
 ```
+
+## 공개 시연 환경의 복구 절차
+
+공개 차량 페이지는 `PLEOS_VIEWER_VEHICLES=1`로 실행하며 현재 여정 상태를 공유한다. 새 브라우저 탭을 열어도 같은 여정을 본다. 여정에 동승자는 차량 QR로 참가한다. 경로 적용은 10초 이내의 PLY 차량 파티 상태를 요구하고 순정 내비 SDK 상태에도 같은 최신성 확인을 적용한다.
+
+1번 시연 AVD의 `DrivingView`는 GLES 3.2 컨텍스트를 만들지 못한 뒤 `libUnreal.so`에서 반복 종료됐다. SwiftShader Vulkan 설정과 Radeon Vulkan 설정에서도 재현됐다. 이 AVD의 Android 사용자 10에서 `adb -s emulator-5554 shell pm disable-user --user 10 ai.umos.drivingview`로 시연용 3D 패널을 껐다. 순정 지도와 PLY 앱은 별도 화면으로 실행된다. 3D 패널이 차지하던 영역은 비어 있다. 그래픽 구성을 다시 검증한 뒤 `adb -s emulator-5554 shell pm enable --user 10 ai.umos.drivingview`로 되돌릴 수 있다.
+
+가상 콘솔의 루프백 ADB 포트는 에뮬레이터가 실행되는 동안 갱신한다. ADB 전송 세션이 교체돼 포트가 사라져도 다시 연결된다. `status.json`의 `phoneState`는 공유 Android 화면의 부팅 및 실행 여부를 표시한다. 공유 Android는 `ply-phone.service`로 관리하며 개인 휴대폰은 차량 QR로 바로 참가할 수 있다.

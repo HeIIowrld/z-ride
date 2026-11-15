@@ -1,4 +1,4 @@
-import json,unittest
+import json,time,unittest
 from unittest.mock import patch
 from simulation import EmulatorLocationError,Simulator,START,at_distance
 
@@ -7,6 +7,7 @@ class SimulationTests(unittest.TestCase):
         self.sim=Simulator();self.commands=[];self.receipts={}
         def private(i,*args,input_data=None):
             self.commands.append((i,args))
+            if args[:3]==('stat','-c','%Y'):return str(int(time.time()))
             if args==('cat','files/room-state.json'):return json.dumps({'roomId':'test-room'})
             if args==('tee','files/demo-route.tmp'):
                 body=json.loads(input_data);self.receipts[i]={'commandId':body['commandId'],'route':{'routeRevision':len(self.commands)},'error':None};return ''
@@ -50,6 +51,13 @@ class SimulationTests(unittest.TestCase):
             return original(i,*args,**kwargs)
         self.sim.private=partial
         result=self.act('destination');self.assertEqual(reads,2);self.assertEqual(result['routeStatus'],'PENDING')
+
+    def test_disconnected_car_does_not_write_a_route_command(self):
+        with patch.object(self.sim, 'private', return_value='1') as private:
+            with self.assertRaisesRegex(ValueError, 'VEHICLE_ROOM_NOT_CONNECTED'):
+                self.act('destination')
+        self.assertTrue(all(call.args[1] == 'stat' for call in private.call_args_list))
+        self.assertEqual(self.sim.snapshot(1)['state'], 'IDLE')
 
     def test_custom_route_can_seek_and_change_rate_without_resetting_position(self):
         end={'latitude':37.529,'longitude':126.919}
