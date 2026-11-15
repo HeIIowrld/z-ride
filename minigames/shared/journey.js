@@ -10,14 +10,18 @@ if (inJourney) {
         || !Number.isFinite(value.speedKmh)) return;
     latest = value;
   });
-  window.parent.postMessage({ type: 'zride:drive-ready' }, location.origin);
   document.querySelectorAll('a[href="../../index.html"]').forEach(link => {
-    link.textContent = link.closest('header') ? '‹ 여정으로' : '여정으로 돌아가기';
+    if (link.closest('header')) link.hidden = true;
+    else link.textContent = '여정으로 돌아가기';
     link.addEventListener('click', event => {
       event.preventDefault();
       returnToJourney();
     });
   });
+}
+
+export function notifyJourneyReady() {
+  if (inJourney) window.parent.postMessage({ type: 'zride:drive-ready' }, location.origin);
 }
 
 export function returnToJourney() {

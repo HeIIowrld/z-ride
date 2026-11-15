@@ -57,3 +57,19 @@ export function notifyLoot(item) {
   clearTimeout(lootToastTimer);
   lootToastTimer = setTimeout(() => node.classList.remove('show'), 2600);
 }
+
+export async function presentMinigameReward(container, gameId, result) {
+  container.textContent = '보상 확인 중…';
+  container.dataset.state = 'pending';
+  container.hidden = false;
+  let reward;
+  try { reward = await awardMinigame(gameId, result); }
+  catch { reward = { error: 'SIGN_RESPONSE_TIMEOUT' }; }
+  const names = (reward.items ?? []).map(item => item.name);
+  container.dataset.state = names.length ? 'earned' : 'complete';
+  container.textContent = names.length ? `획득 · ${names.join(' · ')}`
+    : reward.error === 'SIGN_GOAL_NOT_MET' ? '1점 이상 획득하면 전용 보상을 받을 수 있어요.'
+    : reward.error ? '보상을 확인하지 못했어요. 지도에서 크루 가방을 확인하세요.'
+    : '이번 플레이에서 획득한 아이템이 없어요.';
+  return reward;
+}

@@ -1,10 +1,10 @@
-import { inJourney, inRouteSign, crewHasItem, returnToJourney } from '../../shared/journey.js';
+import { inJourney, inRouteSign, crewHasItem, returnToJourney, notifyJourneyReady } from '../../shared/journey.js';
 import { createQuizEngine } from '../../shared/quiz-engine.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { ensurePassenger } from '../../shared/passenger.js';
 import { addItem, ITEMS } from '../../shared/inventory.js';
 import { itemBadge, itemScope, scopeLabel } from '../../shared/item-icons.js';
-import { awardMinigame } from '../../shared/loot-client.js';
+import { presentMinigameReward } from '../../shared/loot-client.js';
 import { startLootTracking } from '../../shared/loot-tracker.js';
 startLootTracking();
 import { saveRecord, getRecords } from '../../shared/records.js';
@@ -154,11 +154,10 @@ function endDrive() {
       maxCombo: summary.maxCombo, avgResponseMs: summary.avgResponseMs, wrongIds: summary.wrongIds, items: { ...items } },
     endReason: 'drive_end' });
   setPhase('report');
-  awardMinigame('license-quiz', { score, correctByType: summary.byType }).then(out => {
-    const line = document.createElement('p');
-    line.textContent = `추가 획득 아이템: ${(out.items || []).map(item => item.name).join(', ') || '없음'}`;
-    report.append(line);
-  });
+  const close = $('#report-close');
+  close.disabled = true;
+  void presentMinigameReward($('#run-reward'), 'license-quiz', { score, correctByType: summary.byType })
+    .then(() => { close.disabled = false; });
 }
 function showReview(){reviewList=readWrong().map(id=>bank.find(q=>q.id===id)).filter(Boolean);reviewIndex=0;if(!reviewList.length)return;setPhase('review');renderReview();}
 function renderReview(){const q=reviewList[reviewIndex];if(!q){setPhase('waiting');updateHud();return;}$('#review-question').textContent=q.question;$('#review-choices').replaceChildren(...q.choices.map((text,index)=>{const button=document.createElement('button');button.textContent=text;button.onclick=()=>{if(index===q.answer){score+=5;const ids=readWrong().filter(id=>id!==q.id);writeWrong(ids);reviewList=reviewList.filter(item=>item.id!==q.id);$('#review-question').textContent='정답입니다. 복습 보너스 +5점';}else $('#review-question').textContent=`다시 생각해 보세요. ${q.explanation}`;setTimeout(()=>{reviewIndex++;renderReview();updateHud();},900);};return button;}));}
@@ -183,3 +182,5 @@ if (inJourney) {
 window.__licenseQuiz={getState:state,trigger:(type,detail)=>trigger(type,detail)};
 if(new Date().getHours()>=19||new Date().getHours()<6){window.__nightSent=true;trigger('night',{},false);}if(!devAutostart)await ensurePassenger();updateHud();if(devAutostart)trigger('practice',{},true);
 $('#choices').addEventListener('click',event=>{const button=event.target.closest('button');if(!button||!current)return;button.classList.add('choice-pressed');$('#choices').querySelectorAll('button').forEach(choice=>{const choiceIndex=current.choices.indexOf(choice.textContent);if(choiceIndex===current.answer)choice.classList.add('choice-correct');else if(choice===button)choice.classList.add('choice-wrong');choice.disabled=true;});},{capture:true});
+
+notifyJourneyReady();

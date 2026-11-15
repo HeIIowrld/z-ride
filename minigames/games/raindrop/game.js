@@ -1,8 +1,8 @@
-import { inJourney, inRouteSign, crewHasItem } from '../../shared/journey.js';
+import { inJourney, inRouteSign, crewHasItem, notifyJourneyReady, returnToJourney } from '../../shared/journey.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { getSeat } from '../../shared/seat.js';
 import { addItem,getInventory } from '../../shared/inventory.js';
-import { awardMinigame } from '../../shared/loot-client.js';
+import { presentMinigameReward } from '../../shared/loot-client.js';
 import { startLootTracking } from '../../shared/loot-tracker.js';
 startLootTracking();
 import { getBest,saveRecord } from '../../shared/records.js';
@@ -34,7 +34,40 @@ function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clea
 function phase(t){return t<30?0:t<90?1:2}
 function hud(t){$('score').textContent=score.toLocaleString('ko-KR');$('combo').textContent=combo;$('coolant').textContent=inventory();$('phase').textContent=['이슬비','굵은 비','폭우'][phase(t)];doorHud.update({score,combo,status:eventNow?(EVENT_NAMES[eventNow]||eventNow):$('phase').textContent,mode:mode==='real'?'진짜 비':'연습',speed:smoothSpeed,limit:feed?.current?.speedLimitKmh,water:100*overflow/overflowCapacity,items:[{count:inventory()},{count:0},{count:0}]})}
 function start(){$('finish-run').classList.add('hidden');dust=[];powerups=[];kingActive=false;if(inJourney)speed=smoothSpeed=feed.current.speedKmh;wiper=feed?.current?.wiper??wiper;active=true;ended=false;drops=[];streaks=[];score=combo=maxCombo=caught=missed=biggest=coolant=highCatches=overflow=0;spawn=0;eventNow=null;eventUntil=0;nextEvent=19+Math.random()*6;scorePops=[];startAt=performance.now();mode=wiper?.on?'real':inJourney?'journey':'practice';$('mode').textContent=mode==='real'?'와이퍼 연동':mode==='journey'?'차량 속도 연동':'연습 모드';$('start').classList.add('hidden');$('result').classList.add('hidden');last=startAt;for(let i=0,n=65+Math.floor(Math.random()*16);i<n;i++){const d=createDrop(12+Math.random()*(w-24),36+Math.random()*Math.max(20,h*.48),2.1+Math.random()*3.4);if(d&&i<4){d.level=2;d.r=5+Math.random()*2}}if(params.get('dust')==='1')for(let i=0;i<12;i++)dust.push({x:Math.random()*w,y:20+Math.random()*h*.52,r:12+Math.random()*16});if(params.get('king')==='1'){const d=createDrop(w*.5,h*.35,15,{x:0,y:0},3)||{};d.king=true;d.trailId='warm-king';const points=[];for(let i=0;i<=28;i++)points.push({x:w*.5+Math.sin(i*.12)*7,y:h*.35+i*2.2});streaks.push({id:d.trailId,points,age:0,lifetime:15,width:10,king:true,alpha:.65});d.gone=true;drops=drops.filter(x=>!x.gone)}requestAnimationFrame(frame)}
-function finish(reason='overflow'){if(ended)return;ended=true;active=false;$('finish-run').classList.add('hidden');const durationMs=performance.now()-startAt,prior=getBest('raindrop',r=>r.stats?.mode===mode),record=saveRecord({gameId:'raindrop',score,durationMs,distanceM:0,stats:{mode,caught,biggest,maxCombo,coolant},endReason:reason}),best=!prior||record.score>prior.score;if(!inRouteSign&&mode==='real'&&best){addItem('gear-paint-a',1,{from:'raindrop',record:true});try{const skins=JSON.parse(localStorage.getItem('zride.skins')||'[]');if(!skins.includes('cup_rainbow'))skins.push('cup_rainbow');localStorage.setItem('zride.skins',JSON.stringify(skins))}catch{}}$('final-score').textContent=score.toLocaleString('ko-KR');$('result-details').textContent=`잡은 방울 ${caught}개 · 최대 크기 ${biggest} · 최고 연속 ${maxCombo} · 냉각수 ${coolant}`;$('best-badge').classList.toggle('hidden',!best);$('result').classList.remove('hidden');awardMinigame('raindrop',{score,caught,mode}).then(out=>{$('result-details').textContent+=`; 획득 아이템: ${(out.items||[]).map(x=>x.name).join(', ')||'없음'}`});beep(180,.35)}
+function finish(reason = 'overflow') {
+  if (ended) return;
+  ended = true;
+  active = false;
+  $('finish-run').classList.add('hidden');
+  const durationMs = performance.now() - startAt;
+  const prior = getBest('raindrop', record => record.stats?.mode === mode);
+  const record = saveRecord({ gameId: 'raindrop', score, durationMs, distanceM: 0,
+    stats: { mode, caught, biggest, maxCombo, coolant }, endReason: reason });
+  const best = !prior || record.score > prior.score;
+  if (!inRouteSign && mode === 'real' && best) {
+    addItem('gear-paint-a', 1, { from: 'raindrop', record: true });
+    try {
+      const skins = JSON.parse(localStorage.getItem('zride.skins') || '[]');
+      if (!skins.includes('cup_rainbow')) skins.push('cup_rainbow');
+      localStorage.setItem('zride.skins', JSON.stringify(skins));
+    } catch {}
+  }
+  $('rain-result-title').textContent = reason === 'completed' ? '도전 완료!' : '창틀이 넘쳤어요';
+  $('final-score').textContent = score.toLocaleString('ko-KR');
+  $('result-details').textContent = `잡은 방울 ${caught}개 · 최고 연속 ${maxCombo} · 냉각수 ${coolant}`;
+  $('best-badge').classList.toggle('hidden', !best);
+  $('result').classList.remove('hidden');
+  const again = $('again');
+  again.disabled = true;
+  again.textContent = '다시 도전';
+  void presentMinigameReward($('run-reward'), 'raindrop', { score, caught, mode }).then(reward => {
+    const returnToMap = inRouteSign && reward.error !== 'SIGN_GOAL_NOT_MET';
+    again.dataset.return = String(returnToMap);
+    again.textContent = returnToMap ? '여행 지도로 돌아가기' : '다시 도전';
+    again.disabled = false;
+  });
+  beep(180, .35);
+}
 function createDrop(x=Math.random()*w,y=-8,r=3+Math.random()*3,velocity=null,level=1){if(drops.length>=400)return null;const opts={glassBottom:h*.60,seat:getSeat()};if(!pointInWindow(x,y,w,h,opts))return null;const seed=Math.random()*1000,q=Math.random(),archetype=q<.30?'round':q<.55?'lumpy':q<.80?'teardrop':q<.92?'streaker':'smear',d={x,y,r,state:'stuck',vx:0,vy:0,age:0,rotation:(Math.random()-.5)*Math.PI,aspect:archetype==='round'?.98:.75+Math.random()*.6,archetype,seed,level,inflate:0,inflating:false,phase:Math.random()*6,lobeCount:4+Math.floor(Math.random()*4),lobes:Array.from({length:7},()=>.70+Math.random()*.60),mergedUntil:0,king:false,trailId:Math.random().toString(36).slice(2)};if(velocity){d.state='sliding';d.vx=velocity.x;d.vy=velocity.y;d.level=Math.max(3,level)}drops.push(d);return d}
 function beginSlide(a){a.state='sliding';a.vx*=.2;a.vy=Math.max(a.vy,28+a.r*5)}
 function merge(p=phase((performance.now()-startAt)/1000)){for(let i=0;i<drops.length;i++){const a=drops[i];if(a.state!=='stuck')continue;for(let j=i+1;j<drops.length;j++){const b=drops[j];if(b.state!=='stuck')continue;const dx=a.x-b.x,dy=a.y-b.y,reach=a.r+b.r+9;if(dx*dx+dy*dy<reach*reach){const aa=a.r*a.r,bb=b.r*b.r;a.x=(a.x*aa+b.x*bb)/(aa+bb);a.y=(a.y*aa+b.y*bb)/(aa+bb);a.r=Math.sqrt(aa+bb);a.aspect=1;a.mergedUntil=performance.now()+850;drops.splice(j,1);j--;if(a.r>=8&&autoSlideCount()<slideTargets[p])beginSlide(a)}}if(a.state==='stuck'&&a.level>=3&&autoSlideCount()<slideTargets[p])beginSlide(a)}}
@@ -116,13 +149,26 @@ function drawSideWindow(bottom) {
 
 function drawLowerHud(){}
 function pointer(e){const r=canvas.getBoundingClientRect();targetX=Math.max(barWidth/2,Math.min(w-barWidth/2,e.clientX-r.left));catcherX=targetX}canvas.addEventListener('pointerdown',e=>{pointer(e);canvas.setPointerCapture(e.pointerId);let best=null,dist=30;for(const d of drops)if(d.state==='stuck'){const n=Math.hypot(d.x-(e.clientX-canvas.getBoundingClientRect().left),d.y-(e.clientY-canvas.getBoundingClientRect().top));if(n<dist){dist=n;best=d}}if(best){best.state='sliding';const dir=-travelDir(getSeat()),back=Math.min(smoothSpeed/120,1.2),len=Math.hypot(back,1);best.vx=dir*back/len*30;best.vy=1/len*30;beep(560,.05)}});canvas.addEventListener('pointermove',e=>{if(e.buttons)pointer(e)});
-function dropNear(){const x=targetX;let nearest=null,d=30;for(const a of drops)if(a.state==='stuck'){const n=Math.hypot(a.x-x,a.y-(h-100));if(n<d){d=n;nearest=a}}if(nearest){nearest.state='sliding';nearest.vx=travelDir(getSeat())*4;nearest.vy=24}}
+function dropNear() {
+  if (!active) return;
+  const reach = catcherHalfWidth() + 10;
+  let target;
+  for (const drop of drops) {
+    if (drop.state !== 'stuck' || Math.abs(drop.x - targetX) > reach) continue;
+    if (!target || drop.y > target.y) target = drop;
+  }
+  if (!target) { toast('물받이를 빗방울 아래에 놓아 보세요.'); return; }
+  beginSlide(target);
+  beep(560, .05);
+}
 window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){targetX=Math.max(30,Math.min(w-30,targetX+(e.key==='ArrowRight'?36:-36)));e.preventDefault()}if(e.code==='Space'){dropNear();e.preventDefault()}});
 if(dev){feed=createVehicleFeed({dev});feed.on('update',v=>{speed=v.speedKmh;windKmh=Number(v.windKmh)||0;wiper=v.wiper||null});feed.addDevControl({label:'Rain intensity',min:.5,max:3,step:.1,value:1,onInput:v=>spawnScale=v})}
-if(dev){const panel=document.createElement('div');panel.className='rain-dev-tools';const gear=document.createElement('button');gear.type='button';gear.className='icon-button rain-gear';gear.textContent='설정';gear.setAttribute('aria-label','개발 패널');const tools=document.createElement('div');tools.className='rain-dev-panel hidden';const actions=[['대왕 방울',()=>startEvent('king',(performance.now()-startAt)/1000)],['터널',()=>startEvent('tunnel',(performance.now()-startAt)/1000)],['먼지',()=>{for(let i=0;i<12;i++)dust.push({x:Math.random()*w,y:20+Math.random()*h*.55,r:10+Math.random()*10})}],['바 확장',()=>barWideUntil=performance.now()+10000],['낮',()=>scenery.setTimeOfDay('day')],['노을',()=>scenery.setTimeOfDay('dusk')],['밤',()=>scenery.setTimeOfDay('night')]];for(const [label,action] of actions){const button=document.createElement('button');button.type='button';button.className='primary-button';button.textContent=label;button.addEventListener('click',action);tools.append(button)}gear.addEventListener('click',()=>tools.classList.toggle('hidden'));panel.append(gear,tools);document.body.append(panel)}document.querySelector('#start-button').addEventListener('click',async()=>{if(!await ensurePassenger())return;if(!feed){feed=createVehicleFeed({dev});feed.on('update',v=>{speed=v.speedKmh;windKmh=Number(v.windKmh)||0;wiper=v.wiper||null})}if(!wiper&&!dev&&!inJourney)$('notice').textContent='와이퍼 신호 없음 · 연습 모드';audio?.resume();start()});$('again').addEventListener('click',start);$('drop').addEventListener('click',dropNear);$('mute').addEventListener('click',e=>{muted=!muted;e.currentTarget.textContent=muted?'◖':'◗'});
+if(dev){const panel=document.createElement('div');panel.className='rain-dev-tools';const gear=document.createElement('button');gear.type='button';gear.className='icon-button rain-gear';gear.textContent='설정';gear.setAttribute('aria-label','개발 패널');const tools=document.createElement('div');tools.className='rain-dev-panel hidden';const actions=[['대왕 방울',()=>startEvent('king',(performance.now()-startAt)/1000)],['터널',()=>startEvent('tunnel',(performance.now()-startAt)/1000)],['먼지',()=>{for(let i=0;i<12;i++)dust.push({x:Math.random()*w,y:20+Math.random()*h*.55,r:10+Math.random()*10})}],['바 확장',()=>barWideUntil=performance.now()+10000],['낮',()=>scenery.setTimeOfDay('day')],['노을',()=>scenery.setTimeOfDay('dusk')],['밤',()=>scenery.setTimeOfDay('night')]];for(const [label,action] of actions){const button=document.createElement('button');button.type='button';button.className='primary-button';button.textContent=label;button.addEventListener('click',action);tools.append(button)}gear.addEventListener('click',()=>tools.classList.toggle('hidden'));panel.append(gear,tools);document.body.append(panel)}document.querySelector('#start-button').addEventListener('click',async()=>{if(!await ensurePassenger())return;if(!feed){feed=createVehicleFeed({dev});feed.on('update',v=>{speed=v.speedKmh;windKmh=Number(v.windKmh)||0;wiper=v.wiper||null})}if(!wiper&&!dev&&!inJourney)$('notice').textContent='와이퍼 신호 없음 · 연습 모드';audio?.resume();start()});$('again').addEventListener('click', () => { if ($('again').dataset.return === 'true') returnToJourney(); else start(); });$('drop').addEventListener('click',dropNear);$('mute').addEventListener('click',e=>{muted=!muted;e.currentTarget.textContent=muted?'◖':'◗'});
 const rainGear=document.querySelector('.rain-dev-tools');
 if(dev){const tools=document.querySelector('.rain-dev-panel');for(const [label,delta] of [['급가속',12.96],['급제동',-12.96]]){const button=document.createElement('button');button.type='button';button.className='primary-button';button.textContent=label;button.addEventListener('click',()=>devSpeedRamp(delta));tools?.append(button)}}
 document.getElementById("start-button").disabled = false;
 if (dev && params.get('autostart') === '1') { start(); const warm=Math.min(30,Math.max(0,Number(params.get('warm'))||0));if(warm){for(const d of drops)d.age=warm;for(let i=0;i<Math.min(40,Math.floor(warm*1.4));i++){const d=createDrop(8+Math.random()*(w-16),24+Math.random()*h*.52,1.5+Math.random()*4);if(d)d.age=warm}} }
 
 $('finish-run').addEventListener('click',()=>finish('completed'));
+
+notifyJourneyReady();
