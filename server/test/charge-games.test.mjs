@@ -217,22 +217,23 @@ test('Cloudflare 없이 이 서버가 충전 게임 화면·방·입장권을 �
   assert.equal(joined.status, 200);
 });
 
-test('서버 안 Volt Rush는 크루 가방을 같은 서버 재고에서 바로 쓴다', async t => {
+test('서버 안 Volt Rush는 크루 가방을 같은 서버 재고에서 쓰고, 운전자도 QR로 합류한다', async t => {
   const f = await fixture(t, DEFAULT_CHARGE_GAMES);
   await f.park(); await f.arrive();
   const opened = await f.api(f.path, { action: 'open', game: 'volt-rush' }, f.host.token);
   assert.equal(opened.status, 200, JSON.stringify(opened.body));
   const [, code, hostToken] = /#host=([A-Z0-9]{5})\.(.+)$/.exec(opened.body.hostUrl);
-  // 크루 방은 입장권 없이 참가할 수 없다
-  const blocked = await fetch(f.base + '/charge/volt-rush/api/rooms/' + code + '/join', { method: 'POST',
-    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '몰래' }) });
-  assert.equal((await blocked.json()).error, 'CREW_TICKET_REQUIRED');
+  // 운전자는 차 화면 QR로 크루 방에 들어온다
+  const driver = await fetch(f.base + '/charge/volt-rush/api/rooms/' + code + '/join', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '아빠' }) });
+  assert.equal(driver.status, 200);
   const car = gameSocket(f.base, 'volt-rush', code, hostToken);
   t.after(() => car.ws.terminate());
   await car.wait(value => value.type === 'auth.ok');
   car.ws.send(JSON.stringify({ type: 'start' }));
-  // 시작하면 먼저 크루 가방(loadout)을 서버 재고에서 받는다. 그게 실패하면 GAME_ITEMS_* 오류가 난다.
-  // 테스트 파티는 1명이라 그다음 단계인 인원 확인(NEED_PLAYERS)에서 멈춘다 = 가방 받기는 통과했다
+  // 시작하면 먼저 크루 가방(loadout)을 서버 재고에서 받는다. 실패하면 GAME_ITEMS_* 오류가 난다.
+  // 크루 1명 + QR로 들어온 운전자 = 2명이라 규칙 화면까지 간다
   const started = await car.wait(value => value.type === 'error' || (value.type === 'state' && value.state.phase !== 'LOBBY'));
-  assert.deepEqual(started, { type: 'error', code: 'NEED_PLAYERS' });
+  assert.equal(started.type, 'state', JSON.stringify(started));
+  assert.equal(started.state.phase, 'RULES');
 });
