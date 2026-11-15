@@ -50,8 +50,12 @@ export async function createBag(tabs, cards, crewBag = false) {
         stats.textContent = Object.entries({ defense: '방어', detection: '탐지', escape: '탈출', attack: '공격' })
           .filter(([stat]) => item.stats[stat])
           .map(([stat, label]) => `${label} +${item.stats[stat]}`).join(' · ');
+        const dz = item.deadzone || {};
+        const effectText = [...Object.entries({ startWeapon: '시작 무기', startAbility: '시작 능력', skin: '스킨' }).filter(([key]) => dz[key]).map(([key, label]) => `${label} ${dz[key]}`), ...Object.entries(dz.mods || {}).map(([key, value]) => `${key} +${value}`)].join(' · ');
+        const effectLine = document.createElement('p'); effectLine.className = 'deadzone-effect'; effectLine.textContent = effectText ? `DEADZONE · ${effectText}` : '';
         content.append(title, meta, description);
         if (stats.textContent) content.append(stats);
+        if (effectLine.textContent) content.append(effectLine);
         card.append(itemBadge(item), content);
         return card;
       }));
@@ -79,6 +83,7 @@ export async function createBag(tabs, cards, crewBag = false) {
 
 const standalone = document.querySelector('body.ply-bag');
 if (standalone) {
+  const garage = document.createElement('a'); garage.href = 'vehicle/garage.html?dev=1'; garage.textContent = '차고'; document.querySelector('.ply-bag > header')?.append(garage);
   const { getInventory } = await import('./inventory.js');
   const update = await createBag(document.querySelector('#tabs'), document.querySelector('#cards'));
   update(getInventory());

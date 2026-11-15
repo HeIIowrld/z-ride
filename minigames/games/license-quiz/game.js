@@ -1,3 +1,4 @@
+import '../../shared/game-signs.js';
 import { inJourney, inRouteSign, crewHasItem, returnToJourney, notifyJourneyReady } from '../../shared/journey.js';
 import { createQuizEngine } from '../../shared/quiz-engine.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';

@@ -1,5 +1,7 @@
 # PLY
 
+게임 표지는 팀 공용 route-sign 표지를 사용합니다. 원본은 `server/phone-client/route-sign/`이며, `shared/assets/signs/`에는 바이트 그대로 복사해 둡니다.
+
 License quiz question and road sign source details are documented in [license-quiz/ATTRIBUTION.md](games/license-quiz/ATTRIBUTION.md).
 
 외부 패키지 없이 실행하는 한국어 미니게임 및 운전 전리품 웹앱입니다. 게임 화면은 흑백 손그림 스타일을 사용하며, 메뉴와 주요 버튼에는 PLY 공통 스타일을 적용합니다. 데스크톱과 세로형 모바일 화면을 지원합니다.
@@ -55,3 +57,5 @@ Pleos의 Z-RIDE 파티를 시작하고 QR로 동승자를 승인한다. 정차 �
 통합 실행은 파티 스냅샷의 차량 속도와 순정 내비에서 받은 제한속도·좌우회전 안내를 사용한다. 폰의 GPS나 별도 개발 서버는 필요하지 않다. 빗방울 캐치의 빗방울과 터널은 게임 연출이며 실제 강수·터널 센서는 연결되어 있지 않다. 미니게임의 개인 기록과 아이템은 기존과 같이 브라우저에 저장한다.
 
 개발은 리포지터리의 `minigames/` 자산을 사용한다. 서버 컨테이너나 릴리스 번들은 같은 자산을 `drive-assets/`에 넣는다. 자산은 통합 서버의 `/play/drive/`에서 지정된 파일만 제공한다. 기존 배포 도구가 이 자산을 묶지 않는 환경에서는 서버는 계속 실행되며 동승자 게임 메뉴가 숨겨진다. 새 릴리스를 적용할 때는 `drive-assets/`를 포함하는 배포 도구 버전을 함께 사용한다.
+
+게임 표지는 팀 공용 route-sign 표지를 사용합니다. 원본은 server/phone-client/route-sign/이며, shared/assets/signs/에는 바이트 그대로 복사해 둡니다.

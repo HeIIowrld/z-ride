@@ -10,6 +10,11 @@ const shapes = [];
 for (const item of items) {
   if (!files.includes(`${item.id}.svg`)) throw new Error(`Missing icon SVG: ${item.id}`);
   const svg = await readFile(resolve(root, 'shared/assets/items', `${item.id}.svg`), 'utf8');
+  if (!/<g fill="#[0-9a-f]{6}" stroke="none">[\s\S]*?<\/g>/.test(svg)) throw new Error(`Missing filled silhouette: ${item.id}`);
+  const paths = [...svg.matchAll(/<g fill="([^"]+)" stroke="none">([\s\S]*?)<\/g>/g)].map(match => match[2]);
+  const coordinates = [...(paths[0] || '').matchAll(/-?\d+(?:\.\d+)?/g)].map(match => Number(match[0]));
+  const spread = coordinates.length > 4 ? (Math.max(...coordinates) - Math.min(...coordinates)) ** 2 : 0;
+  if (!paths.length || spread < 64 * 64 * 0.18) throw new Error(`Silhouette area below threshold: ${item.id}`);
   shapes.push(svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>')));
 }
 if (new Set(shapes).size !== items.length) throw new Error('Expected a distinct catalog icon for each item');

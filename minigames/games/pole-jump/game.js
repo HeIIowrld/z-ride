@@ -1,3 +1,4 @@
+import '../../shared/game-signs.js';
 import { inJourney, inRouteSign, crewHasItem, notifyJourneyReady, returnToJourney } from '../../shared/journey.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { getSeat, setSeat } from '../../shared/seat.js';
