@@ -86,6 +86,10 @@ class DeploymentArchiveTests(unittest.TestCase):
     def test_accepts_ply_bag_assets_and_rejects_unrelated_styles(self):
         for name, accepted in [('drive-assets/bag.html', True), ('drive-assets/shared/ply.css', True),
                                ('drive-assets/shared/private.css', False),
+                               ('drive-assets/games/license-quiz/signs/kr_110.svg', True),
+                               ('drive-assets/games/license-quiz/signs/private.svg', False),
+                               ('phone-client/route-sign/sign-battery.png', True),
+                               ('phone-client/private.png', False),
                                ('phone-client/thief.webp', True), ('phone-client/private.webp', False),
                                ('phone-client/ply-lockup.jpg', True), ('phone-client/ply-symbol.jpg', True),
                                ('phone-client/ply-road-portrait.jpg', True), ('phone-client/private.jpg', False)]:

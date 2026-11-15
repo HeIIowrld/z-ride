@@ -8,11 +8,16 @@ export function createQuizEngine({ bank = [], now = () => Date.now(), rng = Math
   const byType = {}, wrongIds = [];
   function choose(event) {
     const key = event.type === 'practice' ? 'idle' : triggerKey(event); let candidates = bank.filter(q => q.trigger === key && !used.has(q.id));
+    const context = event.roadContext;
+    if (!candidates.length && context && context !== 'any') {
+      candidates = bank.filter(q => q.roadContext === context && !used.has(q.id));
+    }
     if (!candidates.length && event.type === 'tbt') {
       candidates = bank.filter(q => q.turns?.includes(event.detail?.turn) && !used.has(q.id));
     }
     if (!candidates.length && event.type === 'camera') candidates = bank.filter(q => q.trigger === 'camera:section' && !used.has(q.id));
     if (!candidates.length && event.type === 'speedLimit') candidates = bank.filter(q => q.trigger === 'idle' && !used.has(q.id));
+    if (!candidates.length) candidates = bank.filter(q => q.trigger === 'idle' && !used.has(q.id));
     if (!candidates.length) return null;
     let pool = candidates;
     if (asked < 5) { const signs = pool.filter(q => q.type === 'sign'); if (signs.length) pool = signs; }

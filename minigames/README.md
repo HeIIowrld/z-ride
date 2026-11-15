@@ -1,10 +1,12 @@
 # PLY
 
+License quiz question and road sign source details are documented in [license-quiz/ATTRIBUTION.md](games/license-quiz/ATTRIBUTION.md).
+
 외부 패키지 없이 실행하는 한국어 미니게임 및 운전 전리품 웹앱입니다. 게임 화면은 흑백 손그림 스타일을 사용하며, 메뉴와 주요 버튼에는 PLY 공통 스타일을 적용합니다. 데스크톱과 세로형 모바일 화면을 지원합니다.
 
 ## 실행
 
-권장: 프로젝트 루트에서 Node 서버를 실행합니다. 정적 웹앱, 기존 운전면허 퀴즈 WebSocket, Loot API와 SQLite 저장소가 함께 시작됩니다.
+권장: 프로젝트 루트에서 Node 서버를 실행합니다. 정적 웹앱, 기존 실시간 운전면허시험 WebSocket, Loot API와 SQLite 저장소가 함께 시작됩니다.
 
 ```sh
 node server/index.mjs
@@ -29,6 +31,8 @@ node scripts/test-loot.mjs
 
 ## 데이터 교체
 
+아이템 아이콘은 `shared/assets/items/<id>.svg`에서 공용으로 사용할 수 있습니다. 다른 게임은 아이템 ID에 해당하는 SVG를 `<img src="../../shared/assets/items/battery-cell.svg" alt="배터리 셀">`처럼 불러오면 됩니다. 아이콘 색은 `--ply-common` 또는 `--ply-specialized` 토큰을 따릅니다.
+
 - `data/items.json`: 40개 아이템의 고유 ID, 이름, 분류, 등급, 지역, 조건, 능력치, 설명, 아이콘 키를 정의합니다. `scope`는 가방과 획득 알림에서 표시하는 사용 범위입니다.
   - `common` 9종은 기본 보급 재료입니다. 배터리 셀, 정비 부품, 보급품 등이 해당합니다.
   - `specialized` 31종은 DEADZONE 효과가 있거나 특정 지역에서 수집하는 아이템입니다. 네온 방패, 수리 키트, 지역 기념 배지 등이 해당합니다.
@@ -39,6 +43,8 @@ node scripts/test-loot.mjs
 - `data/points.json`: 일반명으로 만든 충전소, 휴게 지점, 랜드마크 예시 12개입니다. 실제 서비스 지점 자료로 교체할 수 있습니다. 현재 공식 지점 데이터 출처는 아직 선정하지 않았습니다.
 
 ## 유지보수 참고
+
+다음 후보: 전봇대 사이 줄타기 이동을 추가합니다. 동승자 여러 명이 한 화면에서 함께 뛰는 방식을 검토합니다.
 
 브라우저는 순수 ES modules를 사용하며 npm 패키지가 없습니다. `shared/loot-engine.js`는 서버와 오프라인 클라이언트에서 공통으로 사용하는 결정 로직입니다. `server/index.mjs`가 정적 파일, Loot API, 기존 퀴즈 API 및 `/vehicle` WebSocket을 함께 제공합니다.
 

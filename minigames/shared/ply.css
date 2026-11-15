@@ -9,6 +9,9 @@
   --ply-radius: 12px;
   --ply-common: var(--ply-primary);
   --ply-specialized: #ffd094;
+  --ply-pole: #b5bcff;
+  --ply-rain: #c0baff;
+  --ply-license: #ffc097;
 }
 
 .item-badge {
@@ -16,11 +19,13 @@
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
+  width: var(--badge-size, 40px);
+  height: var(--badge-size, 40px);
   border-radius: 8px;
-  background: #173b39;
+  background: color-mix(in srgb, var(--item-accent) 12%, transparent);
   color: var(--item-accent);
+  border: 1px solid currentColor;
+  position: relative;
 }
 
 .item-badge[data-scope="specialized"] {
@@ -29,6 +34,13 @@
   border-radius: 50%;
 }
 
-.item-badge svg { display: block; width: 65%; height: 65%; }
+.item-badge[data-rarity="uncommon"] { outline: 1px solid currentColor; outline-offset: 2px; }
+.item-badge[data-rarity="rare"] { outline: 1px dashed currentColor; outline-offset: 2px; }
+.item-badge[data-rarity="regional"] { border-style: double; border-width: 3px; }
+.item-badge-sm { --badge-size: 24px; border-radius: 6px; }
+.item-badge-md { --badge-size: 40px; }
+.item-badge-lg { --badge-size: 64px; border-radius: 14px; }
+.item-badge svg { display: block; width: 68%; height: 68%; }
+.item-region { position: absolute; right: -5px; bottom: -5px; border-radius: 6px; padding: 0 3px; background: var(--ply-bg); font-size: 9px; }
 .item-inline { display: inline-flex; gap: .45rem; align-items: center; }
 .item-inline .item-badge { width: 1.6rem; height: 1.6rem; }

@@ -35,7 +35,7 @@ if [[ ! -d $release ]]; then
   # files before extracting. File modes are normalized; nothing runs as root.
   python3 - "$archive" "$release" <<'PY'
 from pathlib import Path, PurePosixPath
-import os, shutil, sys, tarfile
+import os, re, shutil, sys, tarfile
 archive, destination = sys.argv[1:]
 destination = Path(destination)
 if Path(archive).stat().st_size > 16 * 1024 * 1024:
@@ -62,10 +62,15 @@ with tarfile.open(archive, 'r:gz') as source:
         allowed = allowed or (member.isfile() and name in {
             'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp',
             'phone-client/ply-lockup.jpg', 'phone-client/ply-symbol.jpg', 'phone-client/ply-road-portrait.jpg'})
+        allowed = allowed or (
+            member.isfile() and path.parts[:2] == ('phone-client', 'route-sign')
+            and len(path.parts) == 3 and re.fullmatch(r'[A-Za-z0-9._-]{1,80}', path.name)
+            and path.suffix.lower() in {'.png', '.webp', '.jpg', '.jpeg', '.gif'}
+        )
         if path.parts[0] == 'drive-assets':
             relative = path.parts[1:]
             allowed = (member.isdir() and (
-                relative in {(), ('games',), ('shared',), ('data',)}
+                relative in {(), ('games',), ('shared',), ('data',), ('games', 'license-quiz', 'signs')}
                 or (len(relative) == 2 and relative[0] == 'games'
                     and relative[1] in {'license-quiz', 'pole-jump', 'raindrop'})
             )) or (member.isfile() and (
@@ -73,6 +78,8 @@ with tarfile.open(archive, 'r:gz') as source:
                 or (len(relative) == 3 and relative[0] == 'games'
                     and relative[1] in {'license-quiz', 'pole-jump', 'raindrop'}
                     and path.suffix in {'.html', '.css', '.js', '.json'})
+                or (len(relative) == 4 and relative[:3] == ('games', 'license-quiz', 'signs')
+                    and re.fullmatch(r'kr_[0-9]+\.svg', path.name))
                 or (len(relative) == 2 and relative[0] == 'shared' and path.suffix == '.js')
                 or (len(relative) == 2 and relative[0] == 'data'
                     and relative[1] in {'items.json', 'loot_tables.json', 'points.json'})
