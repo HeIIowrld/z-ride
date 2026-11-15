@@ -72,35 +72,46 @@ export function drawPoleJumpHand(ctx, peg, { night = false, dusk = false, pose =
   return g;
 }
 
-// Upside-down "V sign": a small fist with the index and middle fingers pointing
-// down as two legs. No arm. `foot` is the point on the peg under the fingers.
+// Upside-down victory hand (the V-sign emoji flipped): palm on top, index and
+// middle fingers pointing down as two legs. Sticker look: cream halo + dark
+// outline + warm fill, so it reads on day, dusk and night scenes. No arm.
 export function drawFingerWalker(ctx, foot, { night = false, dusk = false, pose = 'stand', step = 0, direction = 1 } = {}) {
-  const fill = night ? '#3b4558' : dusk ? '#f0d3b6' : '#f6e3cb', ink = night ? '#ffe2b0' : '#27313b';
-  const swing = pose === 'stand' ? Math.sin(step * Math.PI * 2) : 0;
-  const legLen = pose === 'hop' ? 19 : pose === 'land' ? 22 : pose === 'crouch' ? 26 : 31;
-  const spread = pose === 'hop' ? 13 : pose === 'land' ? 12 : pose === 'crouch' ? 11 : pose === 'fall' ? 14 : 9;
-  const tilt = pose === 'fall' ? direction * .5 : pose === 'hop' ? -direction * .08 : 0;
-  const hipY = -legLen;
-  ctx.save(); ctx.translate(foot.x, foot.y); ctx.rotate(tilt); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (night) { ctx.shadowColor = '#ffc985'; ctx.shadowBlur = 8; }
+  const fill = '#ffd166', shade = '#f2b23c', ink = '#12283c', halo = night ? '#fff4d6' : '#f4efe6';
+  const cyc = step * Math.PI * 2, swing = Math.sin(cyc), d = direction;
+  const air = pose === 'hop', fall = pose === 'fall', low = pose === 'crouch' || pose === 'land';
+  const legLen = air ? 24 : pose === 'land' ? 20 : pose === 'crouch' ? 24 : 32;
+  const hipY = -legLen - (pose === 'stand' ? Math.abs(swing) * 1.5 : 0);
+  const tilt = fall ? d * (.6 + step * 2.2) : air ? -d * (.12 + Math.sin(cyc * 2) * .06) : pose === 'stand' ? swing * .05 : 0;
+  // Feet: walking steps while standing, scissor kick in the air, wide brace when low.
   const legs = [-1, 1].map(side => {
-    const lift = pose === 'stand' ? Math.max(0, swing * side) * 4 : pose === 'hop' ? 6 : 0;
-    const fx = side * spread + (pose === 'stand' ? swing * side * 2 : 0), fy = -lift;
-    const hx = side * 3.5, kx = (hx + fx) / 2 + side * (pose === 'hop' || pose === 'land' ? 4 : 1), ky = (hipY + fy) / 2;
-    return { hx, kx, ky, fx, fy };
+    let fx, fy, bend;
+    if (air) { const k = Math.sin(cyc * 2 + (side > 0 ? 0 : Math.PI)); fx = side * (12 + k * 5); fy = -4 - (k + 1) * 4; bend = side * 5; }
+    else if (fall) { fx = side * 15; fy = -2; bend = side * 2; }
+    else if (low) { fx = side * 12; fy = 0; bend = side * 7; }
+    else { const k = swing * side; fx = side * 8 + k * 3; fy = -Math.max(0, k) * 5; bend = side * 1.5 + k * 1.5; }
+    const hx = side * 4.5;
+    return { hx, hy: hipY + 2, kx: (hx + fx) / 2 + bend, ky: (hipY + fy) / 2, fx, fy: fy - 4 };
   });
-  for (const pass of [{ color: ink, width: 8 }, { color: fill, width: 4.6 }]) {
-    ctx.strokeStyle = pass.color; ctx.lineWidth = pass.width;
-    for (const l of legs) { ctx.beginPath(); ctx.moveTo(l.hx, hipY + 2); ctx.quadraticCurveTo(l.kx, l.ky, l.fx, l.fy - 3); ctx.stroke(); }
+  const squash = pose === 'land' ? 1.12 : 1, palmW = 27 * squash, palmH = 23 / squash, palmTop = hipY - palmH + 3;
+  const line = (x1, y1, cx, cy, x2, y2, width, color) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(cx, cy, x2, y2); ctx.stroke(); };
+  const palm = (grow, color, asFill) => { ctx.beginPath(); ctx.roundRect(-palmW / 2 - grow, palmTop - grow, palmW + grow * 2, palmH + grow * 2, 10 + grow); if (asFill) { ctx.fillStyle = color; ctx.fill(); } else { ctx.strokeStyle = color; ctx.lineWidth = .1; ctx.fillStyle = color; ctx.fill(); } };
+  ctx.save(); ctx.translate(foot.x, foot.y); ctx.rotate(tilt); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (night) { ctx.shadowColor = '#ffd58a'; ctx.shadowBlur = 10; }
+  // Pass 1: cream halo. Pass 2: dark outline. Pass 3: fill.
+  for (const [grow, color] of [[5, halo], [2.4, ink]]) {
+    for (const l of legs) line(l.hx, l.hy, l.kx, l.ky, l.fx, l.fy, 9 + grow * 2, color);
+    palm(grow, color, false);
+    ctx.shadowBlur = 0;
   }
-  ctx.shadowBlur = 0; ctx.strokeStyle = ink; ctx.lineWidth = 1.2;
-  for (const l of legs) { ctx.beginPath(); ctx.arc(l.kx * .92 + l.hx * .08, l.ky, 1.6, 0, Math.PI * 2); ctx.stroke(); }
-  // Fist: curled ring and little fingers plus the thumb tucked across them.
-  ctx.fillStyle = fill; ctx.strokeStyle = ink; ctx.lineWidth = 2;
-  if (night) { ctx.shadowColor = '#ffc985'; ctx.shadowBlur = 8; }
-  ctx.beginPath(); ctx.roundRect(-10, hipY - 13, 20, 15, 7); ctx.fill(); ctx.stroke();
-  ctx.shadowBlur = 0;
-  for (const kx of [-6, -2, 2, 6]) { ctx.beginPath(); ctx.arc(kx, hipY - 12, 2.6, Math.PI, 0); ctx.fill(); ctx.stroke(); }
-  ctx.beginPath(); ctx.moveTo(-direction * 9, hipY - 5); ctx.quadraticCurveTo(-direction * 2, hipY - 1, direction * 4, hipY - 4); ctx.stroke();
+  for (const l of legs) line(l.hx, l.hy, l.kx, l.ky, l.fx, l.fy, 9, fill);
+  palm(0, fill, true);
+  // Fingertip pads and knuckle creases on the two leg-fingers.
+  ctx.fillStyle = shade; for (const l of legs) { ctx.beginPath(); ctx.ellipse(l.fx, l.fy + 1.5, 3.6, 2.4, 0, 0, Math.PI * 2); ctx.fill(); }
+  for (const l of legs) line(l.kx - 2.5, l.ky, l.kx, l.ky + .8, l.kx + 2.5, l.ky, 1.4, ink);
+  // Folded ring and little fingers on the rear side of the palm, thumb tucked across them.
+  for (const [x, w] of [[d * 5.5, 7.5], [d * 11, 6.5]]) { line(x, hipY - 5, x, hipY - 2, x, hipY + 1, w + 3.4, ink); line(x, hipY - 5, x, hipY - 2, x, hipY + 1, w, fill); }
+  line(-d * 10, hipY - 9, -d * 2, hipY - 3, d * 7, hipY - 6, 9.4, ink); line(-d * 10, hipY - 9, -d * 2, hipY - 3, d * 7, hipY - 6, 6, fill);
+  // Small shine on the back of the hand.
+  line(-palmW / 2 + 5, palmTop + 6, -palmW / 2 + 9, palmTop + 3.5, -palmW / 2 + 14, palmTop + 3.5, 2, 'rgba(255,255,255,.75)');
   ctx.restore();
 }
