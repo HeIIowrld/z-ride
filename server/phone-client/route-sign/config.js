@@ -16,6 +16,13 @@ window.PLY_ROUTE_SIGN = Object.freeze({
     raindrop: 'route-sign/sign-raindrop.png',
     zombie: 'route-sign/sign-zombie.png',    // 준비 중(게임 미연결)
   }),
+  // 지도(journey-map.js)는 games에 있는 게임의 표지판만 그린다. 보상 기록(app.js)도 label·icon을 쓴다.
+  games: Object.freeze({
+    'license-quiz': Object.freeze({ label: '운전면허 퀴즈', icon: 'route-sign/sign-license-quiz.png' }),
+    'pole-jump': Object.freeze({ label: '폴짝 전봇대', icon: 'route-sign/sign-pole-jump.png' }),
+    raindrop: Object.freeze({ label: '빗방울 캐치', icon: 'route-sign/sign-raindrop.png' }),
+    zombie: Object.freeze({ label: 'DEADZONE', icon: 'route-sign/sign-zombie.png' }),
+  }),
   size: 40,                                 // 평소 크기(px)
   readySize: 46,                            // 가까워져서 게임 가능할 때 크기(px)
   label: '경로 표지판',                       // 접근성 이름
