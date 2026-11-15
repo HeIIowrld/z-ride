@@ -4,7 +4,7 @@
 
 ## 폰 웹 참가 페이지 — 2026-11-04
 
-현재 진입점은 **https://hyundai.hjpark.net/play**다. Google 로그인/게스트 시작, 게스트에 Google 연결, QR 미리보기·좌석 참가·차량 변경 동의, 승인 대기/취소, 현재 파티 재연결, 탈퇴·로그아웃을 제공한다. 차량 HOST 앱은 기존 API로 QR을 만들고 참가자를 승인한다. 실제 지도와 차량 SDK 실행은 이 페이지의 범위가 아니다.
+동승자는 `/play`에서 Google 또는 게스트로 로그인한 뒤 초대 QR에서 빈 좌석을 고르고 합류한다. 차량 HOST 앱은 QR을 발급한다. 합류가 완료되면 동승자 폰은 응답에 포함된 플레이 티켓으로 파티에 연결한다.
 
 Google 클라이언트 ID는 운영 서버 `/etc/zride/zride.env`의 `GAME_GOOGLE_CLIENT_ID`에 넣는다. 브라우저는 `/api/client-config`와 `/api/auth/google/challenge`에서 필요한 공개 설정을 받는다. 승인된 JavaScript 원본은 `https://hyundai.hjpark.net`; 경로 `/play`나 `/api/auth/google/exchange`는 등록하지 않는다. GIS JavaScript popup 콜백의 credential을 기존 서버 nonce와 함께 검증하며, 서버 리디렉션이나 client secret을 사용하지 않는다.
 
@@ -33,7 +33,7 @@ Google 버튼은 클릭 후 120초 nonce challenge에 연결해 표시한다. �
 
 예: user U가 차량 A에서 보급 3개를 모은 뒤 B로 이동하면 **userId는 U, A 재고는 3, B 재고는 기존 값**이다. 개인 지갑에 3을 복사하지 않는다. 개인 기록에는 A 활동과 B 활동이 함께 남는다. 전체 파티의 다른 멤버 정보·원시 좌표·차량 제어 권한을 개인 이력 API에 넣지 않는다.
 
-여러 파티에서 활동한 이력을 보유하되 **실제 플레이 참여는 계정당 한 차량 파티만 ACTIVE**로 둔다. 과거 파티로 돌아갈 때도 새 QR·좌석 승인이 필요하다. 여러 기기에서 같은 Google 계정으로 로그인해도 활성 파티는 하나다. 재연결 티켓을 받으면 이전 플레이 세션을 교체하고 전투를 pause한다.
+여러 파티의 활동 이력을 보유하되 **실제 플레이 참여는 계정당 한 차량 파티만 ACTIVE**로 둔다. 과거 파티로 돌아갈 때는 새 QR에서 빈 좌석을 고른다. 재연결 티켓을 받으면 이전 플레이 세션을 교체하고 전투를 일시 정지한다.
 
 ## 센터페시아·폰·서버 호출 순서
 
@@ -50,10 +50,8 @@ sequenceDiagram
     P->>S: 게스트 생성 또는 Google challenge/exchange
     S-->>P: PHONE_ACCOUNT 토큰, userId
     P->>S: POST /me/invitations/accept
-    S-->>P: pending PARTY_PLAY 토큰
-    P->>S: /ws auth (pending 파티만 제한 조회)
-    C->>S: 기존 POST /rooms/{id}/approve
-    S-->>P: 승인 snapshot / 현재 파티
+    S-->>P: 좌석 확정, ACTIVE 멤버십, PARTY_PLAY 토큰
+    P->>S: /ws auth
     P->>S: 기존 게임 REST/WS (PARTY_PLAY)
     C->>S: 기존 vehicle.report / cabin / effect report
 ```
@@ -99,8 +97,8 @@ Google identity는 발급자+sub를 해시한 키로 연결하고 이메일로 �
 | 경로 | 역할 |
 | --- | --- |
 | POST /api/invites/preview | 초대 유효성·대상 파티명·좌석·승인 필요 여부. 계정 토큰이 있으면 현재 파티와 변경 필요 표시 |
-| POST /api/me/invitations/accept | 계정 토큰으로 pending PHONE 참가 |
-| POST /api/me/invitations/cancel | 새 차량 승인 대기 취소. 이전 활성 파티 유지 |
+| POST /api/me/invitations/accept | 계정 토큰으로 빈 좌석에 즉시 참가. ACTIVE 멤버십과 플레이 티켓 반환 |
+| POST /api/me/invitations/cancel | 이전 버전에서 남은 승인 대기 요청 취소 |
 | POST /api/me/party-ticket | 현재 승인 파티의 새 플레이 세션 발급. 이전 세션 교체 |
 | POST /api/me/party/leave | 현재 파티에서 탈퇴 |
 | GET /api/me/parties | 본인 멤버십 이력/상태 |
@@ -125,17 +123,15 @@ sequenceDiagram
     participant B as 차량 B
     P->>S: B QR preview (현재 A 표시)
     P->>S: accept(expected=A, confirmSwitch=true)
-    S-->>P: B 승인 대기, A는 계속 활성
-    B->>S: approve(B의 pending memberId)
     S->>S: A 멤버 보관/세션 차단 + B 활성화를 함께 저장
     S-->>A: 기존 멤버 제거·전투 pause snapshot
-    S-->>P: B 승인 snapshot, 같은 개인 userId
+    S-->>P: B 플레이 티켓, 같은 개인 userId
     Note over A,B: 각 파티 재고·미션 상태는 각 파티에 남음
 ```
 
-새 승인이 실패/취소/거절되면 이전 파티를 유지한다. 변경 동의는 5분 유효이며 승인 시 현재 활성 멤버십이 그때의 값과 일치해야 한다. 중간에 다른 기기가 전환하거나 탈퇴했다면 PARTY_SWITCH_CONFLICT로 거부하고 다시 확인한다.
+좌석 충돌이나 만료로 합류가 실패하면 이전 파티를 유지한다. 중간에 다른 기기가 전환하거나 탈퇴했다면 PARTY_SWITCH_CONFLICT로 거부하고 다시 확인한다.
 
-동일 파티 QR이면 ALREADY_IN_PARTY를 반환하므로 party-ticket으로 재연결한다. 참가 응답이 유실돼 PENDING_JOIN_EXISTS가 나오면 새 게스트를 만들지 말고 /api/me의 대기 상태를 복구한다. 승인 뒤 party-ticket으로 플레이 자격증명을 다시 받는다. Google 교환 응답을 잃으면 새 LOGIN challenge로 재시도해 같은 identity로 복귀한다.
+동일 파티 QR이면 ALREADY_IN_PARTY를 반환한다. 합류 응답을 잃었으면 /api/me에서 현재 파티를 확인하고 party-ticket으로 재연결한다. PENDING_JOIN_EXISTS는 이전 버전에서 남은 대기 상태이며 취소할 수 있다. Google 교환 응답을 잃으면 새 LOGIN challenge로 재시도해 같은 identity로 복귀한다.
 
 새로운 ticket은 sessionId/memberId/room/token을 제공하며 이전 플레이 토큰·연결을 교체한다. **계정 토큰을 /ws에 직접 보내지 않는다.** 새 승인/이전 파티 제거·계정 참여 변경은 같은 checkpoint로 저장하고 저장 실패 시 성공 응답/전환 방송 없이 503으로 차단한다.
 

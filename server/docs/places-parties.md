@@ -73,8 +73,8 @@ stateDiagram-v2
 roomId=partyId다. 위 파티 lifecycle은 전투의 LOBBY/READY/PLAYING/PAUSED/CLEARED와 별도다.
 
 1. HOST는 기존 접근키로 세션/방 생성. POST `…/party/invite`로 120초·최대 3회 사용 QR URL을 받는다. 차량 앱은 joinUrl을 로컬 QR 라이브러리로 렌더한다. 서버가 이미지를 외부 QR 서비스로 보내지 않는다.
-2. `/play#invite=…`를 폰 기본 브라우저에서 열면 fragment를 즉시 주소에서 지우고 메모리에 보관한다. 닉네임·좌석·동승자 확인만 받아 POST `/api/invites/redeem`으로 pending PHONE 세션을 발급한다. 설치·Google 로그인·팀 접근키 없이 가능하다. URL 보유만으로 HOST나 승인 권한을 얻지 않는다.
-3. HOST가 기존 approve API로 좌석을 확인한다. 승인 전에는 전체 게임·경로·공유 API를 사용할 수 없다.
+2. `/play#invite=…`를 폰 기본 브라우저에서 열면 fragment를 즉시 주소에서 지우고 메모리에 보관한다. 계정 폰은 `/api/me/invitations/accept`, 익명 클라이언트는 `/api/invites/redeem`을 호출한다. 서버는 빈 좌석을 확정하고 파티 플레이 티켓을 발급한다.
+3. 같은 좌석을 동시에 선택하면 첫 성공 요청만 좌석을 얻는다. 이미 사용 중인 좌석은 `SEAT_TAKEN`을 반환한다.
 4. POST `…/party/leave`: PHONE 자신. pending도 취소 가능. 좌석·소켓·방 멤버십을 해제하고 전투를 pause한다. 클라이언트의 새로고침·소켓 종료 자체는 탈퇴가 아니며 연결 복구를 허용한다.
 5. POST `…/party/remove`: HOST가 PHONE memberId 제거/거절. 전투 pause. HOST 자신은 이 경로로 제거할 수 없다.
 6. POST `…/party/disband`: HOST만 가능. 공유·경로·QR·기존 코드·모든 게임 소켓을 닫고 기존 partyId로 재개하지 않는다. HOST는 새 방을 만들 수 있다. 일시 연결 끊김/폰 0명은 자동 해산이 아니다. 리더 자동 승계는 없다.

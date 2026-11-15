@@ -27,7 +27,7 @@
       if(!member.approved){const button=document.createElement('button');button.type='button';button.className='quiet';button.textContent='이 좌석 승인';button.disabled=busy||!authenticated;button.addEventListener('click',()=>act(async()=>{const data=await api('/api/rooms/'+room.roomId+'/approve',{memberId:member.memberId,seat:member.seat,allowManualUnknown:true});room=data.room;notify('APPROVED');}));li.append(button);}
       return li;
     }));}
-    $('host-summary').textContent=`폰 ${members.length}명 · 승인 ${members.filter(m=>m.approved).length}명 · 공동 보급 ${room.collection?.inventory?.supplies??0}개 · ${room.state}`;
+    $('host-summary').textContent=`합류 ${members.filter(m=>m.approved).length}명 · 공동 보급 ${room.collection?.inventory?.supplies??0}개 · ${room.state}`;
     if(closed)notify('CLOSED');else if(members.some(m=>m.approved&&m.connected))notify('CONNECTED');else if(members.some(m=>!m.approved))notify('REQUESTED');else if(members.some(m=>m.approved))notify('APPROVED');
   }
   function connect(){return new Promise((resolve,reject)=>{

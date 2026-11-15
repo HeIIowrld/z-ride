@@ -34,7 +34,7 @@ try{
     const invite=await api(b+'/party/invite',{},host.token);const inviteToken=new URL(invite.joinUrl).hash.slice('#invite='.length);
     for(const seat of ['REAR_LEFT','REAR_RIGHT']){
       const joined=await api('/api/invites/redeem',{inviteToken,nickname:'TEST '+i+' '+seat,seat,passengerConfirmed:true});
-      await api(b+'/approve',{memberId:joined.memberId,allowManualUnknown:true},host.token);p.phones.push(await connect(joined.token,roomId));
+      p.phones.push(await connect(joined.token,roomId));
     }
     await api(b+'/party',{commandId:randomUUID(),visible:true,name:'TEST PARTY '+i,spotId},host.token);
     const current=(await api(b,undefined,host.token,'GET')).room;

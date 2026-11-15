@@ -1135,8 +1135,8 @@
       "gameToken": "PARTY_PLAY, approved room membership only; account resume rotates the old game token",
       "googleCredential": "Google-signed ID token with one-use server nonce. Provider access/refresh tokens are not retained."
     },
-    "joining": "QR URL fragment -> preview -> phone guest/Google login -> account invitation accept -> target HOST approval -> room-scoped WS",
-    "switch": "expectedActivePartyId + confirmSwitch, old participation stays until target approval. Atomic removal/archive from old room and activation in target. One active membership across account devices. Cancel/removal before approval retains old party.",
+    "joining": "QR URL fragment -> preview -> phone guest/Google login -> accept and claim an available seat -> room-scoped WS using the returned play ticket",
+    "switch": "expectedActivePartyId + confirmSwitch. The old membership is archived and the target membership activated in the same transaction. One active membership across account devices.",
     "dataOwnership": {
       "personal": "Profile, identity mapping, membership history and own mission participation summaries",
       "party": "Supplies, reward awards, mission progress, vehicle state; never copied into a personal wallet or moved with a user",
@@ -1153,8 +1153,8 @@
     "authFlow": "GIS JavaScript popup callback, server challenge nonce and verified ID token exchange; no redirect URI or client secret",
     "accountStorage": "API-origin-scoped tab sessionStorage; explicit guest creation; no automatic identity replacement on failure",
     "playStorage": "memory only; PHONE_ACCOUNT is never game WS auth",
-    "resume": "explicit party-ticket; pending approval completion connects once; 4412 never auto-resumes",
-    "qr": "URL fragment removed before external SDK load; preview, explicit switch consent, HOST approval",
+    "resume": "explicit party-ticket for an existing membership; 4412 never auto-resumes",
+    "qr": "URL fragment removed before external SDK load; preview, explicit switch consent, immediate seat claim on successful acceptance",
     "configuration": "GAME_GOOGLE_CLIENT_ID in private environment, exposed public ID through client-config/challenge; GAME_* URLs remain configurable"
   },
   "vehicleWebMock": {

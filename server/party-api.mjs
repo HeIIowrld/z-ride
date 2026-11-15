@@ -9,31 +9,36 @@ export function createPartyApi(ctx) {
     const value=req.headers.authorization?.slice(7);
     if (!ctx.reviewToken || !req.headers.authorization?.startsWith('Bearer ') || !value || !timingSafeEqual(digest(value),digest(ctx.reviewToken))) throw fail('REVIEW_AUTH_REQUIRED','Separate place reviewer token required',401);
   }
-  function previewInvite(inviteToken) {
+  function validInvite(inviteToken) {
     if(typeof inviteToken!=='string'||inviteToken.length>128)throw fail('INVITE_REQUIRED','QR invitation required');
     const invite=invites.get(digest(inviteToken).toString('hex'));
     if(!invite||invite.expiresAt<=Date.now()||invite.used>=3)throw fail('INVITE_EXPIRED','Ask car for a fresh QR',409);
     const room=ctx.roomFor(invite.roomId);if(room.closedAt)throw fail('INVITE_EXPIRED','Party closed',409);
-    return {partyId:room.roomId,partyName:ctx.places.partyName(room.roomId),expiresAt:invite.expiresAt,requiresHostApproval:true,joinable:room.members.size<4,availableSeats:['FRONT_PASSENGER','REAR_LEFT','REAR_RIGHT'].filter(seat=>![...room.members.values()].some(m=>m.seat===seat))};
+    return {invite,room};
+  }
+  function previewInvite(inviteToken) {
+    const {invite,room}=validInvite(inviteToken);
+    const availableSeats=['FRONT_PASSENGER','REAR_LEFT','REAR_RIGHT'].filter(seat=>![...room.members.values()].some(m=>m.seat===seat));
+    return {partyId:room.roomId,partyName:ctx.places.partyName(room.roomId),expiresAt:invite.expiresAt,requiresHostApproval:false,joinable:room.members.size<4&&availableSeats.length>0,availableSeats};
+  }
+  function redeemInvite(body, attachAccount) {
+    const {invite,room}=validInvite(body.inviteToken);
+    if (!ctx.passengerSeat(body.seat) || typeof body.nickname!=='string' || body.nickname.trim().length<1 || body.nickname.length>24 || body.passengerConfirmed!==true) throw fail('INVALID_JOIN','Nickname, passenger confirmation and seat required');
+    if (room.members.size>=4) throw fail('ROOM_FULL','Host plus 3 phones maximum',409);
+    if ([...room.members.values()].some(m=>m.seat===body.seat)) throw fail('SEAT_TAKEN','Seat already assigned',409);
+    if (ctx.sessions.size>=500) throw fail('SESSION_LIMIT','Session capacity reached',503);
+    const credential=randomBytes(24).toString('base64url');
+    const session={sessionId:randomUUID(),role:'PHONE',nickname:body.nickname.trim(),expiresAt:Date.now()+8*3600000,roomId:room.roomId};
+    const member={memberId:randomUUID(),sessionId:session.sessionId,nickname:session.nickname,role:body.seat,seat:body.seat,approved:true,socket:null,receipts:new Map(),collectedPickups:new Set()};
+    const account=attachAccount?.(room,member,session);
+    ctx.sessions.set(digest(credential).toString('hex'),session);room.members.set(session.sessionId,member);invite.used++;ctx.change(room);
+    return {token:credential,sessionId:session.sessionId,expiresAt:session.expiresAt,roomId:room.roomId,memberId:member.memberId,pending:false,room:ctx.snapshot(room,member),...account};
   }
   function publicRequest(req,path,body) {
     if (path==='/api/auth/providers' && req.method==='GET') return {status:200,data:providers.describe()};
     if (path==='/api/admin/places/review' && req.method==='POST') { authorizeReview(req); const result=ctx.places.review(body); ctx.notify(); return {status:200,data:result}; }
-    if (path!=='/api/invites/redeem' || req.method!=='POST') return null;
-    if (typeof body.inviteToken!=='string' || body.inviteToken.length>128) throw fail('INVITE_REQUIRED','QR invitation required');
-    previewInvite(body.inviteToken);
-    const invite=invites.get(digest(body.inviteToken).toString('hex'));
-    if (!invite || invite.expiresAt<=Date.now()) throw fail('INVITE_EXPIRED','Ask car for a fresh QR',409);
-    const room=ctx.roomFor(invite.roomId);
-    if (room.closedAt || invite.used>=3) throw fail('INVITE_EXPIRED','Invitation closed',409);
-    if (!ctx.passengerSeat(body.seat) || typeof body.nickname!=='string' || body.nickname.trim().length<1 || body.nickname.length>24 || body.passengerConfirmed!==true) throw fail('INVALID_JOIN','Nickname, passenger confirmation and seat required');
-    if (room.members.size>=4) throw fail('ROOM_FULL','Host plus 3 phones maximum',409);
-    if (ctx.sessions.size>=500) throw fail('SESSION_LIMIT','Session capacity reached',503);
-    const credential=randomBytes(24).toString('base64url');
-    const session={sessionId:randomUUID(),role:'PHONE',nickname:body.nickname.trim(),expiresAt:Date.now()+8*3600000,roomId:room.roomId};
-    const member={memberId:randomUUID(),sessionId:session.sessionId,nickname:session.nickname,role:body.seat,seat:body.seat,approved:false,socket:null,receipts:new Map(),collectedPickups:new Set()};
-    ctx.sessions.set(digest(credential).toString('hex'),session);room.members.set(session.sessionId,member);invite.used++;ctx.change(room);
-    return {status:201,data:{token:credential,sessionId:session.sessionId,expiresAt:session.expiresAt,roomId:room.roomId,memberId:member.memberId,pending:true,room:ctx.snapshot(room,member)}};
+    if (path==='/api/invites/redeem' && req.method==='POST') return {status:201,data:redeemInvite(body)};
+    return null;
   }
   function handle(req,path,body,session) {
     if (path==='/api/places/catalog' && req.method==='GET') return {status:200,data:ctx.places.status()};
@@ -75,7 +80,7 @@ export function createPartyApi(ctx) {
       for (const [id,old] of invites) if (old.roomId===room.roomId || old.expiresAt<=Date.now()) invites.delete(id);
       const inviteToken=randomBytes(24).toString('base64url'),expiresAt=Date.now()+120000;
       invites.set(digest(inviteToken).toString('hex'),{roomId:room.roomId,expiresAt,used:0});
-      return {status:201,data:{partyId:room.roomId,joinUrl:(ctx.phonePublicUrl||ctx.publicOrigin+'/play')+'#invite='+inviteToken,expiresAt,maxUses:3,requiresHostApproval:true,qrPayloadType:'URL'}};
+      return {status:201,data:{partyId:room.roomId,joinUrl:(ctx.phonePublicUrl||ctx.publicOrigin+'/play')+'#invite='+inviteToken,expiresAt,maxUses:3,requiresHostApproval:false,qrPayloadType:'URL'}};
     }
     if (action==='party/disband') {
       ctx.pause(room,'PARTY_DISBANDED');room.closedAt=Date.now();room.joinUsed=true;room.joinExpiresAt=0;ctx.joinCodes.delete(room.joinCode);
@@ -86,5 +91,5 @@ export function createPartyApi(ctx) {
     }
     throw fail('NOT_FOUND','Party operation not found',404);
   }
-  return {publicRequest,handle,previewInvite};
+  return {publicRequest,handle,previewInvite,redeemInvite};
 }

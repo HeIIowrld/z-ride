@@ -16,7 +16,7 @@ export function createAccountApi(ctx){
     if(plan.old){const oldRoom=ctx.rooms.get(plan.old.partyId),oldMember=oldRoom&&[...oldRoom.members.values()].find(m=>m.memberId===plan.old.memberId);
       if(oldMember)detach(oldRoom,oldMember,'SWITCHED');
     }
-    accounts.activate(plan);
+    return accounts.activate(plan);
   }
   function gameTicket(user){
     const membership=accounts.active(user);if(!membership)throw fail('NO_ACTIVE_PARTY','Join a vehicle party first');
@@ -65,11 +65,13 @@ export function createAccountApi(ctx){
     if(req.method==='POST'&&path==='/api/me/party-ticket')return {status:200,data:gameTicket(user)};
     if(req.method==='POST'&&path==='/api/me/invitations/accept'){
       const preview=ctx.partyApi.previewInvite(body.inviteToken),plan=accounts.planJoin(user,preview.partyId,body);plan.partyName=preview.partyName;
-      const response=ctx.partyApi.publicRequest({method:'POST'},'/api/invites/redeem',{inviteToken:body.inviteToken,nickname:user.displayName,seat:body.seat,passengerConfirmed:body.passengerConfirmed});
-      const room=ctx.roomFor(response.data.roomId),member=[...room.members.values()].find(m=>m.memberId===response.data.memberId);
-      const membership=accounts.pending(user,plan,member);
-      for(const s of ctx.sessions.values())if(s.sessionId===member.sessionId)s.accountUserId=user.userId;
-      return {status:201,data:{...response.data,tokenPurpose:'PARTY_PLAY',membership,account:accounts.view(user),previousPartyRemainsActiveUntilApproval:!!plan.fromMembershipId}};
+      const data=ctx.partyApi.redeemInvite({...body,nickname:user.displayName},(room,member,session)=>{
+        accounts.pending(user,plan,member);
+        session.accountUserId=user.userId;
+        const membership=approve(room,member);
+        return {tokenPurpose:'PARTY_PLAY',membership,account:accounts.view(user),previousPartyRemainsActiveUntilApproval:false};
+      });
+      return {status:201,data};
     }
     if(req.method==='POST'&&path==='/api/me/invitations/cancel'){
       const p=accounts.pendingOf(user);if(!p)throw fail('NO_PENDING_PARTY','No pending invitation');

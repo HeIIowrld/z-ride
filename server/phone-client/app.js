@@ -202,7 +202,7 @@ $('join-form').addEventListener('submit', async event => {
     return;
   }
   joining = true;
-  $('join-button').disabled = true; $('form-error').textContent = ''; status('참가 요청 중…');
+  $('join-button').disabled = true; $('form-error').textContent = ''; status('파티에 연결 중…');
   try {
     let session, joined;
     if (window.PHONE_ACCOUNT?.isAccountMode()) {
