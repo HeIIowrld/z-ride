@@ -30,3 +30,7 @@ npm run deploy                     # 4종 배포(Cloudflare 로그인 필요)
 - 방 코드·입장권·참가자는 Durable Object 저장소에 남긴다. 아무도 접속하지 않아 메모리에서 내려갔다가 다시 불려도 같은 입장권으로 들어온다. 방은 6시간 뒤 지운다. 없는 방이면 WebSocket을 4404로 닫아 화면이 "방이 닫혔어요"를 띄운다.
 - PLY 서버의 옛 충전소 게임(`server/venue-electric-thief.mjs`, `server/venue-charge-relay.mjs`, `/venue-game` API)은 차량 앱에서 더 이상 열지 않는다. 서버 쪽 정리는 서버 담당이 따로 한다.
 - 전기도둑은 없앴다(`games/electric-thief` 삭제, 차량 앱 메뉴에서 제거).
+
+### PLY Volt Rush 운영 경로
+
+Volt Rush는 기존 PLY HTTPS의 `/volt-rush/`에서 같은 Worker 런타임으로 서비스할 수 있다. 정적 파일·API·WebSocket 경로를 해당 prefix에서 Worker 루트로 전달한다. PLY의 `GAME_CHARGE_GAMES`는 Volt Rush 주소를 가리키고, Worker의 `PLY_ITEMS_ORIGIN`은 크루 재고를 관리하는 PLY origin을 가리킨다. 다른 충전 게임은 기존 주소를 쓴다.

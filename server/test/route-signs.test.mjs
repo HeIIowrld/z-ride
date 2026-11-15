@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
@@ -136,8 +137,37 @@ test('navigation report keeps destination coordinates and heading', () => {
 
 test('route sign flow: route from destination → sign near car → game challenge → crew bag reward', async t => {
   const calls = [];
+  const links = {};
+  const worker = createServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = chunks.length ? JSON.parse(Buffer.concat(chunks)) : {};
+    const reply = value => response.end(JSON.stringify(value));
+    if (request.url === '/api/zride/rooms') {
+      links.deadzone = body.crewKey;
+      return reply({ code: 'ABC234', dashboardToken: 'dashboard-test', partySeatsRequired: true });
+    }
+    if (request.url === '/api/zride/rooms/ABC234/status')
+      return reply({ schema: 'zride.dashboard.v1', roomCode: 'ABC234', players: [], wave: 0, state: 'lobby' });
+    if (request.url === '/volt-rush/api/rooms') {
+      links.volt = body.crewKey;
+      return reply({ code: 'VOLT2', hostToken: 'volt-test' });
+    }
+    if (request.url === '/volt-rush/api/rooms/VOLT2/join') {
+      assert.equal(body.hostToken, 'volt-test');
+      return reply({ playerId: randomUUID(), token: 'rider-test' });
+    }
+    response.writeHead(404).end('{}');
+  });
+  await new Promise(resolve => worker.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => worker.close(resolve)));
+  const origin = 'http://127.0.0.1:' + worker.address().port;
+  const charger = { ...line[0], placeId: 'charger-fixture', name: 'Charger fixture', category: 'CHARGER' };
   const app = createDemoServer({
-    leaseMs: 60000, signMinPlayMs: 0,
+    leaseMs: 60000, signMinPlayMs: 0, deadzoneOrigin: origin,
+    chargeGames: { 'volt-rush': origin + '/volt-rush/' },
+    placeReviewToken: 'review-sign-items',
+    placesCatalog: { version: 'test', places: [charger] },
     routeRouter: async (origin, destination) => { calls.push([origin, destination]); return line; },
   });
   const address = await app.listen(0), clients = [];
@@ -196,6 +226,7 @@ test('route sign flow: route from destination → sign near car → game challen
   assert.equal((await call(signPath, startBody, host.token)).status, 403);
 
   const expected = { 'license-quiz': 'quiz-time-card', 'pole-jump': 'jump-grip', raindrop: 'wide-catcher' };
+  const crewCrates = ['coil-launcher', 'voltage-coil', 'repair-kit'];
   for (const target of route.signs.filter(sign => sign.playable).slice(0, 3)) {
     const body = { signId: target.signId, routeKey: route.key };
     const itemId = expected[target.gameId];
@@ -213,10 +244,14 @@ test('route sign flow: route from destination → sign near car → game challen
     const receipts = await Promise.all([api(signPath, completion, phone.token), api(signPath, completion, phone.token)]);
     assert.equal(receipts.filter(receipt => receipt.replayed).length, 1);
     for (const receipt of receipts) {
-      assert.deepEqual(receipt.items.map(item => item.id), [itemId]);
+      assert.equal(receipt.items[0].id, itemId);
+      assert.equal(receipt.items.length, 2);
+      assert.equal(receipt.items[1].id, crewCrates[0]);
+      assert.equal(receipt.inventory[receipt.items[1].id], 1);
       assert.equal(receipt.inventory[itemId], 1);
       assert.equal(receipt.supplies, 0);
     }
+    crewCrates.shift();
     await until(() => second.room.collection.inventory[itemId] === 1);
     await until(() => p.room.journeyRoute.signs.find(s => s.signId === target.signId)?.state === 'CLAIMED');
     assert.equal(second.room.journeyRoute.signs.find(s => s.signId === target.signId).state, 'READY');
@@ -239,4 +274,37 @@ test('route sign flow: route from destination → sign near car → game challen
   // 안내 종료 → 경로·표지판 해제
   await car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: { source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, routeRevision: 8, status: 'NAVIGATION_ENDED' } });
   await until(() => !p.room.journeyRoute);
+  await car.send({ type: 'vehicle.report', reportSeq: 2, gear: 'P', ux: 'ALLOWED', foreground: true, speedMps: 0 });
+  const reviewed = await call('/api/admin/places/review', {
+    commandId: 'review', placeId: charger.placeId, expectedRevision: 0, accessStatus: 'VERIFIED', enabled: true,
+    entrance: charger, playZone: { ...line[0], radiusM: 60 }, parkingAllowed: true, dwellAllowed: true, evidence: 'Test only',
+  }, 'review-sign-items');
+  assert.equal(reviewed.status, 200, JSON.stringify(reviewed.data));
+  await car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: {
+    ...line[0], source: 'PLEOS_NAVI_HELPER', sdkConnected: true, owned: false, event: 'ARRIVED', status: 'IDLE', routeRevision: 8, locationAgeMs: 0,
+  }});
+  await api('/api/rooms/' + room.roomId + '/deadzone', { create: true }, host.token);
+  const deadzone = { game: 'deadzone', code: 'ABC234' };
+  assert.equal((await call('/api/game-items', { ...deadzone, action: 'loadout' }, phone.token)).status, 403);
+  assert.equal((await call('/api/game-items', { ...deadzone, code: 'OTHER1', action: 'loadout' }, links.deadzone)).status, 403);
+  const loadout = await api('/api/game-items', { ...deadzone, action: 'loadout' }, links.deadzone);
+  assert.deepEqual(loadout.loadout.startWeapons, ['launcher']);
+  assert.deepEqual(loadout.items.map(item => [item.id, item.count]), [['repair-kit', 1]]);
+  const repair = { ...deadzone, useId: randomUUID(), itemId: 'repair-kit' };
+  assert.equal((await api('/api/game-items', { ...repair, action: 'use' }, links.deadzone)).remaining, 0);
+  assert.equal((await api('/api/game-items', { ...repair, action: 'use' }, links.deadzone)).remaining, 0);
+  assert.equal((await api('/api/game-items', { ...repair, action: 'refund' }, links.deadzone)).refunded, true);
+  assert.equal((await api('/api/game-items', { ...repair, action: 'refund' }, links.deadzone)).refunded, true);
+  await until(() => second.room.collection.inventory['repair-kit'] === 1);
+  const opened = await api('/api/rooms/' + room.roomId + '/charge-game', { action: 'open', game: 'volt-rush' }, host.token);
+  assert.equal(opened.hostUrl, origin + '/volt-rush/#host=VOLT2.volt-test');
+  const volt = { game: 'volt-rush', code: 'VOLT2' };
+  const stock = await api('/api/game-items', { ...volt, action: 'loadout' }, links.volt);
+  assert.deepEqual(stock.items.map(item => [item.id, item.kind]), [['voltage-coil', 'CUT']]);
+  const spent = await Promise.all([randomUUID(), randomUUID()].map(useId =>
+    call('/api/game-items', { ...volt, action: 'use', itemId: 'voltage-coil', useId }, links.volt)));
+  assert.deepEqual(spent.map(value => value.status).sort(), [200, 409]);
+  await until(() => second.room.collection.inventory['voltage-coil'] === 0);
+  await api('/api/rooms/' + room.roomId + '/charge-game', { action: 'close' }, host.token);
+  assert.equal((await call('/api/game-items', { ...volt, action: 'loadout' }, links.volt)).status, 403);
 });

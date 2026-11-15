@@ -1472,6 +1472,78 @@
         }
       }
     },
+  "/api/game-items": {
+    "post": {
+      "operationId": "useCrewGameItem",
+      "summary": "Read the crew loadout or spend/refund an item",
+      "description": "Internal game-server call. The bearer credential is issued to the currently linked game room, bound to its code and game. It is never sent to a client. POST loadout returns the crew equipment and stock. A useId spends one item once. The same ID may be refunded once when its game effect could not be applied.",
+      "security": [
+        {
+          "gameRoomAuth": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "game",
+                "code",
+                "action"
+              ],
+              "properties": {
+                "game": {
+                  "enum": [
+                    "deadzone",
+                    "volt-rush"
+                  ]
+                },
+                "code": {
+                  "type": "string"
+                },
+                "action": {
+                  "enum": [
+                    "loadout",
+                    "use",
+                    "refund"
+                  ]
+                },
+                "itemId": {
+                  "type": "string"
+                },
+                "useId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Loadout and stock, remaining count after use, or refund receipt"
+        },
+        "400": {
+          "description": "Invalid item or action"
+        },
+        "403": {
+          "description": "No matching game room credential"
+        },
+        "409": {
+          "description": "Vehicle gate closed, empty stock, or conflicting operation"
+        },
+        "503": {
+          "description": "Storage unavailable",
+          "x-error-codes": [
+            "STORAGE_UNAVAILABLE"
+          ]
+        }
+      }
+    }
+  },
     "/api/world/route-sign": {
       "post": {
         "operationId": "playRouteSign",
@@ -1525,7 +1597,7 @@
         },
         "responses": {
           "200": {
-            "description": "Start: challengeId, signId, gameId, expiresAt, minPlayMs. Completion: signId, gameId, items (one specialized item), supplies, inventory, optional replayed."
+            "description": "Start: challengeId, signId, gameId, expiresAt, minPlayMs. Completion: signId, gameId, items (specialized reward and crew crate item), supplies, inventory, optional replayed."
           },
           "400": {
             "description": "Unknown game or sign id",
@@ -10457,6 +10529,7 @@
   },
   "components": {
     "securitySchemes": {
+      "gameRoomAuth": {"type": "http", "scheme": "bearer", "description": "Active PLY game-room server credential"},
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",

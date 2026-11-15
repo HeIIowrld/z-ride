@@ -113,3 +113,19 @@ test('시작을 누르면 차 화면에 규칙이 먼저 뜨고, 15초 뒤 첫 �
   assert.equal(g.phase, 'READY'); assert.equal(g.round, 1);
   assert.throws(() => new Game().showRules(), /NEED_PLAYERS/);
 });
+
+test('크루 가방을 받은 방은 실제 보유 아이템만 쓰고 공동 수량을 맞춘다', () => {
+  const game = new Game({ now: () => 0, rng: () => 0.2 });
+  game.addPlayer('a', 'A'); game.addPlayer('b', 'B');
+  game.crewStock = [{ id: 'voltage-coil', kind: 'CUT', count: 2 }];
+  game.start();
+  game.phase = 'PLAY';
+  assert.deepEqual(game.playerView('a').bag.map(item => item.id), ['voltage-coil']);
+  assert.equal(game.useItem('a', 'voltage-coil').kind, 'CUT');
+  game.updateCrewItem('voltage-coil', 1);
+  assert.equal(game.playerView('a').bag[0].count, 1);
+  assert.equal(game.useItem('b', 'voltage-coil').kind, 'CUT');
+  game.updateCrewItem('voltage-coil', 0);
+  assert.deepEqual(game.playerView('a').bag, []);
+  assert.deepEqual(game.playerView('b').bag, []);
+});

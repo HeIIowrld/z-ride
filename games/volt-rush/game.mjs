@@ -14,7 +14,7 @@ export const BOLT = 3, ITEM_CELL = 5, BOOST_MS = 8000, BLACKOUT_MS = 5000, SHIEL
 export const EVENT_EVERY_MS = 30_000; // 판(90초) 안에 30초·60초 두 번 터진다
 const WALL = -2, EMPTY = -1;
 
-// 주행 중 얻은 아이템이 들어올 자리. 루트 시스템이 붙기 전까지는 테스트 가방에서 2개씩 준다
+// 크루 경기는 공동 가방을 쓰고, 단독 체험은 테스트 아이템을 받는다.
 export const ITEMS = {
   JUMP: { name: '절연 장갑', tag: 'escape', desc: '다음 한 번, 막힌 칸을 뛰어넘어요' },
   CUT: { name: '고전압 코일', tag: 'attack', desc: '앞쪽 3칸의 남의 선을 끊어요' },
@@ -46,6 +46,7 @@ export class Game {
     this.event = null; this.eventCount = 0;
     this.roundWinner = null; this.winners = [];
     this.uid = 0;
+    this.crewStock = null;
   }
 
   addPlayer(id, name) {
@@ -109,6 +110,11 @@ export class Game {
     const kinds = Object.keys(ITEMS);
     for (const p of this.players) {
       p.score = 0; p.energy = this.budget;
+      if (this.crewStock) {
+        p.bag = this.crewStock.filter(item => item.count > 0).map(item =>
+          ({ id: item.id, kind: item.kind, from: '크루 가방', count: item.count }));
+        continue;
+      }
       const pick = [...kinds].sort(() => this.rng() - 0.5).slice(0, 2);
       p.bag = pick.map(kind => ({ id: `i${++this.uid}`, kind, from: TEST_SOURCES[Math.floor(this.rng() * TEST_SOURCES.length)] }));
     }
@@ -228,6 +234,16 @@ export class Game {
     this.occ[n] = i; p.trail.push(n);
     if (this.bolts.delete(n)) p.energy += BOLT;
     if (!this.players.some(q => this.canMove(q))) this.finishRound(null);
+  }
+
+  updateCrewItem(itemId, remaining) {
+    const item = this.crewStock.find(value => value.id === itemId);
+    if (item) item.count = remaining;
+    for (const player of this.players) {
+      // The acting player's card was removed by useItem. Keep a card for any remaining stock.
+      player.bag = player.bag.filter(card => card.id !== itemId);
+      if (remaining > 0 && item) player.bag.push({ id: item.id, kind: item.kind, from: '크루 가방', count: remaining });
+    }
   }
 
   useItem(id, itemId) {

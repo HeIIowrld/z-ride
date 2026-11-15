@@ -69,7 +69,7 @@
     const bag = h('div', 'bag');
     for (const item of state.bag) {
       const b = button('', 'item', () => { if (state.phase === 'PLAY') net.send({ type: 'item', id: item.id }); });
-      b.append(h('b', '', item.name), h('small', '', item.desc), h('small', 'from', `${item.from}에서 획득`));
+      b.append(h('b', '', item.name + (item.count ? ' ×' + item.count : '')), h('small', '', item.desc), h('small', 'from', `${item.from}에서 획득`));
       bag.append(b);
     }
     if (!state.bag.length) bag.append(h('p', 'hint', '가방이 비었어요'));
@@ -123,7 +123,7 @@
   function render() {
     if (!state) return;
     if (!me()) { store.drop(KEY); session = null; joinView('방에서 나왔어요. 다시 들어오려면 이름을 적어 주세요.'); return; }
-    const key = state.phase + state.round + state.bag?.map(b => b.id).join() + (state.phase === 'LOBBY' ? me().color : '');
+    const key = state.phase + state.round + state.bag?.map(b => b.id + ':' + (b.count ?? 1)).join() + (state.phase === 'LOBBY' ? me().color : '');
     if (key === viewKey) { paint(); return; }
     viewKey = key; live = null; stopHold();
     const view = state.phase === 'LOBBY' || state.phase === 'RULES' ? lobbyView()
@@ -141,7 +141,7 @@
       code: session.code, token: session.token,
       onLink: value => { if (value === 'LIVE') say(''); else if (value === 'RETRYING') say('연결이 끊겨 다시 붙는 중…'); },
       onState: value => { sync(value); state = value; render(); },
-      onError: code => { if (code === 'NO_ITEM') say(''); },
+      onError: code => { say(code === 'NO_ITEM' || code === 'GAME_ITEM_EMPTY' ? '크루가 이 아이템을 다 썼어요.' : '가방 연결을 확인하고 다시 눌러 주세요.'); },
       onGone: code => {
         if (code === 4409) { say('다른 탭에서 이어서 하는 중이에요.'); return; }
         store.drop(KEY); session = null; state = null; viewKey = '';

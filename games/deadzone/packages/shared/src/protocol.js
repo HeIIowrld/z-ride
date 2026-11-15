@@ -47,6 +47,7 @@ export const MSG = {
   CHAT: 4,
   PICK: 5,        // upgrade choice
   READY: 6,
+  CREW_USE: 7,
   // server -> client
   WELCOME: 128,
   SNAPSHOT: 129,
@@ -56,7 +57,8 @@ export const MSG = {
   CHOICE: 133,
   END: 134,
   KICK: 135,
-  CHATOUT: 136
+  CHATOUT: 136,
+  CREW_ITEMS: 137
 };
 
 export class Writer {

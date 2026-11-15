@@ -12,7 +12,7 @@ for (const item of items) {
   const svg = await readFile(resolve(root, 'shared/assets/items', `${item.id}.svg`), 'utf8');
   shapes.push(svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>')));
 }
-if (new Set(shapes).size !== 40 || items.length !== 40) throw new Error('Expected 40 distinct catalog icon shapes');
+if (new Set(shapes).size !== items.length) throw new Error('Expected a distinct catalog icon for each item');
 const rewardSources = [
   await readFile(resolve(root, 'data/loot_tables.json'), 'utf8'),
   await readFile(resolve(root, 'games/raindrop/game.js'), 'utf8'),

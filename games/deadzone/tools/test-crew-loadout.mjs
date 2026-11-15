@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import { Sim } from '../packages/shared/src/sim.js';
+import { WEAPON_BY_ID } from '../packages/shared/src/defs.js';
+import { applyCrewLoadout, reinforceCrewVehicle, applyCrewConsumable } from '../packages/shared/src/crew-loadout.js';
+
+const sim = new Sim({ seed: 123, mode: 'coop', authoritative: true, sharedVehicle: true });
+const rider = sim.addPlayer(1, { name: 'Rider' });
+const stock = { startWeapons: ['launcher', 'rail'], startAbility: 'turret', mods: { shieldBonus: 25, thorns: 10 } };
+applyCrewLoadout(sim, rider, stock);
+reinforceCrewVehicle(sim, stock);
+assert.ok(rider.unlocked.includes(WEAPON_BY_ID.launcher.slot));
+assert.ok(rider.unlocked.includes(WEAPON_BY_ID.rail.slot));
+assert.equal(rider.abilities[0].def.id, 'turret');
+const hp = sim.sharedVehicle.hp;
+assert.equal(applyCrewConsumable(sim, rider, 'shieldRefill'), false);
+sim.damagePlayer(rider, 80);
+assert.equal(sim.sharedVehicle.hp, hp - 80);
+assert.equal(applyCrewConsumable(sim, rider, 'shieldRefill'), true);
+assert.equal(sim.sharedVehicle.hp, hp - 35);
+assert.equal(applyCrewConsumable(sim, rider, 'medkit'), true);
+assert.equal(sim.sharedVehicle.hp, hp);
+console.log('PASS crew weapons, ability, vehicle armor and consumables');

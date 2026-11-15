@@ -44,6 +44,8 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import { partySize, dashboardSnapshot } from '../../shared/src/zride.js';
+import { crewItems, validCrewKey } from '../../shared/src/ply-crew.js';
+import { applyCrewLoadout, reinforceCrewVehicle, canUseCrewConsumable, applyCrewConsumable } from '../../shared/src/crew-loadout.js';
 import { allowsSeatAim, relativeSeatAim } from '../../shared/src/seat-aim.js';
 
 import { Sim } from '../../shared/src/sim.js';
@@ -136,6 +138,7 @@ export class MatchRoom extends DurableObject {
           return Response.json({error:'invalid_party_seats'}, {status:400});
         this.room.partySeats = body.partySeats;
       }
+      if (this.room.partySeats && validCrewKey(body.crewKey)) this.room.crewKey = body.crewKey;
       await this.ctx.storage.put('room', this.room);
       await this.report();
       return Response.json({ok:true});
@@ -264,6 +267,7 @@ export class MatchRoom extends DurableObject {
         case MSG.CHAT: return this.onChat(ws, decodeJson(r) || {});
         case MSG.PICK: return this.onPick(ws, decodeJson(r) || {});
         case MSG.READY: return this.onReady(ws, decodeJson(r) || {});
+        case MSG.CREW_USE: return this.useCrewItem(ws, decodeJson(r) ?? {});
         default: return;   // unknown type: silently ignored, never fatal
       }
     } catch (err) {
@@ -337,6 +341,7 @@ export class MatchRoom extends DurableObject {
       targetPlayers: this.room.targetPlayers || null
     }));
 
+    if (this.room.state === 'playing') this.sendCrewItems(ws);
     this.broadcastLobby('join');
     this.report();
     this.armAlarm().catch(() => { /* alarm is a safety net, not a dependency */ });
@@ -430,7 +435,19 @@ export class MatchRoom extends DurableObject {
     this.broadcastLobby();
   }
 
-  startMatch() {
+  async startMatch() {
+    if (this.loadingCrew) return;
+    if (this.room.crewKey) {
+      this.loadingCrew = true;
+      try {
+        this.crew = await crewItems(this.env, this.room.crewKey, 'deadzone', this.room.code, 'loadout');
+      } catch {
+        this.crew = null;
+        this.resetToLobby('crew_items_unavailable');
+        return;
+      } finally { this.loadingCrew = false; }
+      if (this.room.state !== 'countdown' || this.humanCount() < this.room.targetPlayers) return;
+    }
     const def = MODES[this.room.mode] || MODES.coop;
 
     // Fresh Sim per match so a rematch cannot inherit last match's upgrades,
@@ -446,12 +463,14 @@ export class MatchRoom extends DurableObject {
       if (!att || !att.playerId) continue;
       const rider = this.sim.addPlayer(att.playerId, { name: att.name, skin: att.skin, bot: false });
       rider.partySeat = att.partySeat;
+      applyCrewLoadout(this.sim, rider, this.crew?.loadout);
     }
     if (def.pvp) {
       this.sim.rebalanceTeams();
       this.backfillBots(def);
       this.sim.rebalanceTeams();
     }
+    reinforceCrewVehicle(this.sim, this.crew?.loadout);
     if (this.sim.mode.waves) this.sim.director.startWave();
 
     this.room.runId = crypto.randomUUID();
@@ -466,7 +485,61 @@ export class MatchRoom extends DurableObject {
       worldProps: this.sim.world.snapshot(),
       seed: this.sim.seed
     }));
+    for (const ws of this.ctx.getWebSockets()) this.sendCrewItems(ws);
     this.startTimer();
+  }
+
+  sendCrewItems(ws, error) {
+    if (!this.crew || !ws.deserializeAttachment()?.partySeat) return;
+    this.send(ws, encodeJson(MSG.CREW_ITEMS, {
+      items: this.crew.items.filter(item => item.count > 0), loadout: this.crew.loadout, error,
+    }));
+  }
+
+  async useCrewItem(ws, { itemId, ability }) {
+    const auth = ws.deserializeAttachment();
+    const sim = this.sim;
+    const player = sim?.playerById(auth?.playerId);
+    if (!auth?.partySeat || this.room.state !== 'playing' || !this.crew || !player) return;
+    if (ability === true && this.crew.loadout?.startAbility) {
+      if (player.abilities[0]?.cd > 0) this.sendCrewItems(ws, 'ABILITY_COOLDOWN');
+      else sim.useAbility(player, 0);
+      return;
+    }
+    const item = this.crew.items.find(value => value.id === itemId && value.count > 0);
+    if (!item) return;
+    if (this.usingCrewItem || !canUseCrewConsumable(sim, player, item.kind)) {
+      this.sendCrewItems(ws, this.usingCrewItem ? 'GAME_ITEMS_BUSY' : 'ITEM_NOT_NEEDED');
+      return;
+    }
+    this.usingCrewItem = true;
+    const request = (action, details) => crewItems(this.env, this.room.crewKey, 'deadzone', this.room.code, action, details);
+    const operation = this.pendingCrewUse ?? { itemId, useId: crypto.randomUUID(), runId: this.room.runId };
+    try {
+      if (operation.itemId !== itemId || operation.runId !== this.room.runId) {
+        this.sendCrewItems(ws, 'GAME_ITEMS_BUSY');
+        return;
+      }
+      let receipt;
+      try {
+        receipt = await request('use', { itemId, useId: operation.useId });
+      } catch (error) {
+        this.pendingCrewUse = error.permanent ? null : operation;
+        if (error.message === 'GAME_ITEM_EMPTY') item.count = 0;
+        this.sendCrewItems(ws, error.message);
+        return;
+      }
+      this.pendingCrewUse = null;
+      if (this.sim !== sim || this.room.state !== 'playing' || !applyCrewConsumable(sim, player, item.kind)) {
+        await request('refund', { itemId, useId: operation.useId });
+        this.sendCrewItems(ws, 'ITEM_NOT_NEEDED');
+        return;
+      }
+      item.count = receipt.remaining;
+      for (const peer of this.ctx.getWebSockets()) this.sendCrewItems(peer);
+    } catch {
+      this.sendCrewItems(ws, 'GAME_ITEMS_UNAVAILABLE');
+    } finally { this.usingCrewItem = false; }
   }
 
   /** Even teams or it is not a match. Bots fill the short team up to the size
@@ -524,6 +597,8 @@ export class MatchRoom extends DurableObject {
     this.choiceWave = -1;
     this.room.state = 'lobby';
     this.room.rematch = (this.room.rematch || 0) + 1;
+    this.crew = null;
+    this.pendingCrewUse = null;
     this.save();
 
     for (const ws of this.ctx.getWebSockets()) {
@@ -589,12 +664,12 @@ export class MatchRoom extends DurableObject {
 
   tickCountdown() {
     this.countdownT -= DT;
-    const whole = Math.ceil(this.countdownT);
+    const whole = Math.max(0, Math.ceil(this.countdownT));
     if (whole !== this.lastCountdownSent) {
       this.lastCountdownSent = whole;
       this.broadcast(encodeJson(MSG.LOBBY, this.lobbyPayload('countdown')));
     }
-    if (this.countdownT <= 0) this.startMatch();
+    if (this.countdownT <= 0 && !this.loadingCrew) this.ctx.waitUntil(this.startMatch());
   }
 
   tickEnded() {

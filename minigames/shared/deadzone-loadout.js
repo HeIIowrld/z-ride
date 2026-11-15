@@ -26,11 +26,11 @@ export function buildDeadzoneLoadout(party={},conditions={}){
    applyMods(effect.mods);
    if (conditions.night) applyMods(effect.nightMods);
    if (conditions.rain) applyMods(effect.rainMods);
-   if (effect.startWeapon && !weapons.includes(effect.startWeapon) && weapons.length < 2) weapons.push(effect.startWeapon);
+   if (effect.startWeapon && !weapons.includes(effect.startWeapon) && weapons.length < 6) weapons.push(effect.startWeapon);
    if (effect.startAbility && !ability) ability = effect.startAbility;
    if (effect.skin) skin = effect.skin;
  }
- const kinds=['medkit','surge','bubble','shieldRefill'],limit=Math.min(6,Math.round(Math.max(1,Math.min(4,Number(party.players)||1))*1.5)),consumables=Object.fromEntries(kinds.map(k=>[k,0]));
+ const kinds=['medkit','surge','bubble','shieldRefill','flare'],limit=Math.min(6,Math.round(Math.max(1,Math.min(4,Number(party.players)||1))*1.5)),consumables=Object.fromEntries(kinds.map(k=>[k,0]));
  for(const item of items.filter(x=>x.category==='consumable')){const k=item.deadzone?.kind;if(k&&consumables[k]!=null)consumables[k]=Math.min(limit,consumables[k]+Math.max(0,Number(counts[item.id])||0));}
  const parts=items.filter(x=>x.category==='part').reduce((n,x)=>n+Math.max(0,Number(counts[x.id])||0),0);
  return {schema:'zride.deadzone-loadout.v1',partyId:String(party.partyId||party.id||''),conditions:{night:!!conditions.night,rain:!!conditions.rain},mods,startWeapons:weapons,startAbility:ability,consumables,startCredits:Math.min(40,Math.floor(parts/5)*10),skin,gear:gear.map(x=>({slot:x.slot,itemId:x.id,name:x.name}))};

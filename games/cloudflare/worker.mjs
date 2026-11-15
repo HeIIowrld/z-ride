@@ -3,6 +3,7 @@
 // 어떤 게임인지는 env.GAME으로 정한다(게임마다 Worker를 따로 배포한다).
 import { DurableObject } from 'cloudflare:workers';
 import { ADAPTERS } from './adapters.mjs';
+import { crewItems, validCrewKey } from '../deadzone/packages/shared/src/ply-crew.js';
 
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const NAME_MAX = 10, MAX_BODY = 2048, FRAME_MS = 60, ROOM_TTL_MS = 6 * 3600_000;
@@ -35,10 +36,18 @@ export default {
 
     if (request.method === 'GET' && pathname === '/healthz') return json(200, { ok: true, game: env.GAME });
     if (request.method === 'POST' && pathname === '/api/rooms') {
+      let crewKey;
+      if (env.GAME === 'volt-rush') {
+        try {
+          const body = await readJson(request);
+          if (validCrewKey(body.crewKey)) crewKey = body.crewKey;
+          else if (body.crewKey !== undefined) return json(400, { error: 'BAD_REQUEST' });
+        } catch { return json(400, { error: 'BAD_REQUEST' }); }
+      }
       // 코드가 겹치면 다시 뽑는다(Durable Object가 이미 쓰인 방이면 409)
       for (let i = 0; i < 5; i++) {
         const code = newCode();
-        const res = await room(code).fetch('https://room/init', { method: 'POST', body: JSON.stringify({ code }) });
+        const res = await room(code).fetch('https://room/init', { method: 'POST', body: JSON.stringify({ code, crewKey }) });
         if (res.status === 409) continue;
         const { hostToken } = await res.json();
         return json(200, { code, hostToken, joinUrl: `${url.origin}/p#${code}` });
@@ -75,7 +84,7 @@ export class Room extends DurableObject {
     ctx.blockConcurrencyWhile(async () => {
       const saved = await ctx.storage.get('room');
       if (!saved) return;
-      this.code = saved.code; this.hostToken = saved.hostToken;
+      this.code = saved.code; this.hostToken = saved.hostToken; this.crewKey = saved.crewKey;
       this.game = this.adapter.create(Date.now);
       for (const p of saved.players) {
         try { this.game.addPlayer(p.playerId, p.name); this.tokens.set(p.token, p.playerId); } catch {}
@@ -92,14 +101,15 @@ export class Room extends DurableObject {
   save() {
     const players = [...this.tokens].map(([token, playerId]) => ({ token, playerId, name: this.game.players.find(p => p.id === playerId)?.name }))
       .filter(p => p.name);
-    return this.ctx.storage.put('room', { code: this.code, hostToken: this.hostToken, players });
+    return this.ctx.storage.put('room', { code: this.code, hostToken: this.hostToken, crewKey: this.crewKey, players });
   }
 
   async fetch(request) {
     const { pathname } = new URL(request.url);
     if (pathname === '/init') {
       if (this.game) return json(409, { error: 'TAKEN' });
-      const { code } = await request.json();
+      const { code, crewKey } = await request.json();
+      this.crewKey = crewKey;
       this.code = code; this.hostToken = randomToken();
       this.game = this.adapter.create(Date.now);
       await this.save();
@@ -116,7 +126,8 @@ export class Room extends DurableObject {
     }
     if (pathname === '/join') {
       try {
-        const { name } = await readJson(request);
+        const { name, hostToken } = await readJson(request);
+        if (this.crewKey && !same(hostToken, this.hostToken)) return json(403, { error: 'CREW_TICKET_REQUIRED' });
         const clean = String(name ?? '').trim().slice(0, NAME_MAX);
         if (!clean) return json(400, { error: 'NAME_REQUIRED' });
         const playerId = crypto.randomUUID(), token = randomToken();
@@ -135,12 +146,12 @@ export class Room extends DurableObject {
     const ws = pair[1];
     ws.accept();
     const authTimer = setTimeout(() => { if (!this.who.has(ws)) ws.close(4401, 'Authenticate first'); }, 5000);
-    ws.addEventListener('message', event => {
+    ws.addEventListener('message', async event => {
       if (typeof event.data !== 'string' || event.data.length > (this.adapter.maxPayload ?? 4096)) return;
       let message;
       try { message = JSON.parse(event.data); } catch { return; }
       if (!this.who.has(ws)) { if (message.type === 'auth') this.authenticate(ws, message); return; }
-      try { this.handle(ws, message); }
+      try { await this.handle(ws, message); }
       catch (error) { this.send(ws, { type: 'error', code: /^[A-Z_]+$/.test(error.message) ? error.message : 'ERROR' }); }
     });
     const gone = () => {
@@ -170,12 +181,61 @@ export class Room extends DurableObject {
     this.publish();
   }
 
-  handle(ws, message) {
+  async handle(ws, message) {
     const me = this.who.get(ws);
+    if (this.crewKey && me.role === 'HOST' && message.type === 'start' &&
+        ['LOBBY', 'END'].includes(this.game.phase)) {
+      if (this.loadingCrew) throw new Error('GAME_ITEMS_BUSY');
+      this.loadingCrew = true;
+      try {
+        const stock = await crewItems(this.env, this.crewKey, 'volt-rush', this.code, 'loadout');
+        this.game.crewStock = stock.items;
+      } finally { this.loadingCrew = false; }
+      if (this.who.get(ws) !== me) return;
+    }
+    if (this.crewKey && me.role === 'PLAYER' && message.type === 'item')
+      return this.useCrewItem(me.playerId, String(message.id ?? ''));
     const after = me.role === 'HOST' ? this.adapter.host(this.game, message) : this.adapter.player(this.game, me.playerId, message);
     if (message.type === 'kick') this.save();
     if (after === 'SOON') return this.publishSoon();
     this.publish();
+  }
+
+  async useCrewItem(playerId, itemId) {
+    const game = this.game;
+    if (game.phase !== 'PLAY') throw new Error('NOT_PLAYING');
+    const player = game.players.find(candidate => candidate.id === playerId);
+    if (!player?.bag.some(card => card.id === itemId)) throw new Error('NO_ITEM');
+    if (this.usingCrewItem) throw new Error('GAME_ITEMS_BUSY');
+    if (this.pendingCrewUse?.round !== game.round) this.pendingCrewUse = null;
+    const round = game.round;
+    const request = (action, details) => crewItems(this.env, this.crewKey, 'volt-rush', this.code, action, details);
+    const operation = this.usingCrewItem = this.pendingCrewUse ?? { playerId, itemId, round, useId: crypto.randomUUID() };
+    if (operation.itemId !== itemId || operation.playerId !== playerId || operation.round !== round) {
+      this.usingCrewItem = null;
+      throw new Error('GAME_ITEMS_BUSY');
+    }
+    try {
+      let receipt;
+      try {
+        receipt = await request('use', { itemId, useId: operation.useId });
+      } catch (error) {
+        this.pendingCrewUse = error.permanent ? null : operation;
+        if (error.message === 'GAME_ITEM_EMPTY') {
+          game.updateCrewItem(itemId, 0);
+          this.publish();
+        }
+        throw error;
+      }
+      this.pendingCrewUse = null;
+      if (this.game !== game || game.phase !== 'PLAY' || game.round !== round || !game.players.includes(player)) {
+        await request('refund', { itemId, useId: operation.useId });
+        throw new Error('NOT_PLAYING');
+      }
+      game.useItem(playerId, itemId);
+      game.updateCrewItem(itemId, receipt.remaining);
+      this.publish();
+    } finally { this.usingCrewItem = null; }
   }
 
   send(ws, message) { try { ws.send(JSON.stringify(message)); } catch {} }

@@ -263,14 +263,18 @@
   // PLY 파티로 열면 PLY 서버가 만든 방의 호스트 입장권이 주소에 붙어 온다(#host=코드.토큰)
   const hostTicket = location.hash.match(/^#host=([A-Z0-9]{5})\.([\w-]{16,})$/);
   if (hostTicket) {
-    store.set(KEY, { code: hostTicket[1], hostToken: hostTicket[2], joinUrl: location.origin + '/p#' + hostTicket[1], party: true });
+    store.set(KEY, { code: hostTicket[1], hostToken: hostTicket[2], joinUrl: new URL('./p#' + hostTicket[1], location.href).href, party: true });
     history.replaceState(null, '', location.pathname + location.search);
   }
 
   async function open(fresh) {
     session = fresh ? null : store.get(KEY);
     if (!session) {
-      try { session = await post('/api/rooms'); store.set(KEY, session); }
+      try {
+        session = await post('/api/rooms');
+        session.joinUrl = new URL('./p#' + session.code, location.href).href;
+        store.set(KEY, session);
+      }
       catch { stage.replaceChildren(h('p', 'hint', '서버에 연결할 수 없어요. 새로고침해 주세요.')); return; }
     }
     sentSoc = null;
