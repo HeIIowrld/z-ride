@@ -25,7 +25,7 @@ npm test
 npm start
 ```
 
-PC는 `http://127.0.0.1:8000`, Android AVD는 `http://10.0.2.2:8000`으로 접속한다. 동승자 페이지는 `/play`, WebSocket은 `/ws`, 상태 확인은 `/healthz`다. Docker를 쓰는 경우 `server/`에서 `docker compose up --build`를 실행한다. [서버 설정](server/README.md) · [Android 빌드](android/README.md)
+PC는 `http://127.0.0.1:8000`, Android AVD는 `http://10.0.2.2:8000`으로 접속한다. 충전 게임 4종(Power Castle, Volt Rush, Power Tug, 충전 릴레이)도 이 서버가 `/charge/<게임>/`으로 직접 띄우므로 Cloudflare 없이 한 컴퓨터에서 시연할 수 있다. 동승자 페이지는 `/play`, WebSocket은 `/ws`, 상태 확인은 `/healthz`다. Docker를 쓰는 경우 `server/`에서 `docker compose up --build`를 실행한다. [서버 설정](server/README.md) · [Android 빌드](android/README.md)
 
 ## 통신과 지도
 

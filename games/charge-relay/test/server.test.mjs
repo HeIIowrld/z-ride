@@ -57,7 +57,7 @@ test('QR 주소·참가·게임 한 판을 실제 WebSocket으로 끝까지', as
   host.send({ type: 'start', rounds: 2 });
   for (let round = 1; round <= 2; round++) {
     for (let step = 0; step < 3; step++) {
-      await Promise.all(phones.map(p => p.until(c => c.state.phase === 'PLAY' && c.state.round === round && c.state.step === step)));
+      await Promise.all(phones.map(p => p.until(c => c.state?.phase === 'PLAY' && c.state.round === round && c.state.step === step)));
       for (const p of phones) p.send(p.state.task.kind === 'DRAW' ? { type: 'submit', step, drawing: line } : { type: 'submit', step, text: '호두과자' });
     }
     await host.until(c => c.state.phase === 'REVEAL');

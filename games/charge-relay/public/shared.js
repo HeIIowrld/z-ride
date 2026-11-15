@@ -53,7 +53,7 @@ window.Relay = (() => {
       if (stopped) return;
       clearTimeout(timer); clearTimeout(watchdog);
       live = false; onLink?.(retry ? 'RETRYING' : 'CONNECTING');
-      const socket = ws = new WebSocket(location.origin.replace(/^http/, 'ws') + '/ws?room=' + encodeURIComponent(code));
+      const socket = ws = new WebSocket(new URL('./ws?room=' + encodeURIComponent(code), location.href).href.replace(/^http/, 'ws'));
       socket.onopen = () => socket.send(JSON.stringify({ type: 'auth', code, token }));
       socket.onmessage = event => {
         if (socket !== ws) return;
@@ -86,7 +86,7 @@ window.Relay = (() => {
   }
 
   async function post(path, body = {}) {
-    const res = await fetch(path, { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(new URL(path.replace(/^\//, ''), location.href), { method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const value = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(value.error || 'NETWORK');
     return value;

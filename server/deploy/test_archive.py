@@ -92,7 +92,11 @@ class DeploymentArchiveTests(unittest.TestCase):
                                ('phone-client/private.png', False),
                                ('phone-client/thief.webp', True), ('phone-client/private.webp', False),
                                ('phone-client/ply-lockup.jpg', True), ('phone-client/ply-symbol.jpg', True),
-                               ('phone-client/ply-road-portrait.jpg', True), ('phone-client/private.jpg', False)]:
+                               ('phone-client/ply-road-portrait.jpg', True), ('phone-client/private.jpg', False),
+                               ('charge-assets/cloudflare/adapters.mjs', True), ('charge-assets/power-castle/game.mjs', True),
+                               ('charge-assets/volt-rush/public/host.js', True), ('charge-assets/sdk/zride-car.js', True),
+                               ('charge-assets/charge-relay/words.mjs', True), ('charge-assets/deadzone/game.mjs', False),
+                               ('charge-assets/power-tug/public/.env', False), ('charge-assets/cloudflare/worker.mjs', False)]:
             with self.subTest(path=name):
                 item = tarfile.TarInfo(name)
                 item.size = 1

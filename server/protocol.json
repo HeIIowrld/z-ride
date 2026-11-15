@@ -42,7 +42,8 @@
       "availability": "snapshot.room.chargeGamesAvailable lists the configured games for the vehicle host.",
       "body": {"action": "open, item or close", "game": "game id for open and item"},
       "response": {"open": "hostUrl with #host ticket, crew, supplies", "item": "supplies after spending one", "close": "closed"},
-      "crew": "snapshot.room.chargeGame.joinUrl is a personal #join ticket for each approved passenger who was seated when the game opened"
+      "crew": "snapshot.room.chargeGame.joinUrl is a personal #join ticket for each approved passenger who was seated when the game opened",
+      "hosting": "games default to this server at /charge/{game}/ (car), /charge/{game}/p (phone) and /charge/{game}/ws; then hostUrl and joinUrl are server-relative unless publicOrigin is set, so clients resolve them against the server they are connected to"
     },
     {
       "method": "POST",

@@ -82,12 +82,14 @@ async function fixture(t, chargeGames, demoCharger) {
     assert.equal(reviewed.status, 200);
     assert.equal((await car.send({ type: 'navigation.report', reportSeq: 1, navigation })).ok, true);
   };
-  return { api, host, phone, room, joined, car, passenger, park, arrive, path: `/api/rooms/${room.roomId}/charge-game` };
+  return { api, host, phone, room, joined, car, passenger, park, arrive, path: `/api/rooms/${room.roomId}/charge-game`,
+    base: `http://127.0.0.1:${address.port}` };
 }
 
-test('기본 충전 게임 주소는 Cloudflare 4종이고, 환경 변수로 바꾸거나 끈다', () => {
+test('기본은 이 서버가 충전 게임 4종을 직접 띄우고, 환경 변수로 바꾸거나 끈다', () => {
   assert.deepEqual(chargeGamesFromEnv(undefined), DEFAULT_CHARGE_GAMES);
-  assert.deepEqual(Object.keys(DEFAULT_CHARGE_GAMES), ['power-castle', 'volt-rush', 'power-tug', 'charge-relay']);
+  assert.deepEqual(DEFAULT_CHARGE_GAMES, { 'power-castle': 'local', 'volt-rush': 'local', 'power-tug': 'local', 'charge-relay': 'local' });
+  assert.deepEqual(chargeGamesFromEnv('{"volt-rush":"local"}'), { 'volt-rush': 'local' });
   assert.deepEqual(chargeGamesFromEnv('off'), {});
   assert.deepEqual(chargeGamesFromEnv('{"charge-relay":"https://relay.example"}'), { 'charge-relay': 'https://relay.example' });
   assert.throws(() => chargeGamesFromEnv('[]'));
@@ -161,4 +163,76 @@ test('시연 충전 거점은 등록된 데모 경로와 시뮬레이션 위치�
   assert.equal((await f.api(f.path, action, f.host.token)).body.error.code, 'CHARGING_STOP_REQUIRED');
   await report(4, 'ANDROID_GNSS');
   assert.equal((await f.api(f.path, action, f.host.token)).status, 200);
+});
+
+/** 게임 WebSocket에 입장권으로 붙어 첫 상태를 받는다 */
+function gameSocket(base, game, code, token) {
+  const ws = new WebSocket(base.replace(/^http/, 'ws') + '/charge/' + game + '/ws?room=' + code);
+  const messages = [];
+  const wait = test => new Promise((done, reject) => {
+    const found = messages.find(test); if (found) return done(found);
+    const timer = setTimeout(() => reject(new Error('timed out')), 3000);
+    ws.on('message', function on(bytes) { const value = JSON.parse(bytes); if (test(value)) { clearTimeout(timer); ws.off('message', on); done(value); } });
+  });
+  ws.on('message', bytes => messages.push(JSON.parse(bytes)));
+  ws.on('open', () => ws.send(JSON.stringify({ type: 'auth', code, token })));
+  return { ws, wait };
+}
+
+test('Cloudflare 없이 이 서버가 충전 게임 화면·방·입장권을 직접 처리한다', async t => {
+  const f = await fixture(t, DEFAULT_CHARGE_GAMES);
+  const page = await fetch(f.base + '/charge/power-castle/');
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /\.\/host\.js/);
+  assert.equal((await fetch(f.base + '/charge/power-castle/p')).status, 200);
+  assert.equal((await fetch(f.base + '/charge/power-castle/zride-car.js')).status, 200);
+  assert.equal((await fetch(f.base + '/charge/power-castle', { redirect: 'manual' })).headers.get('location'), '/charge/power-castle/');
+  assert.equal((await fetch(f.base + '/charge/nope/')).status, 404);
+  await f.park(); await f.arrive();
+  const opened = await f.api(f.path, { action: 'open', game: 'power-castle' }, f.host.token);
+  assert.equal(opened.status, 200, JSON.stringify(opened.body));
+  const host = /^\/charge\/power-castle\/#host=([A-Z0-9]{5})\.(.+)$/.exec(opened.body.hostUrl);
+  assert.ok(host, opened.body.hostUrl);
+  const seen = await f.passenger.wait(value => value.type === 'snapshot' && value.room.chargeGame);
+  const crew = /^\/charge\/power-castle\/p#join=([A-Z0-9]{5})\.([0-9a-f-]{36})\.(.+)$/.exec(seen.room.chargeGame.joinUrl);
+  assert.ok(crew, seen.room.chargeGame.joinUrl);
+  assert.equal(crew[1], host[1]);
+  const car = gameSocket(f.base, 'power-castle', host[1], host[2]);
+  t.after(() => car.ws.terminate());
+  assert.equal((await car.wait(value => value.type === 'auth.ok')).role, 'HOST');
+  const lobby = await car.wait(value => value.type === 'state');
+  assert.deepEqual(lobby.state.players.map(player => player.name), ['지우']);
+  const phone = gameSocket(f.base, 'power-castle', crew[1], crew[3]);
+  t.after(() => phone.ws.terminate());
+  assert.equal((await phone.wait(value => value.type === 'auth.ok')).role, 'PLAYER');
+  // 없는 방은 4404로 닫는다
+  const stale = new WebSocket(f.base.replace(/^http/, 'ws') + '/charge/power-castle/ws?room=ZZZZZ');
+  stale.on('open', () => stale.send(JSON.stringify({ type: 'auth', code: 'ZZZZZ', token: 'x' })));
+  assert.equal(await new Promise(done => stale.on('close', done)), 4404);
+  // 브라우저에서 직접 연 방(QR 참가)도 된다
+  const direct = await (await fetch(f.base + '/charge/power-tug/api/rooms', { method: 'POST' })).json();
+  assert.match(direct.code, /^[A-Z0-9]{5}$/);
+  const joined = await fetch(f.base + '/charge/power-tug/api/rooms/' + direct.code + '/join', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '민' }) });
+  assert.equal(joined.status, 200);
+});
+
+test('서버 안 Volt Rush는 크루 가방을 같은 서버 재고에서 바로 쓴다', async t => {
+  const f = await fixture(t, DEFAULT_CHARGE_GAMES);
+  await f.park(); await f.arrive();
+  const opened = await f.api(f.path, { action: 'open', game: 'volt-rush' }, f.host.token);
+  assert.equal(opened.status, 200, JSON.stringify(opened.body));
+  const [, code, hostToken] = /#host=([A-Z0-9]{5})\.(.+)$/.exec(opened.body.hostUrl);
+  // 크루 방은 입장권 없이 참가할 수 없다
+  const blocked = await fetch(f.base + '/charge/volt-rush/api/rooms/' + code + '/join', { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '몰래' }) });
+  assert.equal((await blocked.json()).error, 'CREW_TICKET_REQUIRED');
+  const car = gameSocket(f.base, 'volt-rush', code, hostToken);
+  t.after(() => car.ws.terminate());
+  await car.wait(value => value.type === 'auth.ok');
+  car.ws.send(JSON.stringify({ type: 'start' }));
+  // 시작하면 먼저 크루 가방(loadout)을 서버 재고에서 받는다. 그게 실패하면 GAME_ITEMS_* 오류가 난다.
+  // 테스트 파티는 1명이라 그다음 단계인 인원 확인(NEED_PLAYERS)에서 멈춘다 = 가방 받기는 통과했다
+  const started = await car.wait(value => value.type === 'error' || (value.type === 'state' && value.state.phase !== 'LOBBY'));
+  assert.deepEqual(started, { type: 'error', code: 'NEED_PLAYERS' });
 });

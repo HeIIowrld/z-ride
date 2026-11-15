@@ -117,6 +117,12 @@ public final class RoomClient {
             } catch (Exception e) { listener.onStatus("Approval failed: " + e.getMessage()); }
         });
     }
+    /** 서버가 준 주소를 연결한 서버 기준으로 푼다. 서버가 직접 띄운 게임은 "/charge/..." 같은 상대 주소로 온다. */
+    public String resolve(String url){
+        if(url==null||url.isEmpty())return null;
+        if(url.startsWith("https://")||url.startsWith("http://"))return url;
+        return base!=null&&url.startsWith("/")&&!url.startsWith("//")?base+url:null;
+    }
     public void postApi(String path,JSONObject body,ApiCallback callback){
         if(path==null||!path.startsWith("/api/")||path.contains("://")){callback.onError("Invalid API path");return;}
         io.execute(()->{try{if(token==null||base==null)throw new IOException("Connect and obtain server approval first");callback.onResponse(post(path,body,true));}catch(ApiException e){callback.onErrorResponse(e.status,e.body);}catch(Exception e){callback.onError(e.getMessage());}});

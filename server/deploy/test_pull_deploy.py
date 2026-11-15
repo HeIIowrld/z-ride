@@ -62,6 +62,19 @@ class TrustedMainTests(unittest.TestCase):
             self.assertEqual(set(archive.getnames()) - PULL.REQUIRED,
                              {'drive-assets/' + name for name in names})
 
+    def test_packages_only_charging_game_runtime_files(self):
+        names = ('cloudflare/adapters.mjs', 'sdk/zride-car.js', 'charge-relay/words.mjs',
+                 'power-castle/game.mjs', 'volt-rush/public/host.html', 'power-tug/public/style.css')
+        entries = []
+        for name in (*names, 'cloudflare/worker.mjs', 'deadzone/package.json', 'power-castle/server.mjs',
+                     'power-castle/node_modules/ws/index.js', 'volt-rush/public/.env', 'charge-hub/public/hub.js'):
+            item = tarfile.TarInfo('z-ride-SHA/games/' + name)
+            item.size = 1
+            entries.append((item, b'x'))
+        with tarfile.open(fileobj=io.BytesIO(PULL.runtime_bundle(self.source(entries)))) as archive:
+            self.assertEqual(set(archive.getnames()) - PULL.REQUIRED,
+                             {'charge-assets/' + name for name in names})
+
     def test_packages_only_named_phone_images(self):
         images = ('thief.webp', 'relay.webp', 'deadzone.webp',
                   'ply-lockup.jpg', 'ply-symbol.jpg', 'ply-road-portrait.jpg',
