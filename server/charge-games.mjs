@@ -73,10 +73,10 @@ export function createChargeGameHost({ games, crewItems, acceptedOrigin = () => 
     return { code, hostToken: room.hostToken };
   }
 
-  function join(game, code, { name, hostToken } = {}) {
+  function join(game, code, { name } = {}) {
     const room = rooms.get(key(game, code));
     if (!room) throw new Error('NO_ROOM');
-    if (room.crewKey && !same(hostToken, room.hostToken)) throw new Error('CREW_TICKET_REQUIRED');
+    // 크루 방(Volt Rush)도 차 화면 QR로 들어올 수 있다. 운전자가 같은 크루 가방으로 함께한다
     const clean = String(name ?? '').trim().slice(0, NAME_MAX);
     if (!clean) throw new Error('NAME_REQUIRED');
     const playerId = randomUUID(), playerToken = token();

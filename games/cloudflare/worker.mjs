@@ -126,8 +126,8 @@ export class Room extends DurableObject {
     }
     if (pathname === '/join') {
       try {
-        const { name, hostToken } = await readJson(request);
-        if (this.crewKey && !same(hostToken, this.hostToken)) return json(403, { error: 'CREW_TICKET_REQUIRED' });
+        const { name } = await readJson(request);
+        // 크루 방도 차 화면 QR로 들어올 수 있다(운전자 합류)
         const clean = String(name ?? '').trim().slice(0, NAME_MAX);
         if (!clean) return json(400, { error: 'NAME_REQUIRED' });
         const playerId = crypto.randomUUID(), token = randomToken();
