@@ -82,6 +82,8 @@ def runtime_bundle(payload):
                     or (len(relative.parts) == 3 and relative.parts[0] == 'games'
                         and relative.parts[1] in {'license-quiz', 'pole-jump', 'raindrop'}
                         and relative.suffix in {'.html', '.css', '.js', '.json'})
+                    or (relative.parts[:3] == ('games', 'license-quiz', 'signs')
+                        and len(relative.parts) == 4 and re.fullmatch(r'kr_[0-9]+\.svg', relative.name))
                     or (len(relative.parts) == 2 and relative.parts[0] == 'shared' and relative.suffix == '.js')
                     or (len(relative.parts) == 2 and relative.parts[0] == 'data'
                         and relative.name in {'items.json', 'loot_tables.json', 'points.json'})
@@ -102,6 +104,12 @@ def runtime_bundle(payload):
                 (relative.suffix in {'.html', '.css', '.js', '.json', '.svg'}
                  or name in {'phone-client/thief.webp', 'phone-client/relay.webp', 'phone-client/deadzone.webp',
                              'phone-client/ply-lockup.jpg', 'phone-client/ply-symbol.jpg', 'phone-client/ply-road-portrait.jpg'})
+            )
+            allowed = allowed or (
+                relative.parts[:2] == ('phone-client', 'route-sign')
+                and len(relative.parts) == 3
+                and re.fullmatch(r'[A-Za-z0-9._-]{1,80}', relative.name)
+                and relative.suffix.lower() in {'.png', '.webp', '.jpg', '.jpeg', '.gif'}
             )
             if not allowed:
                 continue

@@ -27,15 +27,16 @@ const FILES = new Map([
 
 const DRIVE_GAMES = {
   'license-quiz': ['questions.json', 'signs.js'],
-  'pole-jump': [],
-  raindrop: [],
+  'pole-jump': ['logic.js'],
+  raindrop: ['physics.js'],
 };
 export const DRIVE_FILES = [
   'style.css', 'bag.html', 'shared/ply.css',
   ...Object.entries(DRIVE_GAMES).flatMap(([game, extra]) =>
     ['index.html', 'game.js', 'game.css', ...extra].map(file => 'games/' + game + '/' + file)),
   ...['bag', 'item-icons', 'config', 'inventory', 'loot-client', 'loot-engine', 'loot-tracker', 'passenger', 'quiz-engine',
-    'journey', 'records', 'seat', 'sketch', 'vehicle'].map(file => 'shared/' + file + '.js'),
+    'journey', 'records', 'seat', 'sketch', 'vehicle', 'door-hud', 'motion', 'scenery', 'window-frame']
+    .map(file => 'shared/' + file + '.js'),
   ...['items', 'loot_tables', 'points'].map(file => 'data/' + file + '.json'),
 ];
 const DRIVE_TYPES = { html: 'text/html', js: 'text/javascript', css: 'text/css', json: 'application/json' };
@@ -59,6 +60,13 @@ export function createPhoneClientService({apiOrigin='',displayName='PLY'}={}) {
   for (const file of driveGamesAvailable ? DRIVE_FILES : []) {
     const type = DRIVE_TYPES[file.split('.').at(-1)] + '; charset=utf-8';
     assets.set('/play/drive/' + file, { bytes: readFileSync(new URL(file, driveRoot)), type });
+  }
+  const quizSigns = new URL('games/license-quiz/signs/', driveRoot);
+  for (const file of existsSync(quizSigns) ? readdirSync(quizSigns) : []) {
+    if (!/^kr_[0-9]+\.svg$/.test(file)) continue;
+    assets.set('/play/drive/games/license-quiz/signs/' + file, {
+      bytes: readFileSync(new URL(file, quizSigns)), type: 'image/svg+xml',
+    });
   }
   const require = createRequire(import.meta.url);
   assets.set('/play/qrcode.js',{bytes:readFileSync(require.resolve('qrcode-generator')),type:'text/javascript; charset=utf-8'});

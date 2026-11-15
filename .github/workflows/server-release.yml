@@ -55,12 +55,9 @@ jobs:
           REVISION: ${{ steps.revision.outputs.sha }}
         run: |
           archive="$RUNNER_TEMP/zride-server-${REVISION}.tar.gz"
-          drive="$RUNNER_TEMP/drive-assets"
-          mkdir -p "$drive/data"
-          cp -R ../minigames/style.css ../minigames/bag.html ../minigames/games ../minigames/shared "$drive/"
-          cp ../minigames/data/*.json "$drive/data/"
-          LC_ALL=C tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
-            -czf "$archive" package.json package-lock.json ./*.mjs observer phone-client -C "$RUNNER_TEMP" drive-assets
+          source="$RUNNER_TEMP/zride-source.tar.gz"
+          git -C .. archive --format=tar.gz --prefix=z-ride-release/ HEAD > "$source"
+          python3 -c 'import runpy, sys; from pathlib import Path; Path(sys.argv[2]).write_bytes(runpy.run_path("deploy/pull-deploy.py")["runtime_bundle"](Path(sys.argv[1]).read_bytes()))' "$source" "$archive"
           cd "$RUNNER_TEMP"
           sha256sum "zride-server-${REVISION}.tar.gz" > SHA256SUMS
       - name: Upload immutable server bundle

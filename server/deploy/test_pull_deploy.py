@@ -50,9 +50,11 @@ class TrustedMainTests(unittest.TestCase):
 
     def test_packages_game_and_bag_assets_for_the_production_extractor(self):
         names = ('style.css', 'bag.html', 'shared/ply.css', 'shared/bag.js',
-                 'shared/item-icons.js', 'data/items.json', 'games/raindrop/index.html')
+                 'shared/item-icons.js', 'data/items.json', 'games/raindrop/index.html',
+                 'games/license-quiz/signs/kr_110.svg')
         entries = []
-        for name in (*names, 'shared/private.css', 'codex.html', 'data/private.json'):
+        for name in (*names, 'shared/private.css', 'codex.html', 'data/private.json',
+                     'games/license-quiz/signs/private.svg', 'games/license-quiz/source/bank.txt'):
             item = tarfile.TarInfo('z-ride-SHA/minigames/' + name)
             item.size = 1
             entries.append((item, b'x'))
@@ -62,9 +64,10 @@ class TrustedMainTests(unittest.TestCase):
 
     def test_packages_only_named_phone_images(self):
         images = ('thief.webp', 'relay.webp', 'deadzone.webp',
-                  'ply-lockup.jpg', 'ply-symbol.jpg', 'ply-road-portrait.jpg')
+                  'ply-lockup.jpg', 'ply-symbol.jpg', 'ply-road-portrait.jpg',
+                  'route-sign/sign-battery.png')
         entries = []
-        for name in (*images, 'private.webp', 'private.jpg'):
+        for name in (*images, 'private.webp', 'private.jpg', 'private.png'):
             item = tarfile.TarInfo('z-ride-SHA/server/phone-client/' + name)
             item.size = 1
             entries.append((item, b'x'))
