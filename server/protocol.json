@@ -46,18 +46,19 @@
       "body": {
         "start": {
           "signId": "s1",
-          "gameId": "must equal the sign's gameId; license-quiz | pole-jump | raindrop (zombie is shown but rejected with SIGN_GAME_NOT_READY)"
+          "routeKey": "current journeyRoute.key",
+          "gameId": "optional; must match the sign's gameId if supplied"
         },
         "complete": {
           "challengeId": "from start",
           "result": {
-            "score": "number, informational"
+            "score": "positive finite number reported by the game client"
           }
         }
       },
       "response": {
         "start": "challengeId, signId, gameId, expiresAt (5 min), minPlayMs",
-        "completion": "items (one common item), supplies, inventory"
+        "completion": "signId, gameId, items (one specialized item), supplies, inventory; replayed=true for a repeated completion before expiry"
       }
     },
     {

@@ -17,6 +17,8 @@ test('phone reference client serves only allow-listed static assets with same-or
   try {
     for (const path of ['/play', '/play/', '/play/app.js', '/play/account.js', '/play/style.css', '/play/journey-map.js', '/play/leaflet.js', '/play/leaflet.css', '/play/leaflet-license', '/play/demo', '/play/demo.js', '/play/vehicle', '/play/vehicle.js', '/play/qrcode.js', '/play/arena.js', '/play/arena.css', '/play/car', '/play/car.js', '/play/car.css', '/play/qr.js', '/play/thief.webp', '/play/relay.webp', '/play/deadzone.webp',
       '/play/ply-lockup.jpg', '/play/ply-symbol.jpg', '/play/ply-road-portrait.jpg',
+      '/play/route-sign/config.js', '/play/route-sign/license-quiz.svg', '/play/route-sign/pole-jump.svg',
+      '/play/route-sign/raindrop.svg',
       '/play/drive/style.css', '/play/drive/bag.html', '/play/drive/shared/bag.js',
       '/play/drive/shared/item-icons.js', '/play/drive/shared/ply.css', '/play/drive/shared/journey.js', '/play/drive/games/license-quiz/index.html',
       '/play/drive/games/license-quiz/questions.json', '/play/drive/games/pole-jump/index.html',

@@ -1,4 +1,4 @@
-import { inJourney } from '../../shared/journey.js';
+import { inJourney, inRouteSign, crewHasItem } from '../../shared/journey.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { getSeat, setSeat } from '../../shared/seat.js';
 import { addItem } from '../../shared/inventory.js';
@@ -72,6 +72,7 @@ function arrivalM() { return poles.length > 1 ? poles[1].distance - worldM : Inf
 function fillPoles() { let guard = 0; while (poles.length < 7 && guard++ < 20) { const last = poles.at(-1); poles.push(makePole(last.index + 1, last.distance + nextGap())); } }
 function reset() {
   running = true; ended = false; endReason = null; score = cleared = perfects = combo = maxCombo = parts = feedDistance = worldM = speeding = stoppedAt = 0;
+  $('finish-run').classList.add('hidden');
   startAt = performance.now(); lane = 1; jump = null; seed = 7139; landedAt = 0; passed = [];
   let played = 0; try { played = Number(localStorage.getItem('zride.polejump.games') || 0); } catch {}
   tutorial = !devAutostart && played < 3; tutorialStep = 0; tutorialAttempts = 0;
@@ -123,13 +124,14 @@ function doJump() {
     if (cleared === 0) { toast('다음 전봇대가 더 가까워지면!'); return; }
     draw(performance.now()); finish('fall'); return;
   }
-  jump = { air0: Math.max(air0, .5), startRide: rideM(), lane, perfect: rideM() >= PERFECT_RIDE_M };
+  jump = { air0: Math.max(air0, .5), startRide: rideM(), lane, perfect: rideM() >= PERFECT_RIDE_M - (crewHasItem('jump-grip') ? 2 : 0) };
   beep(520, .08);
 }
 function formatTime(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 function finish(reason) {
   if (ended) return; ended = true; running = false;
   showJumpHint('');
+  $('finish-run').classList.add('hidden');
   endReason = reason;
   const prior = getBest('pole-jump'), durationMs = performance.now() - startAt;
   const record = saveRecord({ gameId: 'pole-jump', score, durationMs, distanceM: feedDistance, stats: { poles: cleared, perfects, maxCombo, parts }, endReason: reason });
@@ -138,7 +140,7 @@ function finish(reason) {
   $('final-score').textContent = score.toLocaleString('ko-KR'); $('final-poles').textContent = cleared; $('final-combo').textContent = maxCombo; $('final-perfects').textContent = perfects;
   $('final-time').textContent = formatTime(durationMs); $('final-parts').textContent = parts;
   awardMinigame('pole-jump',{score,poles:cleared}).then(out=>{const line=document.createElement('p');line.textContent=`획득 아이템: ${(out.items||[]).map(x=>x.name).join(', ')||'없음'}`;$('result').append(line);});
-  $('reason').textContent = ({ fall: '다음 발판까지 닿지 못했어요.', pushed_out: '위험 구역 끝에 도달했어요.', obstacle: '착지한 발판에 장애물이 있었어요.', speeding: '과속 상태가 계속됐어요.' })[reason];
+  $('reason').textContent = ({ completed: '표지판 도전을 마쳤어요.', fall: '다음 발판까지 닿지 못했어요.', pushed_out: '위험 구역 끝에 도달했어요.', obstacle: '착지한 발판에 장애물이 있었어요.', speeding: '과속 상태가 계속됐어요.' })[reason];
   $('result-title').textContent = reason === 'speeding' ? '과속 감지!' : '모험 종료'; $('best-badge').classList.toggle('hidden', !isBest); $('result').classList.remove('hidden'); if (reason === 'speeding') beep(180, .3);
 }
 function laneMove(d) { if (!running || stoppedAt || jump) return; lane = clamp(lane - d, 0, 2); updateHud(); }
@@ -157,10 +159,12 @@ function completeJump() {
     else showJumpHint(`연습 ${tutorialStep + 1}/3 · 다음 전봇대가 가까워지면 탭해요`);
     updateHud(); return;
   }
-  cleared++; score += 10; if (cleared === 30) addItem('gear-tires-a', 1, { from: 'pole-jump', milestone: 30 });
+  cleared++; score += 10;
+  if (inRouteSign) $('finish-run').classList.remove('hidden');
+  if (!inRouteSign && cleared === 30) addItem('gear-tires-a', 1, { from: 'pole-jump', milestone: 30 });
   if (wasPerfect) { combo++; perfects++; maxCombo = Math.max(maxCombo, combo); score += 5 * Math.min(combo, 5); toast('완벽 착지!'); beep(880, .12); }
   else { combo = 0; toast('착지 +10'); beep(620, .08); }
-  if (cleared % 10 === 0) { parts++; addItem('part', 1, { from: 'pole-jump' }); toast('+1 부품'); }
+  if (!inRouteSign && cleared % 10 === 0) { parts++; addItem('part', 1, { from: 'pole-jump' }); toast('+1 부품'); }
   updateHud();
 }
 let frameErrorLogged = false;
@@ -252,6 +256,7 @@ function drawLowerHud() {}
 function onFeed(v) { speed = v.speedKmh; speedLimit = v.speedLimitKmh; feedDistance += Number(v.distanceDeltaM) || 0; updateHud(); }
 function ensureSeat() { if (inJourney || getSeat()) return; setSeat(confirm('오른쪽 좌석인가요?\n확인: 오른쪽 / 취소: 왼쪽') ? 'right' : 'left'); }
 document.querySelector('#start-button').addEventListener('click', async () => { if (!await ensurePassenger()) return; ensureSeat(); if (!feed) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); } if (inJourney) speed = feed.current.speedKmh; audio?.resume(); reset(); });
+$('finish-run').addEventListener('click', () => finish('completed'));
 $('again').addEventListener('click', reset); $('jump').addEventListener('click', doJump); $('up').addEventListener('click', () => laneMove(1)); $('down').addEventListener('click', () => laneMove(-1));
 $('mute').addEventListener('click', e => { muted = !muted; e.currentTarget.textContent = muted ? '◖' : '◗'; });
 if (devAutostart) { feed = createVehicleFeed({ dev }); feed.on('update', onFeed); reset(); }

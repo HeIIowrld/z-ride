@@ -30,3 +30,5 @@
 @media(max-height:700px){.rain-info-cards{top:73%;height:50px}.rain-page .rain-hud{top:61%}}
 
 .rain-page .door-control{max-width:240px;white-space:nowrap}.rain-page .door-control b{font-size:13px}
+
+.route-finish { position: absolute; top: 3.5rem; right: 1rem; z-index: 5; }

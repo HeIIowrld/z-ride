@@ -34,3 +34,5 @@
 .stage .height-control,.stage .jump-control,.stage #mute{top:auto;bottom:5px;height:42px;min-height:42px;margin:0;padding:3px;font-size:clamp(10px,2.7vw,12px)}.stage .height-control{left:3%;width:37%;justify-content:space-around}.stage #mute{position:absolute;z-index:6;left:42%;right:auto;width:14%;min-width:44px;border-radius:10px}.stage .jump-control{right:3%;width:35%;}
 .stage .toast{top:52%;left:8%;right:8%;font-size:clamp(11px,3vw,15px);pointer-events:none;text-shadow:0 1px 4px #000}
 @media(max-height:700px){.pole-info-cards{top:73%;height:50px}.stage .hud{top:61%}}
+
+.route-finish { position: absolute; top: 3.5rem; right: 1rem; z-index: 5; }

@@ -738,5 +738,47 @@
     "icon": "postcard",
     "roadType": null,
     "deadzone": {}
+  },
+  {
+    "id": "quiz-time-card",
+    "name": "시간 연장 카드",
+    "scope": "specialized",
+    "category": "gear",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "운전면허 퀴즈에서 문제마다 답변 시간이 5초 늘어나요.",
+    "icon": "clock",
+    "roadType": null,
+    "driveGame": "license-quiz"
+  },
+  {
+    "id": "jump-grip",
+    "name": "착지 그립",
+    "scope": "specialized",
+    "category": "gear",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "폴짝 전봇대에서 완벽 착지로 인정되는 거리 오차가 2m 늘어나요.",
+    "icon": "grip",
+    "roadType": null,
+    "driveGame": "pole-jump"
+  },
+  {
+    "id": "wide-catcher",
+    "name": "확장 받침대",
+    "scope": "specialized",
+    "category": "gear",
+    "rarity": "uncommon",
+    "region": null,
+    "conditions": [],
+    "stats": {},
+    "description": "빗방울 캐치에서 받는 범위가 왼쪽과 오른쪽으로 각각 12px 넓어져요.",
+    "icon": "catcher",
+    "roadType": null,
+    "driveGame": "raindrop"
   }
 ]

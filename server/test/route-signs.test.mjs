@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
-import { placeSigns, gameSequence, SIGN_GAMES, SIGN_ROTATION, projectOnRoute, simplify, distanceM, pickReward, osrmRouter, createRoutePlanner } from '../route-signs.mjs';
+import { placeSigns, gameSequence, SIGN_GAMES, SIGN_ROTATION, projectOnRoute, simplify, distanceM, osrmRouter, createRoutePlanner } from '../route-signs.mjs';
 import { navigationReport } from '../navigation.mjs';
 import { createDemoServer } from '../server.mjs';
 
@@ -15,10 +15,10 @@ test('signs are placed deterministically along the route with spacing and edge m
   assert.deepEqual(a, b, 'same seed → same signs for the whole crew');
   assert.notDeepEqual(a, c, 'new route revision → new random layout');
   const total = cumulative(line).at(-1);
-  assert.ok(a.length >= 3 && a.length <= 5, '11km → 3~5 signs, got ' + a.length);
+  assert.ok(a.length >= 5 && a.length <= 9, '11km → 5–9 signs, got ' + a.length);
   for (const [i, sign] of a.entries()) {
     assert.ok(sign.alongM >= 400 && sign.alongM <= total - 400);
-    if (i) assert.ok(sign.alongM - a[i - 1].alongM >= 2000);
+    if (i) assert.ok(sign.alongM - a[i - 1].alongM >= 1200);
     const { offsetM } = projectOnRoute(line, cumulative(line), sign);
     assert.ok(offsetM < 1, 'sign sits on the route line');
   }
@@ -42,7 +42,7 @@ test('sign games rotate: every game once before repeating, never twice in a row'
   assert.deepEqual(new Set(signs.slice(0, SIGN_ROTATION.length).map(s => s.gameId)), new Set(SIGN_ROTATION));
 });
 
-test('projection, simplification, reward pick and OSRM parsing', async () => {
+test('projection, simplification and OSRM parsing', async () => {
   const cum = cumulative(line);
   const near = { latitude: 37.556, longitude: 126.9781 };
   const projected = projectOnRoute(line, cum, near);
@@ -50,11 +50,6 @@ test('projection, simplification, reward pick and OSRM parsing', async () => {
   assert.ok(projected.offsetM < 15);
   const dense = Array.from({ length: 1000 }, (_, i) => ({ latitude: 37.5 + i * 1e-5, longitude: 127 + Math.sin(i / 50) * 1e-4 }));
   assert.ok(simplify(dense, 100).length <= 100);
-  const catalog = { items: [{ id: 'part', name: '부품', category: 'part' }, { id: 'coolant', name: '냉각수', category: 'consumable' }],
-    tables: { common: [{ itemId: 'part', weight: 1 }, { itemId: 'coolant', weight: 1 }] } };
-  assert.equal(pickReward(catalog, 'pole-jump', () => 0).id, 'part');
-  assert.equal(pickReward(catalog, 'raindrop', () => 0.99).id, 'coolant');
-  assert.equal(pickReward(null, 'raindrop'), null);
   let requested;
   const router = osrmRouter('https://router.example', { fetchImpl: async url => {
     requested = String(url);
@@ -95,7 +90,7 @@ test('a sign across a U-turn is not ready until the car reaches it along the rou
   const planner = createRoutePlanner({ clock: () => 0 });
   planner.sync('u', { key: 'u1', source: 'TEST', geometry: [...out, ...back] });
   const signs = planner.view('u', out[0]).signs;
-  const returning = signs.find(sign => sign.alongM > 4300);
+  const returning = signs.find(sign => sign.alongM > 5600);
   assert.ok(returning, 'a sign exists on the return leg');
   const opposite = { latitude: returning.latitude, longitude: 126.978 }; // 가는 길에서 표지판 맞은편
   for (const p of out) if (p.latitude > opposite.latitude) planner.observe('u', p); // 맞은편까지만 주행
@@ -144,7 +139,6 @@ test('route sign flow: route from destination → sign near car → game challen
   const app = createDemoServer({
     leaseMs: 60000, signMinPlayMs: 0,
     routeRouter: async (origin, destination) => { calls.push([origin, destination]); return line; },
-    rewardCatalog: { items: [{ id: 'part', name: '정비 부품', category: 'part' }], tables: { common: [{ itemId: 'part', weight: 1 }] } },
   });
   const address = await app.listen(0), clients = [];
   t.after(async () => { for (const c of clients) c.ws.terminate(); await app.close(); });
@@ -165,9 +159,14 @@ test('route sign flow: route from destination → sign near car → game challen
   const host = await api('/api/session', { role: 'CAR_HOST', nickname: 'Sign car' });
   const room = await api('/api/rooms', {}, host.token);
   const phone = await api('/api/session', { role: 'PHONE', nickname: 'Sign phone' });
+  const teammate = await api('/api/session', { role: 'PHONE', nickname: 'Sign teammate' });
   const join = await api('/api/join', { joinCode: room.joinCode, seat: 'REAR_RIGHT' }, phone.token);
+  const freshInvite = await api('/api/rooms', {}, host.token);
+  const secondJoin = await api('/api/join', { joinCode: freshInvite.joinCode, seat: 'REAR_LEFT' }, teammate.token);
+  const second = await connect(teammate.token, room.roomId);
   const p = await connect(phone.token, room.roomId), car = await connect(host.token, room.roomId);
   await api('/api/rooms/' + room.roomId + '/approve', { memberId: join.memberId, allowManualUnknown: true }, host.token);
+  await api('/api/rooms/' + room.roomId + '/approve', { memberId: secondJoin.memberId, allowManualUnknown: true }, host.token);
   await car.send({ type: 'vehicle.report', reportSeq: 1, gear: 'D', ux: 'ALLOWED', foreground: true, speedMps: 14 });
   let seq = 0;
   const report = position => car.send({ type: 'navigation.report', reportSeq: ++seq, navigation: {
@@ -184,39 +183,47 @@ test('route sign flow: route from destination → sign near car → game challen
   assert.ok(car.room.journeyRoute, 'vehicle also sees the route');
   const signIndex = route.signs.findIndex(s => s.playable), sign = route.signs[signIndex];
   assert.ok(sign && SIGN_GAMES.includes(sign.gameId), 'a playable sign exists');
-  const otherGame = SIGN_GAMES.find(game => game !== sign.gameId);
   const comingSoon = route.signs.find(s => !s.playable);
   if (comingSoon) {
     assert.equal(comingSoon.gameId, 'zombie');
     assert.equal((await call('/api/world/route-sign', { signId: comingSoon.signId, gameId: 'zombie' }, phone.token)).data.error.code, 'SIGN_GAME_NOT_READY');
   }
 
-  // 멀리 있을 때는 시작 불가
-  const far = await call('/api/world/route-sign', { signId: sign.signId, gameId: sign.gameId }, phone.token);
-  assert.equal(far.data.error.code, 'SIGN_NOT_NEAR');
-  assert.equal((await call('/api/world/route-sign', { signId: sign.signId, gameId: 'chess' }, phone.token)).data.error.code, 'INVALID_GAME');
-  // 운전자(차량)는 사용할 수 없다
-  assert.equal((await call('/api/world/route-sign', { signId: sign.signId, gameId: sign.gameId }, host.token)).status, 403);
-  // 표지판에 정해진 게임만 시작할 수 있다
-  assert.equal((await call('/api/world/route-sign', { signId: sign.signId, gameId: otherGame }, phone.token)).data.error.code, 'SIGN_GAME_MISMATCH');
+  const signPath = '/api/world/route-sign';
+  const startBody = { signId: sign.signId, routeKey: route.key };
+  assert.equal((await call(signPath, startBody, phone.token)).data.error.code, 'SIGN_NOT_NEAR');
+  assert.equal((await call(signPath, { ...startBody, gameId: 'chess' }, phone.token)).data.error.code, 'INVALID_GAME');
+  assert.equal((await call(signPath, startBody, host.token)).status, 403);
 
-  await report({ latitude: sign.latitude, longitude: sign.longitude });
-  await until(() => p.room.journeyRoute.signs[signIndex].state === 'READY');
-  assert.ok(p.room.journeyRoute.progressM > 0);
-  assert.equal(calls.length, 1, 'moving along the same route does not re-route');
-
-  const challenge = await api('/api/world/route-sign', { signId: sign.signId, gameId: sign.gameId }, phone.token);
-  assert.equal(challenge.gameId, sign.gameId);
-  const receipt = await api('/api/world/route-sign', { challengeId: challenge.challengeId, result: { score: 1200 } }, phone.token);
-  assert.deepEqual(receipt.items.map(item => item.id), ['part']);
-  assert.equal(receipt.inventory.part, 1);
-  await until(() => p.room.collection.inventory.part === 1);
-  await until(() => p.room.journeyRoute.signs[signIndex].state === 'CLAIMED');
-  assert.equal(p.room.routeSignHistory[0].itemId, 'part');
-
-  // 같은 표지판 재도전·같은 challenge 재사용 거절
-  assert.equal((await call('/api/world/route-sign', { signId: sign.signId, gameId: sign.gameId }, phone.token)).data.error.code, 'ALREADY_CLAIMED');
-  assert.equal((await call('/api/world/route-sign', { challengeId: challenge.challengeId }, phone.token)).data.error.code, 'SIGN_CHALLENGE_INVALID');
+  const expected = { 'license-quiz': 'quiz-time-card', 'pole-jump': 'jump-grip', raindrop: 'wide-catcher' };
+  for (const target of route.signs.filter(sign => sign.playable).slice(0, 3)) {
+    const body = { signId: target.signId, routeKey: route.key };
+    const itemId = expected[target.gameId];
+    assert.equal(target.reward.id, itemId);
+    assert.equal((await report({ latitude: target.latitude, longitude: target.longitude })).ok, true);
+    await until(() => p.room.journeyRoute.signs.find(s => s.signId === target.signId)?.state === 'READY');
+    const wrongGame = SIGN_GAMES.find(game => game !== target.gameId);
+    assert.equal((await call(signPath, { ...body, gameId: wrongGame }, phone.token)).data.error.code, 'SIGN_GAME_MISMATCH');
+    const challenge = await api(signPath, body, phone.token);
+    assert.equal(challenge.gameId, target.gameId);
+    assert.equal((await api(signPath, { ...body, gameId: target.gameId }, phone.token)).challengeId, challenge.challengeId);
+    const completion = { challengeId: challenge.challengeId, result: { score: 12 } };
+    assert.equal((await call(signPath, completion, teammate.token)).data.error.code, 'SIGN_CHALLENGE_INVALID');
+    assert.equal((await call(signPath, { challengeId: challenge.challengeId, result: { score: 0 } }, phone.token)).data.error.code, 'SIGN_GOAL_NOT_MET');
+    const receipts = await Promise.all([api(signPath, completion, phone.token), api(signPath, completion, phone.token)]);
+    assert.equal(receipts.filter(receipt => receipt.replayed).length, 1);
+    for (const receipt of receipts) {
+      assert.deepEqual(receipt.items.map(item => item.id), [itemId]);
+      assert.equal(receipt.inventory[itemId], 1);
+      assert.equal(receipt.supplies, 0);
+    }
+    await until(() => second.room.collection.inventory[itemId] === 1);
+    await until(() => p.room.journeyRoute.signs.find(s => s.signId === target.signId)?.state === 'CLAIMED');
+    assert.equal(second.room.journeyRoute.signs.find(s => s.signId === target.signId).state, 'READY');
+    assert.equal(p.room.routeSignHistory[0].itemId, itemId);
+    assert.equal((await call(signPath, body, phone.token)).data.error.code, 'ALREADY_CLAIMED');
+  }
+  assert.equal(calls.length, 1, 'no re-route along the same route');
 
   // 주행 중 목적지 변경 → 새 경로·새 표지판
   const firstKey = p.room.journeyRoute.key;
@@ -226,6 +233,7 @@ test('route sign flow: route from destination → sign near car → game challen
     latitude: sign.latitude, longitude: sign.longitude, locationAgeMs: 0, positionSource: 'SIMULATED' } });
   await until(() => p.room.journeyRoute?.key && p.room.journeyRoute.key !== firstKey);
   assert.equal(calls.length, 2, 'router called again for the new destination');
+  assert.equal((await call(signPath, startBody, phone.token)).data.error.code, 'SIGN_UNAVAILABLE');
   assert.deepEqual(calls[1][0], { latitude: sign.latitude, longitude: sign.longitude }, 'new route starts at the current position');
 
   // 안내 종료 → 경로·표지판 해제

@@ -1,4 +1,4 @@
-import { inJourney, returnToJourney } from '../../shared/journey.js';
+import { inJourney, inRouteSign, crewHasItem, returnToJourney } from '../../shared/journey.js';
 import { createQuizEngine } from '../../shared/quiz-engine.js';
 import { createVehicleFeed } from '../../shared/vehicle.js';
 import { ensurePassenger } from '../../shared/passenger.js';
@@ -33,17 +33,101 @@ function trigger(type, detail={}, ignoreGap=dev&&$('#ignore-gap')?.checked) {
   if(SERVER_URL){fetch(`${SERVER_URL}/api/trigger?session=${encodeURIComponent(session)}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...event,ignoreGap:!!ignoreGap})}).then(r=>r.json()).then(data=>{const q=bank.find(item=>item.id===data.questionId);if(q)showQuestion(q);}).catch(()=>{});return null;}
   const q=engine.onTrigger(event,{ignoreGap});if(q)showQuestion(q);return q;
 }
-function showQuestion(q){if(phase!=='waiting')return;current=q;shownAt=Date.now();reviewMode=false;$('#banner-text').textContent=q.trigger.startsWith('caution:')?'방금 지나간 표지판, 무슨 뜻일까?':q.trigger==='idle'?'운전면허 일반 문제':'지금 상황에서 지켜야 할 법규는?';$('#sign').replaceChildren();if(q.sign!==null){const img=document.createElement('img');img.src=`./signs/kr_${q.sign}.svg`;img.alt=`\uC548\uC804\uD45C\uC9C0 ${q.sign}\uBC88`;img.onerror=()=>{$('#sign').innerHTML=signSvg(q.sign);};$('#sign').append(img);}$('#question-text').textContent=q.question;const choices=q.choices.map((text,index)=>({text,index}));for(let i=choices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[choices[i],choices[j]]=[choices[j],choices[i]];}$('#choices').replaceChildren(...choices.map(choice=>{const button=document.createElement('button');button.textContent=choice.text;button.onclick=()=>answer(choice.index);return button;}));setPhase('banner');navigator.vibrate?.(80);let left=20;$('#time-left').textContent=left;$('#banner-progress').style.transform='scaleX(1)';clearInterval(timer);clearTimeout(bannerTimer);const deadline=Date.now()+20000;timer=setInterval(()=>{left=Math.max(0,Math.ceil((deadline-Date.now())/1000));$('#time-left').textContent=left;$('#banner-progress').style.transform=`scaleX(${Math.max(0,(deadline-Date.now())/20000)})`;if(!left)answer(-1);},200);bannerTimer=setTimeout(()=>{if(phase==='banner')setPhase('question');},5000);}
-function answer(index){if(!current||!['banner','question'].includes(phase))return;clearInterval(timer);clearTimeout(bannerTimer);const elapsed=Date.now()-shownAt, result=engine.answer(current.id,index,elapsed), wasCorrect=index===current.answer;if(wasCorrect){score+=result.score;const id=typeItem[current.type];items[id]=(items[id]||0)+1;addItem(id,1,{gameId:'license-quiz',questionId:current.id});if(result.combo>=5&&!flareAwarded){flareAwarded=true;addItem('flare',1,{gameId:'license-quiz',milestone:5});}}else{const ids=readWrong();if(!ids.includes(current.id))ids.push(current.id);writeWrong(ids);}$('#result-label').textContent=wasCorrect?'정답':'오답';$('#result-title').textContent=wasCorrect?`+${result.score}점`:'다음에는 맞혀봐요';$('#explanation').textContent=current.explanation;let sourceNote=$('#source-note');if(!sourceNote){sourceNote=document.createElement('small');sourceNote.id='source-note';$('#explanation').after(sourceNote);}sourceNote.textContent='\uCD9C\uCC98: \uD55C\uAD6D\uB3C4\uB85C\uAD50\uD1B5\uACF5\uB2E8 \uD559\uACFC\uC2DC\uD5D8 \uBB38\uC81C\uC740';$('#legal').textContent=`근거: ${current.legalBasis}`;const reward = $('#reward');
-if (wasCorrect) {
-  const item = ITEMS[typeItem[current.type]];
-  reward.replaceChildren(itemBadge(item), `${item.name} · ${scopeLabel(itemScope(item))}`);
-} else reward.textContent = '오답노트에 저장했어요';
-current=null;setPhase('result');updateHud();}
+function showQuestion(q) {
+  if (phase !== 'waiting') return;
+  current = q;
+  shownAt = Date.now();
+  reviewMode = false;
+  $('#banner-text').textContent = q.trigger.startsWith('caution:') ? '방금 지나간 표지판, 무슨 뜻일까?'
+    : q.trigger === 'idle' ? '운전면허 일반 문제' : '지금 상황에서 지켜야 할 법규는?';
+  const sign = $('#sign');
+  sign.replaceChildren();
+  if (q.sign != null) {
+    const image = document.createElement('img');
+    image.src = './signs/kr_' + q.sign + '.svg';
+    image.alt = '안전표지 ' + q.sign + '번';
+    image.onerror = () => { sign.innerHTML = signSvg(q.sign); };
+    sign.append(image);
+  }
+  $('#question-text').textContent = q.question;
+  const choices = q.choices.map((text, index) => ({ text, index }));
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+  $('#choices').replaceChildren(...choices.map(choice => {
+    const button = document.createElement('button');
+    button.textContent = choice.text;
+    button.onclick = () => answer(choice.index);
+    return button;
+  }));
+  setPhase('banner');
+  navigator.vibrate?.(80);
+  const durationMs = crewHasItem('quiz-time-card') ? 25000 : 20000;
+  const deadline = shownAt + durationMs;
+  $('#time-left').textContent = durationMs / 1000;
+  $('#banner-progress').style.transform = 'scaleX(1)';
+  clearInterval(timer);
+  clearTimeout(bannerTimer);
+  timer = setInterval(() => {
+    const remaining = Math.max(0, deadline - Date.now());
+    $('#time-left').textContent = Math.ceil(remaining / 1000);
+    $('#banner-progress').style.transform = 'scaleX(' + remaining / durationMs + ')';
+    if (!remaining) answer(-1);
+  }, 200);
+  bannerTimer = setTimeout(() => { if (phase === 'banner') setPhase('question'); }, 5000);
+}
+
+function answer(index) {
+  if (!current || !['banner', 'question'].includes(phase)) return;
+  clearInterval(timer);
+  clearTimeout(bannerTimer);
+  const question = current;
+  const result = engine.answer(question.id, index, Date.now() - shownAt);
+  const reward = $('#reward');
+  if (result.correct) {
+    score += result.score;
+    if (inRouteSign) {
+      reward.textContent = '성적표를 열면 표지판 보상을 받아요.';
+    } else {
+      const id = typeItem[question.type];
+      items[id] = (items[id] || 0) + 1;
+      addItem(id, 1, { gameId: 'license-quiz', questionId: question.id });
+      if (result.combo >= 5 && !flareAwarded) {
+        flareAwarded = true;
+        addItem('flare', 1, { gameId: 'license-quiz', milestone: 5 });
+      }
+      const item = ITEMS[id];
+      reward.replaceChildren(itemBadge(item), item.name + ' · ' + scopeLabel(itemScope(item)));
+    }
+  } else {
+    const ids = readWrong();
+    if (!ids.includes(question.id)) {
+      ids.push(question.id);
+      writeWrong(ids);
+    }
+    reward.textContent = '오답노트에 저장했어요';
+  }
+  $('#result-label').textContent = result.correct ? '정답' : '오답';
+  $('#result-title').textContent = result.correct ? '+' + result.score + '점' : '다음에는 맞혀봐요';
+  $('#explanation').textContent = question.explanation;
+  let sourceNote = $('#source-note');
+  if (!sourceNote) {
+    sourceNote = document.createElement('small');
+    sourceNote.id = 'source-note';
+    $('#explanation').after(sourceNote);
+  }
+  sourceNote.textContent = '출처 한국도로교통공단 학과시험 문제은행';
+  $('#legal').textContent = '근거: ' + question.legalBasis;
+  current = null;
+  setPhase('result');
+  updateHud();
+}
 const idName = id => ITEMS[id]?.name ?? id;
 function endDrive() {
   clearInterval(timer);
   clearTimeout(bannerTimer);
+  if (phase === 'report') return;
   const summary = engine.summary();
   const rates = Object.entries(summary.byType).flatMap(([type, stats]) => typeLabel[type] ? [
     [typeLabel[type], `${stats.correct}/${stats.asked} (${Math.round(stats.accuracy * 100)}%)`],
@@ -53,7 +137,7 @@ function endDrive() {
     ...rates,
     ['최고 콤보', summary.maxCombo],
     ['평균 응답 시간', Math.round(summary.avgResponseMs / 1000) + '초'],
-    ['보급품', Object.entries(items).map(([id, count]) => `${idName(id)} ${count}`).join(' · ') || '없음'],
+    ...(!inRouteSign ? [['보급품', Object.entries(items).map(([id, count]) => `${idName(id)} ${count}`).join(' · ') || '없음']] : []),
     ['오답노트', readWrong().length + '문제'],
   ];
   const report = $('#report-content');
@@ -86,10 +170,14 @@ if (inJourney) {
   $('#report-close').textContent = '여행 지도로 돌아가기';
   $('#end-button').className = 'secondary-button';
   $('#end-button').textContent = '성적표 보기';
+  if (inRouteSign) {
+    $('#idle-note').textContent = '한 문제 이상 맞히고 성적표를 열면 전용 아이템을 받아요.';
+    $('#review-button').hidden = true;
+  }
   const practice = document.createElement('button');
   practice.className = 'primary-button';
   practice.textContent = '일반 문제 풀기';
-  practice.onclick = () => trigger('practice');
+  practice.onclick = () => trigger('practice', {}, inRouteSign);
   $('#waiting .quiz-actions').before(practice);
 }
 window.__licenseQuiz={getState:state,trigger:(type,detail)=>trigger(type,detail)};

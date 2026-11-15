@@ -244,9 +244,9 @@ export function createRoutePlanner({ router = null, clock = Date.now, onReady = 
     // 지나친 뒤에는 경로상 readyRadiusM(500m) 이내·30초 이내까지만 게임을 열어 둔다.
     const nearAt = plan.nearAt.get(sign.signId);
     const passedM = plan.progressM - sign.alongM;
-    if (nearAt != null && clock() - nearAt <= policy.graceMs && passedM <= policy.readyRadiusM) return 'READY';
+    if (position && nearAt != null && clock() - nearAt <= policy.graceMs && passedM >= 0 && passedM <= policy.readyRadiusM) return 'READY';
     if (isNear(plan, sign, position)) return 'READY';
-    return sign.alongM < plan.progressM - policy.readyRadiusM ? 'MISSED' : 'AHEAD';
+    return passedM > 0 ? 'MISSED' : 'AHEAD';
   }
 
   function view(roomId, position, claims = {}, memberId = null) {
@@ -286,20 +286,4 @@ export function createRoutePlanner({ router = null, clock = Date.now, onReady = 
     /** 현재 진행 중인 경로 key(받아오는 중이면 그 key) */
     key: roomId => rooms.get(roomId)?.pending?.key ?? rooms.get(roomId)?.ready?.key ?? null,
   };
-}
-
-/** loot_tables.json common 표에서 가중치 추첨. 게임별 선호(기존 loot-engine과 동일한 3배 가중)를 반영한다. */
-export function pickReward(catalog, gameId, random = Math.random) {
-  if (!catalog?.items?.length || !catalog.tables?.common?.length) return null;
-  const rows = catalog.tables.common.map(row => {
-    const item = catalog.items.find(x => x.id === row.itemId);
-    let weight = row.weight;
-    if (gameId === 'pole-jump' && item?.category === 'part') weight *= 3;
-    if (gameId === 'raindrop' && item?.category === 'consumable') weight *= 3;
-    if (gameId === 'license-quiz' && ['ammo', 'medkit', 'coolant', 'supply'].includes(item?.id)) weight *= 3;
-    return { item, weight };
-  }).filter(row => row.item && row.weight > 0);
-  let target = random() * rows.reduce((sum, row) => sum + row.weight, 0);
-  for (const row of rows) { target -= row.weight; if (target <= 0) return row.item; }
-  return rows.at(-1)?.item ?? null;
 }

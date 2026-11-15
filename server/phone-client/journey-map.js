@@ -9,7 +9,7 @@ const JOURNEY_MAP_BASE = document.currentScript ? new URL('.', document.currentS
 function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra = {}) {
   const defaultCenter = [37.5665, 126.978];
   const followZoom = 16;
-  const config = Object.assign({ icon: 'route-sign/sign-battery.png', size: 40, readySize: 46, label: '경로 표지판',
+  const config = Object.assign({ size: 40, readySize: 46, games: {},
     destinationIcon: 'route-sign/destination.svg', destinationWidth: 28 }, window.PLY_ROUTE_SIGN || {});
   const asset = path => new URL(path, JOURNEY_MAP_BASE).href;
   const toRad = value => value * Math.PI / 180;
@@ -258,12 +258,14 @@ function createJourneyMap(plot, recenter, tileStatus, retry, selectSpots, extra 
     signSignature = signature;
     signLayer.clearLayers();
     for (const [index, sign] of signs.entries()) {
+      const game = config.games[sign.gameId];
+      if (!game) continue;
       const ready = sign.state === 'READY';
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'route-sign route-sign-' + sign.state.toLowerCase();
       button.setAttribute('aria-pressed', String(sign.signId === selectedSignId));
-      button.setAttribute('aria-label', config.label + ' ' + (index + 1) + '/' + signs.length);
+      button.setAttribute('aria-label', game.label + ' 표지판 ' + (index + 1) + '/' + signs.length);
       button.style.setProperty('--sign-size', (ready ? config.readySize : config.size) + 'px');
       const image = document.createElement('img');
       image.src = asset(config.icons?.[sign.gameId] ?? config.icon);

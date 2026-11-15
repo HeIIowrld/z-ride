@@ -105,12 +105,8 @@
           <section id="journey-sign" class="journey-place journey-sign" hidden>
             <div class="journey-sign-head"><img id="journey-sign-icon" alt="" width="40" height="40"><div><h2 id="journey-sign-title">경로 표지판</h2><span id="journey-sign-count" class="journey-sign-count"></span></div><button id="journey-sign-close" class="quiet" type="button">닫기</button></div>
             <p id="journey-sign-status" class="subtle" role="status"></p>
-            <div id="journey-sign-games" class="drive-game-list">
-              <button type="button" data-sign-game="license-quiz"><strong>운전면허 퀴즈</strong><span>도로 상황 퀴즈</span></button>
-              <button type="button" data-sign-game="pole-jump"><strong>폴짝 전봇대</strong><span>타이밍 점프</span></button>
-              <button type="button" data-sign-game="raindrop"><strong>빗방울 캐치</strong><span>차창 빗방울 받기</span></button>
-              <button type="button" data-sign-game="zombie" data-coming-soon><strong>좀비 게임</strong><span>준비 중이에요</span></button>
-            </div>
+            <p id="journey-sign-reward"></p>
+            <button id="journey-sign-play" class="primary" type="button"></button>
           </section>
           <section id="journey-pin-group" class="journey-place" hidden>
             <div class="section-heading"><h2 id="journey-pin-group-title"></h2><button id="journey-pin-group-close" class="quiet" type="button">닫기</button></div>
@@ -128,7 +124,7 @@
             <button id="journey-enter" type="button" class="primary" hidden></button>
           </div>
           <details class="map-places"><summary>주변 장소</summary><div id="journey-spots" class="journey-spots"></div></details>
-          <details id="journey-history" class="map-places" hidden><summary>보급품 획득 내역</summary><ul id="journey-history-items" class="journey-history-items"></ul></details>
+          <details id="journey-history" class="map-places" hidden><summary>크루 아이템 획득 내역</summary><ul id="journey-history-items" class="journey-history-items"></ul></details>
           <section id="drive-games" class="journey-next drive-games" hidden>
             <h2>동승자 게임</h2>
             <p id="drive-recommendation" class="subtle" hidden></p>

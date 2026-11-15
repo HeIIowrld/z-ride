@@ -1,4 +1,5 @@
 import { SERVER_URL } from './config.js';
+import { inRouteSign } from './journey.js';
 import { createLootEngine } from './loot-engine.js';
 import { itemBadge, itemScope, scopeLabel } from './item-icons.js';
 const itemsPromise=fetch(new URL('../data/items.json',import.meta.url)).then(async r=>{const rows=await r.json();try{localStorage.setItem('zride.items.catalog',JSON.stringify(rows));}catch{}return rows;}),tablesPromise=fetch(new URL('../data/loot_tables.json',import.meta.url)).then(r=>r.json()),pointsPromise=fetch(new URL('../data/points.json',import.meta.url)).then(r=>r.json());
@@ -15,12 +16,28 @@ function journeyReward(gameId,result){
   return new Promise(resolve=>{
     const done=value=>{clearTimeout(timer);window.removeEventListener('message',listen);resolve(value);};
     const listen=event=>{if(event.source===window.parent&&event.origin===location.origin&&event.data?.type==='zride:drive-reward'&&event.data.requestId===requestId)done(event.data);};
-    const timer=setTimeout(()=>done(null),12000);
+    const timer=setTimeout(()=>done(null),inRouteSign ? 25000 : 12000);
     window.addEventListener('message',listen);
     window.parent.postMessage({type:'zride:drive-result',requestId,gameId,score:Number(result?.score)||0},location.origin);
   });
 }
-export async function awardMinigame(gameId,result={}){const journey=await journeyReward(gameId,result);if(journey?.handled){for(const item of journey.items||[]){notifyLoot(item);saveLootEvent({type:'route-sign',source:gameId,item,at:new Date().toISOString()});}return {type:'route-sign',items:journey.items||[],error:journey.error};}const out=await requestMinigame(gameId,result);for(const item of out.items||[]){try{const inv=JSON.parse(localStorage.getItem('zride.inventory')||'{}');inv[item.id]=(Number(inv[item.id])||0)+1;localStorage.setItem('zride.inventory',JSON.stringify(inv));}catch{}notifyLoot(item);saveLootEvent({type:'minigame',source:gameId,item,at:new Date().toISOString()});}return out;}
+export async function awardMinigame(gameId, result = {}) {
+  const journey = await journeyReward(gameId, result);
+  if (inRouteSign || journey?.handled) {
+    return { type: 'route-sign', items: journey?.items ?? [], error: journey?.error ?? (!journey ? 'SIGN_RESPONSE_TIMEOUT' : undefined) };
+  }
+  const out = await requestMinigame(gameId, result);
+  for (const item of out.items ?? []) {
+    try {
+      const inv = JSON.parse(localStorage.getItem('zride.inventory') || '{}');
+      inv[item.id] = (Number(inv[item.id]) || 0) + 1;
+      localStorage.setItem('zride.inventory', JSON.stringify(inv));
+    } catch {}
+    notifyLoot(item);
+    saveLootEvent({ type: 'minigame', source: gameId, item, at: new Date().toISOString() });
+  }
+  return out;
+}
 export function readLootEvents(){try{return JSON.parse(localStorage.getItem('zride.loot.events')||'[]');}catch{return[];}}
 export function saveLootEvent(event){try{const events=readLootEvents();events.push(event);localStorage.setItem('zride.loot.events',JSON.stringify(events.slice(-500)));}catch{}}
 let lootToastTimer;

@@ -1,5 +1,6 @@
 export const inJourney = typeof window !== 'undefined' && window.parent !== window
   && location.pathname.includes('/drive/games/');
+export const inRouteSign = inJourney && new URLSearchParams(location.search).get('routeSign') === '1';
 
 let latest;
 if (inJourney) {
@@ -21,6 +22,10 @@ if (inJourney) {
 
 export function returnToJourney() {
   window.parent.postMessage({ type: 'zride:drive-back' }, location.origin);
+}
+
+export function crewHasItem(itemId) {
+  return latest?.inventory?.[itemId] > 0;
 }
 
 export function journeySeat() {

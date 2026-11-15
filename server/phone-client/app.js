@@ -170,6 +170,7 @@ function useTicket(joined) {
   venueStatus = null;
   venueSignature = '';
   selectedSpot = null;
+  selectedSign = null;
   mapSignature = '';
   routeFeedback = '';
   selectedPinGroup = [];
@@ -691,6 +692,7 @@ function closeDriveGame() {
   if (!driveFrame) return;
   driveFrame.remove();
   driveFrame = null;
+  activeSignChallenge = null;
   drivePlay.hidden = true;
   if (journeyView === 'drive') showJourney('map');
 }
@@ -700,6 +702,7 @@ function sendDriveState() {
   driveFrame.contentWindow?.postMessage({
     type: 'zride:drive-state',
     speedKmh: room.vehicle.speedMps * 3.6,
+    inventory: room.collection?.inventory,
     seat: ownMember().seat,
     speedLimitKmh: room.navigation?.available ? room.navigation.speedLimitKmh : null,
     nextTurn: room.navigation?.available && room.navigation.nextTurnDistanceM <= 250 ? room.navigation.nextTurn : null,
@@ -727,14 +730,16 @@ function renderDriveGames() {
 drivePanel.addEventListener('click', event => {
   const game = event.target.closest('[data-drive-game]')?.dataset.driveGame;
   if (!Object.hasOwn(driveTitles, game) || !driveAvailable()) return;
-  activeSignChallenge = null;
   openDriveGame(game);
 });
-function openDriveGame(game) {
+function openDriveGame(game, challenge = null) {
   closeDriveGame();
+  activeSignChallenge = challenge;
   driveFrame = document.createElement('iframe');
   driveFrame.title = driveTitles[game];
-  driveFrame.src = new URL('games/' + game + '/index.html', driveAssets).href;
+  const url = new URL('games/' + game + '/index.html', driveAssets);
+  if (challenge) url.searchParams.set('routeSign', '1');
+  driveFrame.src = url.href;
   driveFrame.addEventListener('load', sendDriveState);
   drivePlay.replaceChildren(driveFrame);
   drivePlay.hidden = false;
@@ -751,16 +756,19 @@ window.addEventListener('message', event => {
 // ── 경로 표지판: 지도 위 표지판 → 게임 선택 → 서버 판정 → 크루 가방 보상 ──
 const signConfig = window.PLY_ROUTE_SIGN ?? {};
 const signIconFor = gameId => new URL(signConfig.icons?.[gameId] ?? signConfig.icon ?? 'route-sign/sign-battery.png', assets).href;
+const signPlayButton = $('journey-sign-play');
 $('journey-sign-icon').src = signIconFor(null);
 
 function formatMeters(value) {
   return value < 1000 ? Math.round(value / 10) * 10 + 'm' : (value / 1000).toFixed(1) + 'km';
 }
 function currentSign() {
-  return selectedSign && (room?.journeyRoute?.signs ?? []).find(sign => sign.signId === selectedSign.signId);
+  const route = room?.journeyRoute;
+  return selectedSign && selectedSign.routeKey === route?.key
+    ? route.signs.find(sign => sign.signId === selectedSign.signId) : null;
 }
 function selectRouteSign(sign) {
-  selectedSign = sign;
+  selectedSign = { signId: sign.signId, routeKey: room.journeyRoute.key };
   selectedSpot = null;
   routeFeedback = '';
   renderJourneyMap();
@@ -778,40 +786,41 @@ function renderRouteSignPanel() {
   if (!sign) return;
   const index = room.journeyRoute.signs.indexOf(sign) + 1;
   const ready = driveAvailable();
-  // 표지판마다 게임이 하나 정해져 있다. 준비 중인 게임(좀비)은 표지판과 버튼만 보이고 시작할 수 없다.
-  const playable = sign.playable !== false && Object.hasOwn(driveTitles, sign.gameId);
+  const title = driveTitles[sign.gameId] ?? (sign.gameId === 'zombie' ? '좀비' : undefined);
   const icon = signIconFor(sign.gameId);
-  if ($('journey-sign-icon').src !== icon) $('journey-sign-icon').src = icon;
-  $('journey-sign-title').textContent = sign.state === 'READY' ? (!playable ? '곧 열리는 게임이에요' : ready ? '게임을 시작해 주세요' : '주행 중에 열려요')
-    : sign.state === 'CLAIMED' ? '아이템 획득 완료'
-    : sign.state === 'MISSED' ? '지나친 표지판'
-    : formatMeters(Math.max(0, sign.aheadM)) + ' 앞 표지판';
+  if (icon) {
+    const url = new URL(icon, assets).href;
+    if ($('journey-sign-icon').src !== url) $('journey-sign-icon').src = url;
+  }
+  $('journey-sign-icon').hidden = !icon;
+  $('journey-sign-title').textContent = title ?? '경로 표지판';
   $('journey-sign-count').textContent = '경로 표지판 ' + index + ' / ' + room.journeyRoute.signs.length;
-  const canPlay = playable && sign.state === 'READY' && driveAvailable() && !signRequestPending;
+  signPlayButton.hidden = sign.state === 'CLAIMED' || sign.state === 'MISSED';
+  const playable = sign.playable !== false && Boolean(title);
+  signPlayButton.disabled = !playable || sign.state !== 'READY' || !ready || signRequestPending;
+  signPlayButton.textContent = signRequestPending ? '게임 여는 중…' : playable ? title + ' 시작' : '좀비 게임 준비 중';
+  const owned = room.collection?.inventory?.[sign.reward?.id] > 0;
+  $('journey-sign-reward').textContent = sign.reward
+    ? (owned ? '크루 효과 적용 중 · ' : '보상 · ') + sign.reward.name + ' · ' + sign.reward.description : '';
   const status = sign.state === 'READY'
-    ? (!playable ? '이 게임은 준비 중이에요. 다음 표지판을 노려 보세요.' : ready ? '게임을 끝내면 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
-    : sign.state === 'CLAIMED' ? '크루 가방에서 확인할 수 있어요.'
-    : sign.state === 'MISSED' ? '다음 표지판을 노려 보세요.'
-    : (room.journeyRoute.readyRadiusM ?? 200) + 'm 안으로 가까워지면 게임이 열려요.';
+    ? (!playable ? '이 게임은 준비 중이에요.' : ready ? '점수를 얻고 게임을 마치면 전용 아이템을 받아요.' : '차량이 주행(D) 중일 때 게임을 할 수 있어요.')
+    : sign.state === 'CLAIMED' ? '아이템 획득 완료 · 크루 가방에서 확인할 수 있어요.'
+    : sign.state === 'MISSED' ? '지나친 표지판이에요.'
+    : formatMeters(Math.max(0, sign.aheadM)) + ' 앞 · 가까워지면 게임이 열려요.';
   const text = status + (sign.crewClaims ? ' · 크루 ' + sign.crewClaims + '명 획득' : '');
   if ($('journey-sign-status').textContent !== text) $('journey-sign-status').textContent = text;
-  for (const button of $('journey-sign-games').querySelectorAll('[data-sign-game]')) {
-    button.hidden = button.dataset.signGame !== sign.gameId;
-    button.disabled = !canPlay;
-  }
 }
-$('journey-sign-games').addEventListener('click', async event => {
-  const game = event.target.closest('[data-sign-game]')?.dataset.signGame;
+signPlayButton.onclick = async () => {
   const sign = currentSign();
   const active = credentials;
-  if (!Object.hasOwn(driveTitles, game) || !sign || game !== sign.gameId || !active || signRequestPending) return;
+  if (!sign || !active || signPlayButton.disabled) return;
+  const routeKey = room.journeyRoute.key;
   signRequestPending = true;
   renderRouteSignPanel();
   try {
-    const challenge = await post('/api/world/route-sign', { signId: sign.signId, gameId: game }, active.token);
-    if (active !== credentials) return;
-    activeSignChallenge = challenge;
-    openDriveGame(game);
+    const challenge = await post('/api/world/route-sign', { signId: sign.signId, routeKey }, active.token);
+    if (active !== credentials || !driveAvailable() || journeyView !== 'map') return;
+    openDriveGame(challenge.gameId, { ...challenge, readyAt: performance.now() + challenge.minPlayMs });
   } catch (error) {
     if (active !== credentials) return;
     const code = error?.message;
@@ -824,25 +833,42 @@ $('journey-sign-games').addEventListener('click', async event => {
     signRequestPending = false;
     renderRouteSignPanel();
   }
-});
-// 게임(iframe)이 끝나면 결과를 보낸다. 표지판 도전 중이면 서버가 판정해 보상을 지급한다.
+};
 async function finishSignGame(message) {
-  const reply = value => driveFrame?.contentWindow?.postMessage({ type: 'zride:drive-reward', requestId: message.requestId, ...value }, location.origin);
+  const frame = driveFrame;
+  const reply = value => {
+    if (frame === driveFrame) frame?.contentWindow?.postMessage({
+      type: 'zride:drive-reward', requestId: message.requestId, ...value,
+    }, location.origin);
+  };
   const challenge = activeSignChallenge;
   const active = credentials;
-  if (!challenge || challenge.gameId !== message.gameId || !active) { reply({ handled: false }); return; }
-  activeSignChallenge = null;
+  if (!challenge) { reply({ handled: false }); return; }
+  if (challenge.gameId !== message.gameId || !active) return;
+  const body = { challengeId: challenge.challengeId, result: { score: message.score } };
+  const submit = () => post('/api/world/route-sign', body, active.token);
+  const remaining = challenge.readyAt - performance.now();
+  if (remaining > 0) await new Promise(resolve => setTimeout(resolve, Math.ceil(remaining)));
+  if (active !== credentials) return;
   try {
-    const receipt = await post('/api/world/route-sign', { challengeId: challenge.challengeId, result: { score: Number(message.score) || 0 } }, active.token);
-    const names = (receipt.items ?? []).map(item => item.name).join(', ') || '보급품';
-    reply({ handled: true, items: receipt.items ?? [] });
-    showItemToast('표지판 보상 · ' + names, '크루 가방에 들어갔어요.');
+    let receipt;
+    try {
+      receipt = await submit();
+    } catch (error) {
+      if (error.name !== 'AbortError' && !(error instanceof TypeError)) throw error;
+      if (active !== credentials) return;
+      receipt = await submit();
+    }
+    if (active !== credentials) return;
+    reply({ handled: true, items: receipt.items });
+    if (!receipt.replayed) showItemToast('표지판 보상 · ' + receipt.items[0].name, '크루 가방에 들어갔어요.');
     routeFeedback = '';
   } catch (error) {
+    if (active !== credentials) return;
     const code = error?.message;
     reply({ handled: true, items: [], error: code });
-    showItemToast('보상을 받지 못했어요', code === 'SIGN_CHALLENGE_TOO_FAST' ? '게임을 조금 더 플레이해 주세요.'
-      : code === 'SIGN_CHALLENGE_EXPIRED' ? '도전 시간(5분)이 지났어요.' : '다음 표지판에서 다시 도전해 주세요.');
+    showItemToast('보상을 받지 못했어요', code === 'SIGN_GOAL_NOT_MET' ? '점수를 얻은 뒤 게임을 마쳐 주세요.'
+      : code === 'SIGN_CHALLENGE_EXPIRED' ? '도전 시간(5분)이 지났어요.' : '다시 도전해 주세요.');
   }
 }
 function showItemToast(title, text) {
@@ -910,11 +936,22 @@ function renderJourneyHistory(entries) {
     row.className = 'item-inline';
     const copy = document.createElement('span');
     const amount = document.createElement('strong');
-    amount.textContent = '보급품 +1';
-    const place = document.createElement('small');
-    place.textContent = journeySpotName({ name: entry.placeName }) + ' · ' + pickupTime.format(entry.at);
-    copy.append(amount, place);
-    row.append(document.createElement('ply-supply-icon'), copy);
+    amount.textContent = (entry.itemName ?? '보급품') + ' +1';
+    const source = document.createElement('small');
+    const game = window.PLY_ROUTE_SIGN?.games?.[entry.gameId];
+    source.textContent = [game?.label ?? journeySpotName({ name: entry.placeName }), entry.nickname,
+      pickupTime.format(entry.at)].filter(Boolean).join(' · ');
+    copy.append(amount, source);
+    if (game) {
+      const icon = document.createElement('img');
+      icon.src = new URL(game.icon, assets).href;
+      icon.width = icon.height = 24;
+      icon.alt = '';
+      row.append(icon);
+    } else {
+      row.append(document.createElement('ply-supply-icon'));
+    }
+    row.append(copy);
     return row;
   }));
 }
@@ -1008,13 +1045,14 @@ function renderJourneyMap() {
     $('journey-pin-group-title').textContent = '이 지점 주변 · ' + group.length + '곳';
     $('journey-pin-group-spots').replaceChildren(...group.map(journeySpotButton));
   }
-  renderJourneyHistory(history);
+  const pickups = [...history, ...(room.routeSignHistory ?? [])].sort((a, b) => b.at - a.at);
+  renderJourneyHistory(pickups);
   if (!journeyMap && plot.clientWidth > 0) {
     journeyMap = createJourneyMap(plot, $('journey-recenter'), $('journey-map-tiles'),
       $('journey-map-retry'), selectJourneyPins, { selectSign: selectRouteSign, zoomIn: $('journey-zoom-in'), zoomOut: $('journey-zoom-out') });
   }
   journeyMap?.update(position, markers, selectedSpot?.placeId, {
-    route: room.journeyRoute, heading: room.navigation?.heading, selectedSignId: selectedSign?.signId,
+    route: room.journeyRoute, heading: room.navigation?.heading, selectedSignId: currentSign()?.signId,
   });
   renderRouteSignPanel();
   const current = selectedSpot && (points.get(selectedSpot.placeId) ?? { ...selectedSpot, activity: null });
@@ -1064,8 +1102,9 @@ function renderJourneyGuidance(nav) {
   const signLine = $('journey-guidance-sign');
   const nextSign = (room.journeyRoute?.signs ?? []).find(sign => sign.state === 'READY')
     ?? (room.journeyRoute?.signs ?? []).filter(sign => sign.state === 'AHEAD').sort((a, b) => a.aheadM - b.aheadM)[0];
-  const signText = !nextSign ? '' : nextSign.state === 'READY' ? '표지판 도착 · 눌러서 게임 시작'
-    : '다음 표지판 · ' + formatMeters(Math.max(0, nextSign.aheadM)) + ' 앞';
+  const signTitle = nextSign && (driveTitles[nextSign.gameId] ?? '경로 표지판');
+  const signText = !nextSign ? '' : nextSign.state === 'READY' ? signTitle + ' · 지도에서 열기'
+    : signTitle + ' · ' + formatMeters(Math.max(0, nextSign.aheadM)) + ' 앞';
   signLine.hidden = !signText;
   if (signLine.textContent !== signText) signLine.textContent = signText;
 }
