@@ -1,4 +1,4 @@
-import json,unittest
+import json,time,unittest
 from unittest.mock import patch
 from simulation import EmulatorLocationError,Simulator,START,at_distance
 
@@ -7,6 +7,7 @@ class SimulationTests(unittest.TestCase):
         self.sim=Simulator();self.commands=[];self.receipts={}
         def private(i,*args,input_data=None):
             self.commands.append((i,args))
+            if args[:3]==('stat','-c','%Y'):return str(int(time.time()))
             if args==('cat','files/room-state.json'):return json.dumps({'roomId':'test-room'})
             if args==('tee','files/demo-route.tmp'):
                 body=json.loads(input_data);self.receipts[i]={'commandId':body['commandId'],'route':{'routeRevision':len(self.commands)},'error':None};return ''
@@ -51,6 +52,13 @@ class SimulationTests(unittest.TestCase):
         self.sim.private=partial
         result=self.act('destination');self.assertEqual(reads,2);self.assertEqual(result['routeStatus'],'PENDING')
 
+    def test_disconnected_car_does_not_write_a_route_command(self):
+        with patch.object(self.sim, 'private', return_value='1') as private:
+            with self.assertRaisesRegex(ValueError, 'VEHICLE_ROOM_NOT_CONNECTED'):
+                self.act('destination')
+        self.assertTrue(all(call.args[1] == 'stat' for call in private.call_args_list))
+        self.assertEqual(self.sim.snapshot(1)['state'], 'IDLE')
+
     def test_custom_route_can_seek_and_change_rate_without_resetting_position(self):
         end={'latitude':37.529,'longitude':126.919}
         self.act('destination',route='custom',start=START,end=end,rate=2)
@@ -68,6 +76,20 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(sped['rate'],10)
         self.assertEqual(self.act('seek',progress=1)['state'],'ARRIVED')
         with self.assertRaisesRegex(ValueError,'ROUTE_FINISHED'):self.act('start')
+
+    def test_custom_waypoint_is_used_for_route_submission_and_reroute(self):
+        via={'latitude':37.529,'longitude':126.918}
+        end={'latitude':37.529,'longitude':126.919}
+        with patch.object(self.sim,'submit',wraps=self.sim.submit) as submit:
+            result=self.act('destination',route='custom',start=START,waypoint=via,end=end)
+            self.assertEqual(result['geometry'],[START,via,end])
+            self.assertEqual(submit.call_args.args[-1],[START,via,end])
+            self.sim.tick(1,100)
+            sought=self.act('seek',progress=.2)['position']
+            result=self.act('reroute',route='custom',start=START,waypoint=via,end=end)
+            self.assertEqual(result['geometry'],[sought,via,end])
+        with self.assertRaisesRegex(ValueError,'INVALID_PARAMETERS'):
+            self.act('destination',route='custom',start=START,waypoint=None,end=end)
 
     def test_invalid_custom_geometry_is_rejected_before_emulator_write(self):
         for end in [START,{'latitude':0,'longitude':0}]:

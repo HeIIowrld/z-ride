@@ -12,7 +12,7 @@ START={'latitude':37.5285,'longitude':126.9180}
 ROUTES={
  'A':{'name':'여의도 동쪽 스팟 (데모)', 'geometry':[START,{'latitude':37.5285,'longitude':126.9250},{'latitude':37.5320,'longitude':126.9250},{'latitude':37.5320,'longitude':126.9320}]},
  'B':{'name':'여의도 서쪽 스팟 (데모)', 'geometry':[START,{'latitude':37.5240,'longitude':126.9180},{'latitude':37.5240,'longitude':126.9100},{'latitude':37.5290,'longitude':126.9100}]},
- 'C':{'name':'짧은 보급품 시연', 'geometry':[{'latitude':37.5389,'longitude':126.9418},{'latitude':37.5399,'longitude':126.943}]}
+ 'C':{'name':'서울시청 가상 충전 거점', 'geometry':[{'latitude':37.5653,'longitude':126.9774},{'latitude':37.5665,'longitude':126.9780}]}
 }
 RATES=(1,2,5,10)
 MAX_SEGMENT_M=19500
@@ -54,6 +54,12 @@ class Simulator:
         user=self.adb(i,'shell','am','get-current-user')
         if not user.isdigit():raise RuntimeError('ANDROID_USER_UNAVAILABLE')
         return self.adb(i,'shell','run-as',APP,'--user',user,*args,input_data=input_data)
+    def fresh_snapshot(self, i, file, max_age=10):
+        stamp = self.private(i, 'stat', '-c', '%Y', 'files/' + file)
+        if not stamp.isdigit() or not 0 <= time.time() - int(stamp) < max_age:
+            raise ValueError('STALE_VEHICLE_SNAPSHOT')
+        return json.loads(self.private(i, 'cat', 'files/' + file))
+
     def console(self,i,path,method='GET'):
         self.adb(i,'forward',f'tcp:{8080+i}','tcp:8088')
         # The official simulator requires a live browser-session lease for writes.
@@ -95,11 +101,11 @@ class Simulator:
         # A read during truncation is transient, not an invalid browser command.
         for attempt in range(5):
             try:
-                room=json.loads(self.private(i,'cat','files/room-state.json'))
+                room=self.fresh_snapshot(i,'room-state.json')
                 if not isinstance(room,dict) or not room.get('roomId'):raise ValueError()
                 break
-            except ValueError:
-                if attempt==4:raise RuntimeError('VEHICLE_SNAPSHOT_UNAVAILABLE')
+            except (RuntimeError, ValueError):
+                if attempt==4:raise ValueError('VEHICLE_ROOM_NOT_CONNECTED') from None
                 time.sleep(.05)
         command=str(uuid.uuid4())
         body={'commandId':command,'roomId':room['roomId'],'source':source,'geometry':geometry}
@@ -121,13 +127,16 @@ class Simulator:
             s['progressM']=round(s.pop('travelled',0));s['distanceM']=round(s['distanceM'])
             return s
     def act(self,i,body):
-        if not isinstance(body,dict) or set(body)-{'action','route','speedKph','rate','expectedRevision','start','end','progress'}:raise ValueError('INVALID_COMMAND')
+        if not isinstance(body,dict) or set(body)-{'action','route','speedKph','rate','expectedRevision','start','waypoint','end','progress'}:raise ValueError('INVALID_COMMAND')
         action=body.get('action')
         if action not in ['destination','reroute','start','pause','park','cancel','seek']:raise ValueError('INVALID_ACTION')
         route=body.get('route','A');speed=body.get('speedKph',30);rate=body.get('rate',5)
         if not isinstance(route,str) or route not in (*ROUTES,'custom') or type(speed) not in (int,float) or not 1<=speed<=60 or type(rate) is not int or rate not in RATES:raise ValueError('INVALID_PARAMETERS')
         if action in ('destination','reroute') and route=='custom':
-            points=[point(body.get('start')),point(body.get('end'))]
+            points=[point(body.get('start'))]
+            if 'waypoint' in body:
+                points.append(point(body['waypoint']))
+            points.append(point(body.get('end')))
         else:
             points=copy.deepcopy(ROUTES.get(route,ROUTES['A'])['geometry'])
         progress=body.get('progress')
@@ -198,7 +207,9 @@ class Simulator:
                 if arrived:
                     self.motion(i,0,'Park');self.geo(i,point,0);s.update(state='ARRIVED',speedKph=0,travelled=s['distanceM']);s['revision']+=1
             except Exception as exc:
-                error=str(exc) if isinstance(exc,EmulatorLocationError) else 'EMULATOR_OR_ROUTE_UNAVAILABLE'
+                error = str(exc)
+                if error not in ('EMULATOR_LOCATION_REJECTED', 'ROUTE_SUBMIT_FAILED', 'VEHICLE_ROUTE_BRIDGE_TIMEOUT'):
+                    error = 'EMULATOR_OR_ROUTE_UNAVAILABLE'
                 s.update(state='ERROR',speedKph=0,error=error);s['revision']+=1
                 try:self.motion(i,0,'Park')
                 except Exception:pass

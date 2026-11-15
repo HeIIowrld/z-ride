@@ -30,6 +30,18 @@ class ViewerTests(unittest.TestCase):
             if 'cat'in args:return json.dumps({'roomId':'12345678-1234-1234-1234-123456789012'})
             return str(int(time.time())-60)
         with patch.object(viewer,'command',side_effect=command):self.assertFalse(viewer.catalog()['vehicles'][0]['roomConnected'])
+    def test_stopped_phone_is_reported_before_attempting_adb(self):
+        with patch.object(viewer, 'command', return_value='inactive') as command:
+            self.assertEqual(viewer.phone_state(), 'STOPPED')
+            command.assert_called_once_with(['systemctl', 'is-active', 'ply-phone.service'])
+
+    def test_native_navigation_does_not_accept_stale_sdk_status(self):
+        sdk = viewer.native_navigation
+        with patch.object(sdk.simulator, 'fresh_snapshot', side_effect=ValueError('STALE_VEHICLE_SNAPSHOT')):
+            self.assertFalse(sdk.status(1)['sdkConnected'])
+            with self.assertRaisesRegex(ValueError, 'NAVIGATION_SDK_NOT_CONNECTED'):
+                sdk.execute(1, {'action': 'destinationA'})
+
     def test_public_http_exposes_no_control_or_arbitrary_file_endpoint(self):
         server=viewer.ThreadingHTTPServer(('127.0.0.1',0),viewer.Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();base='http://127.0.0.1:'+str(server.server_port)
         try:
@@ -40,6 +52,26 @@ class ViewerTests(unittest.TestCase):
                 self.assertEqual(error.exception.code,404)
             with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(urllib.request.Request(base+'/control',data=b'{}'))
             self.assertEqual(error.exception.code,404)
+        finally:server.shutdown();server.server_close();thread.join()
+
+    def test_single_vehicle_redirect_and_disabled_vehicle_routes(self):
+        server=viewer.ThreadingHTTPServer(('127.0.0.1',0),viewer.Handler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        try:
+            from http.client import HTTPConnection
+            connection=HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+            with patch.object(viewer,'VEHICLES',(1,)), patch.object(viewer,'command',return_value=''):
+                for method,path,code in [('GET','/',302),('GET','/1',200),('GET','/2',404),
+                                         ('GET','/navigation/3',404),('GET','/simulation/2',404),
+                                         ('POST','/simulation/2',404),('GET','/phone',200),('GET','/status.json',200)]:
+                    connection.request(method,path)
+                    response=connection.getresponse()
+                    body=response.read()
+                    self.assertEqual(response.status,code)
+                    if path=='/':self.assertEqual(response.getheader('Location'),'/vehicles/1')
+                    if path=='/status.json':
+                        self.assertEqual([vehicle['id'] for vehicle in json.loads(body)['vehicles']],['1'])
         finally:server.shutdown();server.server_close();thread.join()
 
     def test_android_only_opens_an_exact_ply_invite(self):

@@ -1,34 +1,109 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pleos 차량 화면</title><link rel="stylesheet" href="/vehicles/style.css"><script type="module" src="/vehicles/viewer.js"></script><script type="module" src="/vehicles/simulation.js"></script><script type="module" src="/vehicles/native-navigation.js"></script></head><body class="viewer"><header><a href="/vehicles/">← 차량 목록</a><h1 id="title">실제 Pleos 센터페시아</h1><span class="tag">INTERACTIVE / LIVE SCREEN</span></header><p id="status" role="status">차량 실행 상태 확인 중…</p><details id="journey">
-  <summary>여정 시나리오</summary>
-  <p>Pleos 앱에서 여정을 먼저 열고 동승자 QR을 보여 주세요. 아래는 시험 좌표를 재생합니다. <a href="/vehicles/phone" target="_blank" rel="noopener">Android 동승자 화면 ↗</a></p>
-  <div class="journey-controls">
-    <label>시나리오 <select id="route"><option value="A">여의도 동쪽</option><option value="B">여의도 서쪽</option><option value="C">짧은 보급품 시연</option><option value="custom">직접 설정</option></select></label>
-    <label>차량 속도 <select id="speed"><option value="10">10km/h</option><option value="30" selected>30km/h</option><option value="60">60km/h</option></select></label>
-    <label>이동 배속 <select id="rate"><option value="1">1배</option><option value="2">2배</option><option value="5" selected>5배</option><option value="10">10배</option></select></label>
-    <button id="share-journey" type="button">시나리오 링크 복사</button>
-    <button id="join-android" type="button">현재 QR을 Android에서 열기</button>
-  </div>
-  <div class="journey-controls journey-points">
-    <label>출발 위도, 경도 <input id="route-start" type="text" autocomplete="off" placeholder="37.53890, 126.94180"></label>
-    <label>도착 위도, 경도 <input id="route-end" type="text" autocomplete="off" placeholder="37.53990, 126.94300"></label>
-  </div>
-  <p id="journey-estimate"></p>
-  <div class="journey-controls">
-    <button type="button" data-action="destination">경로 적용</button>
-    <button type="button" data-action="start">시작 / 재개 / 배속 적용</button>
-    <button type="button" data-action="pause">일시정지</button>
-    <button type="button" data-action="park">주차 (P)</button>
-    <button type="button" data-action="reroute">현재 위치에서 경로 변경</button>
-    <button type="button" data-action="cancel">여정 종료</button>
-  </div>
-  <div class="journey-controls journey-seek">
-    <label for="journey-progress">재생 위치 <output id="journey-progress-value" for="journey-progress">0%</output></label>
-    <input id="journey-progress" type="range" min="0" max="100" value="0">
-    <button type="button" data-action="seek">이 위치로 이동</button>
-  </div>
-  <p id="journey-status" role="status">상태 확인 중…</p>
-  <p id="journey-result" role="status"></p>
-  <p id="share-fallback" hidden><label>팀원에게 공유할 링크 <input id="share-link" type="url" readonly></label></p>
-  <svg id="journey-map" viewBox="0 0 600 160" aria-label="데모 경로와 현재 위치"></svg>
-  <a id="console-link" target="_blank" rel="noopener">공식 차량 콘솔 ↗</a>
-</details><details id="native-navigation"><summary>실제 Pleos 내비 SDK</summary><p>목적지·재탐색은 실제 NaviHelper 요청임. GPS 다음 지점은 시험 좌표 재생이며 실제 도로 경로 재생이 아님. 위 데모 이동을 먼저 주차·중지해 주세요.</p><div class="journey-controls"><button data-navi="destinationA">내비 목적지 A</button><button data-navi="destinationB">내비 목적지 B</button><button data-navi="reroute">실제 내비 재탐색</button><button data-navi="drive">주행 D · 30km/h</button><button data-navi="locationNext">GPS 다음 시험 지점</button><button data-navi="park">주차 P</button><button data-navi="cancel">내비 안내 취소</button></div><p id="native-navigation-state" role="status"></p><p id="native-navigation-result" role="status"></p></details><div id="screen"></div><p class="muted">Pleos AVD의 실제 화면을 송출함. 화면을 클릭·드래그·스크롤해 직접 조작함. 같은 차량의 조작은 모두가 공유하므로 한 명씩 승인해 주세요.</p></body></html>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pleos 차량 화면</title>
+  <link rel="stylesheet" href="/vehicles/style.css">
+  <script type="module" src="/vehicles/viewer.js"></script>
+  <script type="module" src="/vehicles/simulation.js"></script>
+  <script type="module" src="/vehicles/native-navigation.js"></script>
+</head>
+<body class="vehicle-detail">
+  <main class="vehicle-layout">
+    <header class="vehicle-header">
+      <div>
+        <h1 id="title">Pleos 차량 화면</h1>
+        <p id="status" role="status">차량 실행 상태 확인 중…</p>
+        <a id="vehicle-list" href="/vehicles/" hidden>차량 목록</a>
+      </div>
+      <nav aria-label="차량 도구">
+        <a href="/vehicles/phone" target="_blank" rel="noopener">동승자 화면 ↗</a>
+        <a id="console-link" target="_blank" rel="noopener">차량 콘솔 ↗</a>
+      </nav>
+    </header>
+
+    <div class="vehicle-grid">
+      <section class="vehicle-stage" aria-label="실시간 센터페시아">
+        <div id="screen"></div>
+        <p class="muted">화면을 직접 조작할 수 있습니다. 실제 길 안내는 차량 화면의 Pleos 내비에서 설정하세요.</p>
+      </section>
+
+      <section class="journey-card" aria-labelledby="journey-heading">
+        <div class="journey-heading">
+          <h2 id="journey-heading">데모 여정</h2>
+          <button id="share-journey" type="button" class="quiet-button">링크 복사</button>
+        </div>
+        <label class="journey-field" for="route">
+          시나리오
+          <select id="route">
+            <option value="A">여의도 동쪽</option>
+            <option value="B">여의도 서쪽</option>
+            <option value="C">서울시청 가상 충전 거점</option>
+            <option value="custom">직접 설정</option>
+          </select>
+        </label>
+        <div class="journey-preview">
+          <p class="preview-caption">시험 경로 미리보기</p>
+          <svg id="journey-map" viewBox="0 0 360 144" aria-hidden="true"></svg>
+          <ol id="journey-stops" aria-label="여정 지점"></ol>
+          <p id="journey-estimate" class="muted"></p>
+        </div>
+        <p id="journey-status" class="muted" role="status">재생 상태 확인 중…</p>
+        <details id="journey">
+          <summary>여정 설정 및 재생</summary>
+          <div id="custom-points" class="journey-settings" hidden>
+            <label class="journey-field">출발지 <input id="route-start" type="text" autocomplete="off" placeholder="37.53890, 126.94180"></label>
+            <label class="journey-field">경유지 (선택) <input id="route-waypoint" type="text" autocomplete="off" placeholder="37.53940, 126.94240"></label>
+            <label class="journey-field">도착지 <input id="route-end" type="text" autocomplete="off" placeholder="37.53990, 126.94300"></label>
+          </div>
+          <div class="journey-settings journey-playback">
+            <label class="journey-field">차량 속도
+              <select id="speed"><option value="10">10 km/h</option><option value="30" selected>30 km/h</option><option value="60">60 km/h</option></select>
+            </label>
+            <label class="journey-field">재생 배속
+              <select id="rate"><option value="1">1배</option><option value="2">2배</option><option value="5" selected>5배</option><option value="10">10배</option></select>
+            </label>
+          </div>
+          <p class="muted">Pleos 앱에서 여정을 연 뒤 경로를 적용하세요.</p>
+          <div class="journey-controls">
+            <button type="button" class="primary-button" data-action="destination">경로 적용</button>
+            <button type="button" data-action="start">시작 / 재개</button>
+            <button type="button" data-action="pause">일시정지</button>
+            <button type="button" data-action="park">주차</button>
+            <button type="button" data-action="reroute">현재 위치에서 다시 설정</button>
+            <button type="button" data-action="cancel">여정 종료</button>
+          </div>
+          <div class="journey-seek">
+            <label for="journey-progress">재생 위치 <output id="journey-progress-value" for="journey-progress">0%</output></label>
+            <input id="journey-progress" type="range" min="0" max="100" value="0" disabled>
+            <button type="button" data-action="seek" disabled>이동</button>
+          </div>
+        </details>
+        <p id="journey-result" role="status"></p>
+        <label id="share-fallback" class="journey-field" hidden>공유 링크 <input id="share-link" type="url" readonly></label>
+      </section>
+    </div>
+
+    <div class="vehicle-tools">
+      <details id="native-navigation">
+        <summary>순정 내비 테스트</summary>
+        <p class="muted">NaviHelper 테스트 명령을 보냅니다. 사용 전에 데모 재생을 멈춰 주세요.</p>
+        <div class="journey-controls">
+          <button type="button" data-navi="destinationA">내비 목적지 A</button>
+          <button type="button" data-navi="destinationB">내비 목적지 B</button>
+          <button type="button" data-navi="reroute">내비 재탐색</button>
+          <button type="button" data-navi="drive">주행 D · 30 km/h</button>
+          <button type="button" data-navi="locationNext">GPS 다음 시험 지점</button>
+          <button type="button" data-navi="park">주차 P</button>
+          <button type="button" data-navi="cancel">내비 안내 취소</button>
+        </div>
+        <p id="native-navigation-state" role="status"></p>
+        <p id="native-navigation-result" role="status"></p>
+      </details>
+      <button id="join-android" type="button">차량 QR을 Android에서 열기</button>
+      <p id="android-result" role="status"></p>
+    </div>
+  </main>
+</body>
+</html>

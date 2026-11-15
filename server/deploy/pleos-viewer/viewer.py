@@ -2,6 +2,7 @@
 """Interactive screen catalog for fixed Pleos AVDs. Pointer/keyboard control uses VNC; no arbitrary command endpoint."""
 import json, re, signal, subprocess, threading, time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from os import environ
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 from simulation import EmulatorLocationError, ROUTES, simulator
@@ -11,6 +12,9 @@ ROOT=Path(__file__).resolve().parent
 NOVNC=Path('/usr/share/novnc').resolve()
 ADB='/opt/android-sdk/platform-tools/adb'
 APP='ai.zride.demo.car'
+VEHICLES=tuple(dict.fromkeys(int(vehicle) for vehicle in environ.get('PLEOS_VIEWER_VEHICLES','1,2,3').split(',')))
+if any(vehicle not in (1,2,3) for vehicle in VEHICLES):
+    raise ValueError('PLEOS_VIEWER_VEHICLES must contain vehicle IDs 1, 2 or 3')
 cache={'at':0,'value':None}
 lock=threading.Lock()
 
@@ -28,7 +32,7 @@ def visible_invite(vehicle):
 
 def open_phone_invite(body):
     if not isinstance(body,dict):raise ValueError('INVALID_COMMAND')
-    if set(body)=={'vehicle'} and type(body['vehicle']) is int and body['vehicle'] in (1,2,3):
+    if set(body)=={'vehicle'} and type(body['vehicle']) is int and body['vehicle'] in VEHICLES:
         invite=visible_invite(body['vehicle'])
     elif set(body)=={'invite'}:
         invite=body['invite']
@@ -45,11 +49,18 @@ def command(args,timeout=2):
         return r.stdout.strip() if r.returncode==0 else ''
     except (OSError,subprocess.TimeoutExpired):return ''
 
+def phone_state():
+    if command(['systemctl', 'is-active', 'ply-phone.service']) != 'active':
+        return 'STOPPED'
+    boot = command([ADB, '-s', 'emulator-5560', 'shell', 'getprop', 'sys.boot_completed'])
+    return 'RUNNING' if boot == '1' else 'BOOTING'
+
+
 def catalog():
     with lock:
         if time.monotonic()-cache['at']<3 and cache['value'] is not None:return cache['value']
         vehicles=[]
-        for i in range(1,4):
+        for i in VEHICLES:
             active=command(['systemctl','is-active',f'pleos-vehicle@{i}.service'])=='active'
             serial=f'emulator-{5552+i*2}'
             boot=active and command([ADB,'-s',serial,'shell','getprop','sys.boot_completed'])=='1'
@@ -67,7 +78,7 @@ def catalog():
                         v=room.get('vehicle',{});row['gear']=v.get('gear','UNKNOWN');row['ux']=v.get('ux','UNKNOWN')
                 except (ValueError,TypeError):pass
             vehicles.append(row)
-        value={'vehicles':vehicles,'updatedAt':int(time.time()*1000),'note':'실제 Pleos 화면 웹 조작 가능. 중지된 차량은 화면을 만들지 않음.'}
+        value={'vehicles':vehicles,'phoneState':phone_state(),'updatedAt':int(time.time()*1000),'note':'실제 Pleos 화면 웹 조작 가능. 중지된 차량은 화면을 만들지 않음.'}
         cache.update(at=time.monotonic(),value=value)
         return value
 
@@ -75,14 +86,28 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path=unquote(urlsplit(self.path).path)
         match=re.fullmatch(r'/simulation/([123])',path)
-        if match:return self.send_body(json.dumps(simulator.snapshot(int(match[1])),ensure_ascii=False).encode(),'application/json; charset=utf-8')
+        if match:
+            vehicle=int(match[1])
+            if vehicle not in VEHICLES:return self.send_error(404)
+            return self.send_body(json.dumps(simulator.snapshot(vehicle),ensure_ascii=False).encode(),'application/json; charset=utf-8')
         if path=='/scenarios.json':return self.send_body(json.dumps(ROUTES,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         match=re.fullmatch(r'/navigation/([123])',path)
-        if match:return self.send_body(json.dumps(native_navigation.status(int(match[1]))).encode(),'application/json')
+        if match:
+            vehicle=int(match[1])
+            if vehicle not in VEHICLES:return self.send_error(404)
+            return self.send_body(json.dumps(native_navigation.status(vehicle)).encode(),'application/json')
         if path=='/status.json':return self.send_body(json.dumps(catalog(),ensure_ascii=False).encode(),'application/json; charset=utf-8')
-        if path in ['/','/index.html']:file=ROOT/'index.html'
+        if path in ['/','/index.html']:
+            if len(VEHICLES)==1:
+                self.send_response(302)
+                self.send_header('Location',f'/vehicles/{VEHICLES[0]}')
+                self.send_header('Cache-Control','no-store')
+                self.send_header('Content-Length','0')
+                self.end_headers()
+                return
+            file=ROOT/'index.html'
         elif path in ['/phone','/phone/']:file=ROOT/'phone.html'
-        elif re.fullmatch(r'/[123]/?',path):file=ROOT/'viewer.html'
+        elif re.fullmatch(r'/[123]/?',path) and int(path.strip('/')) in VEHICLES:file=ROOT/'viewer.html'
         elif path in ['/app.js','/viewer.js','/simulation.js','/native-navigation.js','/phone.js','/style.css']:file=ROOT/path[1:]
         elif path.startswith('/novnc/'):
             file=(NOVNC/path[len('/novnc/'):]).resolve()
@@ -94,7 +119,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         match=re.fullmatch(r'/(simulation|navigation)/([123])',urlsplit(self.path).path)
         phone=urlsplit(self.path).path=='/phone/invite'
-        if not match and not phone:return self.send_error(404)
+        if not phone and (not match or int(match[2]) not in VEHICLES):return self.send_error(404)
         if self.headers.get('Origin')!='https://hyundai.hjpark.net':return self.send_error(403)
         try:
             size=int(self.headers.get('Content-Length','0'))
@@ -105,7 +130,7 @@ class Handler(BaseHTTPRequestHandler):
             else:value=simulator.act(int(match[2]),body)
             self.send_body(json.dumps(value,ensure_ascii=False).encode(),'application/json; charset=utf-8')
         except (ValueError,TypeError) as e:
-            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED','INVITE_NOT_VISIBLE'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
+            self.send_body(json.dumps({'error':str(e) if isinstance(e,ValueError) and str(e) in ['REVISION_CONFLICT','INVALID_ACTION','INVALID_PARAMETERS','INVALID_COMMAND','INVALID_ROUTE_LENGTH','DESTINATION_REQUIRED','ROUTE_NOT_APPLIED','ROUTE_FINISHED','INVITE_NOT_VISIBLE','VEHICLE_ROOM_NOT_CONNECTED','NAVIGATION_SDK_NOT_CONNECTED','DEMO_JOURNEY_ACTIVE'] else 'INVALID_COMMAND'}).encode(),'application/json',409)
         except EmulatorLocationError as e:
             self.send_body(json.dumps({'error':str(e)}).encode(),'application/json',503)
         except Exception:
